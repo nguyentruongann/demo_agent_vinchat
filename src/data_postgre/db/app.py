@@ -21,6 +21,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    func,
     Integer,
     Numeric,
     SmallInteger,
@@ -72,6 +73,14 @@ class AppUser(Base, Timestamped):
     __table_args__ = (
         CheckConstraint("role IN ('customer','staff','admin')", name="app_user_role_valid"),
         CheckConstraint("email IS NOT NULL OR phone IS NOT NULL OR anon_id IS NOT NULL", name="app_user_contact_or_anon"),
+        # email is normalized by the API, and this functional UNIQUE index also
+        # protects direct DB writes from case/whitespace variants.
+        Index(
+            "uq_app_user_email_normalized",
+            func.lower(func.btrim(email)),
+            unique=True,
+            postgresql_where=text("email IS NOT NULL AND btrim(email) <> ''"),
+        ),
         Index("ix_app_user_role", "role"),
     )
 

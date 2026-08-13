@@ -40,6 +40,38 @@ def normalize_phone(value: str | None) -> str | None:
     return digits
 
 
+def ensure_unique_contacts(
+    db: Session,
+    *,
+    email: str | None,
+    phone: str | None,
+    exclude_user_id: UUID | None = None,
+) -> None:
+    """Reject duplicate login contacts with user-friendly 409 errors.
+
+    Database UNIQUE constraints remain the final protection against races; this
+    pre-check exists so the API can tell the client which field is duplicated.
+    """
+    normalized_email = normalize_email(email)
+    normalized_phone = normalize_phone(phone)
+
+    if normalized_email:
+        stmt = select(AppUser.id).where(
+            func.lower(func.trim(AppUser.email)) == normalized_email
+        )
+        if exclude_user_id is not None:
+            stmt = stmt.where(AppUser.id != exclude_user_id)
+        if db.scalar(stmt.limit(1)):
+            raise HTTPException(status_code=409, detail="Email đã được sử dụng.")
+
+    if normalized_phone:
+        stmt = select(AppUser.id).where(AppUser.phone == normalized_phone)
+        if exclude_user_id is not None:
+            stmt = stmt.where(AppUser.id != exclude_user_id)
+        if db.scalar(stmt.limit(1)):
+            raise HTTPException(status_code=409, detail="Số điện thoại đã được sử dụng.")
+
+
 def hash_password(password: str) -> str:
     settings = get_settings()
     iterations = max(200_000, int(settings.password_pbkdf2_iterations))
@@ -102,13 +134,7 @@ def create_user(
     if not email and not phone:
         raise HTTPException(status_code=422, detail="Cần ít nhất email hoặc số điện thoại.")
 
-    conditions = []
-    if email:
-        conditions.append(func.lower(AppUser.email) == email)
-    if phone:
-        conditions.append(AppUser.phone == phone)
-    if conditions and db.scalar(select(AppUser.id).where(or_(*conditions)).limit(1)):
-        raise HTTPException(status_code=409, detail="Email hoặc số điện thoại đã được sử dụng.")
+    ensure_unique_contacts(db, email=email, phone=phone)
 
     user = AppUser(
         email=email,
