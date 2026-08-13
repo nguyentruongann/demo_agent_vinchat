@@ -1,0 +1,93 @@
+{
+  "source_url": "https://vinpearl.com/en/vinpearl-golf",
+  "language": "en",
+  "golf_course": {
+    "name": "Vinpearl Golf Nha Trang",
+    "page_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang",
+    "location": {
+      "destination": "Nha Trang",
+      "province": null,
+      "city": null,
+      "district": null,
+      "island": null,
+      "full_address": null
+    },
+    "general_information": {
+      "summary": "Nestled on an island renowned for its “year-round sunshine”, Vinpearl Golf Nha Trang showcases a unique terrain, surrounded by verdant hills, offering a panoramic view of the heavenly bay. Designed by IMG Worldwide, the golf course preserves the natural beauty with characteristic features of expansive fairways, meandering and undulating along the hillsides. It promises to be an ideal destination for challenging and inspiring swings.",
+      "designer": "IMG Worldwide",
+      "number_of_holes": 18,
+      "par": 71,
+      "course_length": "6,787 yards",
+      "total_area": null,
+      "terrain_and_landscape": "Surrounded by verdant hills; Panoramic view of the bay; Fairways meandering and undulating along the hillsides",
+      "distinctive_features": [
+        "A Masterpiece Golf Course on Paradise Island",
+        "Unique terrain surrounded by verdant hills with a panoramic view of the bay",
+        "Expansive fairways meandering and undulating along the hillsides"
+      ],
+      "awards_and_recognitions": []
+    },
+    "amenities": [
+      {
+        "name": "Restaurant",
+        "description": "Accommodating up to 100 guests, the restaurant serves a diverse range of Asian-European cuisine and exquisite local dishes prepared by experienced chefs",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      },
+      {
+        "name": "Driving Range",
+        "description": "Featuring 10 outdoor lanes",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      },
+      {
+        "name": "Facilities",
+        "description": "Proshop provides a collection of premium fashion items and golf accessories.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      },
+      {
+        "name": "Locker",
+        "description": "190 men's lockers, 60 women's lockers, and shower rooms",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      },
+      {
+        "name": "Light System",
+        "description": "A modern nighttime lighting system across 18 holes.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      }
+    ],
+    "experiences": [
+      {
+        "title": "F&B",
+        "description": "Indulge in the rich flavors of Asian-European cuisine and exquisite local dishes prepared by experienced chefs",
+        "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1964123770_1699599723.jpg.webp?itok=kaJlzE3K",
+        "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      },
+      {
+        "title": "CADDIES",
+        "description": "A team of professional and knowledgeable caddies is ready to assist you",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/DSC_6123_1700561796.jpg.webp?itok=HqPvNco4",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      },
+      {
+        "title": "GOLF EQUIPMENT RENTAL",
+        "description": "Premium golf shoe and club rental service, providing various options for customers",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700561811.jpg.webp?itok=i2xWKkXf",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      }
+    ],
+    "golf_course_maps": [
+      {
+        "course_type": "Golf Course",
+        "map_name": "Golf Course Map",
+        "map_url": "https://statics.vinpearl.com/B%E1%BA%A3n%20%C4%91%E1%BB%93%20Yardage%20Book%20NT%20H%E1%BB%91%201_1699267777.png",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+      }
+    ],
+    "source_urls": [
+      "https://vinpearl.com/en/vinpearl-golf-nha-trang",
+      "https://vinpearl.com/en/vinpearl-golf"
+    ]
+  }
+}

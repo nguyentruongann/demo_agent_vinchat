@@ -1,0 +1,115 @@
+{
+  "source_url": "https://vinpearl.com/en/vinpearl-golf",
+  "language": "en",
+  "golf_course": {
+    "name": "Vinpearl Golf Léman",
+    "page_url": "https://vinpearl.com/en/vinpearl-golf-leman",
+    "location": {
+      "destination": "Ho Chi Minh City",
+      "province": null,
+      "city": "Ho Chi Minh City",
+      "district": "Tan Thong Hoi Commune (formerly Cu Chi District)",
+      "island": null,
+      "full_address": "Tan Thong Hoi Commune (formerly Cu Chi District), Ho Chi Minh City"
+    },
+    "general_information": {
+      "summary": "Located in Tan Thong Hoi Commune (formerly Cu Chi District), Ho Chi Minh City – Vietnam’s vibrant hub of economy and entertainment – Vinpearl Golf Léman boasts a 36-hole championship course, strategically crafted in the “Riparian Habitat” style. In Phase 1, the North Course with 18 signature holes is officially open, featuring legendary template holes: The Dell, The Biarritz, The Redan, and The Volcano – each a true test of strategy and precision. Vinpearl Golf Léman stands as the ultimate destination for golfers seeking inspiring rounds of leisure play, competitive tournaments, and prestigious championships of national and international scale.",
+      "designer": null,
+      "number_of_holes": 36,
+      "par": null,
+      "course_length": null,
+      "total_area": null,
+      "terrain_and_landscape": "Riparian Habitat style; North Course with signature template holes",
+      "distinctive_features": [
+        "Vietnam's Premier Golf Hub For Leisure & Tournament",
+        "36-hole championship course crafted in the \"Riparian Habitat\" style",
+        "Phase 1 North Course with 18 signature holes officially open",
+        "Signature template holes: The Dell, The Biarritz, The Redan, and The Volcano",
+        "The Riparian Habitat's 36-Hole Masterpiece – Home of the Legendary Biarritz, Dell, Redan & Volcano."
+      ],
+      "awards_and_recognitions": []
+    },
+    "amenities": [
+      {
+        "name": "Locker",
+        "description": "Featuring nearly 300 lockers, with exclusive spaces reserved for VIP guests.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "Facilities",
+        "description": "Night-lighting system across 18 holes.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "Proshop",
+        "description": "Offering a diverse range of premium golf apparel and accessories.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "Restaurant",
+        "description": "A restaurant serving Asian and European cuisine, with a capacity of up to 300 guests.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "Ballroom",
+        "description": "With a capacity of nearly 1,000 guests, offering the perfect venue for gala celebrations.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "VIP Rooms",
+        "description": "Three exclusive rooms offering private spaces, each accommodating 10–12 guests.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "Meeting Rooms",
+        "description": "Meeting Rooms: Two rooms available, accommodating 9 and 11 guests respectively.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "Sauna Rooms",
+        "description": "Sauna, Steambath, Jacuzzi",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "name": "Equipment Rental",
+        "description": "Equipment Rental: Premium golf clubs and training shoes available, offering a wide range of choices for guests.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      }
+    ],
+    "experiences": [
+      {
+        "title": "RESTAURANT",
+        "description": "The restaurant’s elegant and spacious design accommodates up to 210 guests, while its Asian and European cuisine spans daily menus, seasonal specialties, and bespoke banquet offerings.",
+        "image_url": "https://statics.vinpearl.com/styles/697x775/public/2025_09/nha%20hang_fix_1757665934.jpg.webp?itok=yUfKngrP",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "title": "MEETING ROOMS",
+        "description": "Meeting Rooms: The venue’s two meeting rooms accommodate 9 and 11 guests respectively, serving the needs of businesses, organizations, and private groups. VIP Rooms: The venue’s three exclusive VIP rooms, each designed for 10–12 guests, provide intimate settings ideal for private gatherings, with the option to enjoy smoking.",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2025_09/240502-PHONG%20HOP_1757665961.jpg.webp?itok=6QpS4J2C",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      },
+      {
+        "title": "BALLROOM",
+        "description": "With a capacity of up to 335 guests, the venue’s grand space is not only ideal for gala banquets at tournaments but also perfectly suited for a wide range of corporate, organizational, and group events.",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2025_09/Ballroom_1_1757666274.jpg.webp?itok=ju0DsGLc",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      }
+    ],
+    "golf_course_maps": [
+      {
+        "course_type": "North Course",
+        "map_name": "North Course Map",
+        "map_url": "https://statics.vinpearl.com/1_1757603721.jpg",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+      }
+    ],
+    "source_urls": [
+      "https://vinpearl.com/en/vinpearl-golf-leman",
+      "https://vinpearl.com/en/vinpearl-golf"
+    ]
+  }
+}

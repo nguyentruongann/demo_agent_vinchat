@@ -1,0 +1,758 @@
+{
+  "dataset_name": "Vinpearl MICE knowledge base",
+  "language": "en",
+  "source_page": "https://vinpearl.com/vi/meeting-events",
+  "page_intro": {
+    "title": "Meetings & Conferences",
+    "description": "Located in Vietnam's leading travel destinations, Vinpearl features luxurious resorts with extensive room capacity, modern convention and dining facilities, and state-of-the-art meeting technology, making it an excellent choice for group and corporate meetings, conferences, and events.",
+    "booking_button_text": "Send an Inquiry"
+  },
+  "venues": [
+    {
+      "destination": "Phu Quoc",
+      "name": "Vinpearl Convention Center Phu Quoc",
+      "url": "https://vinpearl.com/vi/trung-tam-hoi-nghi-vinpearl-phu-quoc",
+      "address": "Bai Dai, Ganh Dau, Phu Quoc, Kien Giang",
+      "phone": "(+84) 297 3550 550",
+      "summary": "Celebrate Success in the Heart of the Paradise Pearl Island",
+      "detail": {
+        "name": "Vinpearl Convention Center Phu Quoc",
+        "source_url": "https://vinpearl.com/vi/trung-tam-hoi-nghi-vinpearl-phu-quoc",
+        "subtitle": "Celebrate Success in the Heart of the Paradise Pearl Island",
+        "overview": "Spanning nearly 11,000 m² in the heart of the Phu Quoc United Center entertainment complex, Vinpearl Convention Center Phu Quoc features magnificent contemporary architecture and promises world-class meeting experiences on the paradise pearl island.",
+        "overview_image_urls": [
+          "https://statics.vinpearl.com/styles/765x750/public/2024_07/1075_1721893692.png?itok=XJ63SxM9",
+          "https://statics.vinpearl.com/styles/765x750/public/2024_07/1077_1721893702.jpg?itok=PejbJKSx"
+        ],
+        "rooms": [
+          {
+            "name": "Crystal Ballroom",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1025_1734289277.jpg?itok=Cc0UoyYO",
+            "area": "1250m 2",
+            "description": "Crystal Ballroom offers a spacious and elegantly designed conference and banquet venue equipped with state-of-the-art sound and lighting technology. Covering 1,250 m² with a 7-meter ceiling and capacity for more than 1,000 guests, it delivers premium experiences and services for important events.",
+            "specifications": [
+              "Dimensions: 50m x 25m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "1065",
+              "Classroom": "600",
+              "U-Shape": "120",
+              "Boardroom": "160",
+              "Banquet": "600",
+              "Cocktail": "930"
+            }
+          },
+          {
+            "name": "Crystal 1",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1038_1734289404.jpg?itok=yRJU1cw6",
+            "area": "400m 2",
+            "description": "A modern and elegant event space accommodating 60–250 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 25m x 16m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "250",
+              "Classroom": "190",
+              "U-Shape": "63",
+              "Boardroom": "69",
+              "Banquet": "140",
+              "Cocktail": "250"
+            }
+          },
+          {
+            "name": "Crystal 2",
+            "image_url": "https://vinpearl.com/target_id_null",
+            "area": "850m 2",
+            "description": "A modern and elegant event space accommodating more than 700 guests, suitable for medium- to large-scale events.",
+            "specifications": [
+              "Dimensions: 34m x 25m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "705",
+              "Classroom": "395",
+              "U-Shape": "85",
+              "Boardroom": "120",
+              "Banquet": "320",
+              "Cocktail": "735"
+            }
+          },
+          {
+            "name": "Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1064_1734289662.jpg?itok=lTeCQSNd",
+            "area": "835m 2",
+            "description": "A modern and elegant event space accommodating nearly 700 guests, suitable for medium- to large-scale events.",
+            "specifications": [
+              "Dimensions: 33,4m x 25m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "690",
+              "Classroom": "385",
+              "U-Shape": "85",
+              "Boardroom": "115",
+              "Banquet": "310",
+              "Cocktail": "720"
+            }
+          },
+          {
+            "name": "Diamond 1",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1077_1734289805.jpg?itok=fYSca1ZC",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          },
+          {
+            "name": "Diamond 2",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1090_1734289964.jpg?itok=jnll3MYL",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          },
+          {
+            "name": "Diamond 3",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1103_1734290095.jpg?itok=M69NvfTW",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          },
+          {
+            "name": "Diamond 4",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1116_1734290218.jpg?itok=QE9KEAGQ",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          },
+          {
+            "name": "Emerald",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1129_1734290342.jpg?itok=vCSk3dwU",
+            "area": "835m 2",
+            "description": "A modern and elegant event space accommodating nearly 700 guests, suitable for medium- to large-scale events.",
+            "specifications": [
+              "Dimensions: 33,4m x 25m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "690",
+              "Classroom": "385",
+              "U-Shape": "85",
+              "Boardroom": "115",
+              "Banquet": "310",
+              "Cocktail": "720"
+            }
+          },
+          {
+            "name": "Emerald 1",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1142_1734291264.jpg?itok=P4yrgWaI",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          },
+          {
+            "name": "Emerald 2",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1155_1734291397.jpg?itok=yXysQq4q",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          },
+          {
+            "name": "Emerald 3",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1239_1734291529.png?itok=XiZIXbY4",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          },
+          {
+            "name": "Emerald 4",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/1181_1734291668.jpg?itok=of_182dr",
+            "area": "209m 2",
+            "description": "A modern and elegant event space accommodating 30–155 guests, suitable for small- to medium-sized events.",
+            "specifications": [
+              "Dimensions: 16,7m x 12,5m",
+              "Ceiling height: 3m"
+            ],
+            "capacities": {
+              "Theater": "155",
+              "Classroom": "72",
+              "U-Shape": "30",
+              "Boardroom": "36",
+              "Banquet": "60",
+              "Cocktail": "150"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "destination": "Phu Quoc",
+      "name": "Vinpearl Resort & Spa Phu Quoc",
+      "url": "https://vinpearl.com/vi/vinpearl-resort-spa-phu-quoc",
+      "address": "Bai Dai Area, Ganh Dau Commune, Phu Quoc City, Kien Giang Province",
+      "phone": "(+84) 297 351 9999",
+      "summary": "A Resort Paradise Offering a Million Joyful Moments"
+    },
+    {
+      "destination": "Nha Trang",
+      "name": "Vinpearl Convention Center Nha Trang",
+      "url": "https://vinpearl.com/vi/trung-tam-hoi-nghi-vinpearl-nha-trang",
+      "address": "Hon Tre Island, Vinh Nguyen Ward, Nha Trang City, Khanh Hoa Province",
+      "phone": "(+84) 258 3598 222 | (+84) 705 754 343",
+      "summary": "World-Class Meetings amid One of the World's Most Beautiful Bays",
+      "detail": {
+        "name": "Vinpearl Convention Center Nha Trang",
+        "source_url": "https://vinpearl.com/vi/trung-tam-hoi-nghi-vinpearl-nha-trang",
+        "subtitle": "World-Class Meetings amid One of the World's Most Beautiful Bays",
+        "overview": "Designed as a magnificent neoclassical castle, Vinpearl Convention Center Nha Trang stands in an elevated, secluded location with sweeping views over beautiful Nha Trang Bay, making it an ideal venue for major domestic and international events.",
+        "overview_image_urls": [
+          "https://statics.vinpearl.com/styles/765x750/public/2024_06/VCCNT_Facade2-2_1718789638.jpg?itok=lrjPqvjM",
+          "https://statics.vinpearl.com/styles/765x750/public/2024_05/VCCNT_Facade6_1716283704.jpg?itok=zUdpCs5g"
+        ],
+        "rooms": [
+          {
+            "name": "Crystal Ballroom",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/551_1734285897.jpg?itok=-hpWVAsX",
+            "area": "2590m 2",
+            "description": "Crystal Ballroom offers a spacious and elegantly designed conference and banquet venue equipped with state-of-the-art sound and lighting technology. Covering 2,590 m² with a 7-meter ceiling and capacity for more than 2,000 guests, it delivers premium experiences and services for important events.",
+            "specifications": [
+              "Dimensions: 35m x 74m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "2390",
+              "Classroom": "1428",
+              "U-Shape": "285",
+              "Boardroom": "320",
+              "Banquet": "1170",
+              "Cocktail": "1580"
+            }
+          },
+          {
+            "name": "Crystal 1",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/564_1734286003.jpg?itok=w0Z4crS3",
+            "area": "578m 2",
+            "description": "A modern and elegant event space accommodating nearly 400 guests, suitable for large-scale events.",
+            "specifications": [
+              "Dimensions: 35m x 16,5m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "378",
+              "Classroom": "234",
+              "U-Shape": "64",
+              "Boardroom": "80",
+              "Banquet": "200",
+              "Cocktail": "360"
+            }
+          },
+          {
+            "name": "Crystal 2",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/577_1734286125.jpg?itok=csUDG4yy",
+            "area": "718m 2",
+            "description": "A modern and elegant event space accommodating more than 500 guests, suitable for large-scale events.",
+            "specifications": [
+              "Dimensions: 35m x 16,5m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "567",
+              "Classroom": "351",
+              "U-Shape": "79",
+              "Boardroom": "100",
+              "Banquet": "300",
+              "Cocktail": "440"
+            }
+          },
+          {
+            "name": "Crystal 3",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/590_1734286279.jpg?itok=9oxFEZ4c",
+            "area": "718m 2",
+            "description": "A modern and elegant event space accommodating more than 500 guests, suitable for large-scale events.",
+            "specifications": [
+              "Dimensions: 35m x 20,5m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "567",
+              "Classroom": "351",
+              "U-Shape": "79",
+              "Boardroom": "100",
+              "Banquet": "300",
+              "Cocktail": "440"
+            }
+          },
+          {
+            "name": "Crystal 4",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/603_1734286418.jpg?itok=3Y3zDpmo",
+            "area": "578m 2",
+            "description": "A modern and elegant event space accommodating nearly 400 guests, suitable for large-scale events.",
+            "specifications": [
+              "Dimensions: 35m x 16,5m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "378",
+              "Classroom": "234",
+              "U-Shape": "64",
+              "Boardroom": "100",
+              "Banquet": "240",
+              "Cocktail": "360"
+            }
+          },
+          {
+            "name": "Ruby",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/616_1734286540.jpg?itok=AOc6_sXn",
+            "area": "120m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 14,65m x 8,4m",
+              "Ceiling height: 7m"
+            ],
+            "capacities": {
+              "Theater": "80",
+              "Classroom": "54",
+              "U-Shape": "28",
+              "Boardroom": "24",
+              "Banquet": "40",
+              "Cocktail": "40"
+            }
+          },
+          {
+            "name": "Emerald",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/629_1734286712.jpg?itok=n8Kh64ZK",
+            "area": "90m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 10,85m x 8,4m",
+              "Ceiling height: 4,4m"
+            ],
+            "capacities": {
+              "Theater": "60",
+              "Classroom": "36",
+              "U-Shape": "21",
+              "Boardroom": "18",
+              "Banquet": "30",
+              "Cocktail": "30"
+            }
+          },
+          {
+            "name": "Sapphire",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/642_1734286862.jpg?itok=d3CpU9cp",
+            "area": "98m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 11,65m x 8,4m",
+              "Ceiling height: 4,4m"
+            ],
+            "capacities": {
+              "Theater": "60",
+              "Classroom": "36",
+              "U-Shape": "23",
+              "Boardroom": "20",
+              "Banquet": "30",
+              "Cocktail": "30"
+            }
+          },
+          {
+            "name": "Black Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/658_1734287939.jpg?itok=cNiamh-d",
+            "area": "75m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 9,55m x 7,95m",
+              "Ceiling height: 4,4m"
+            ],
+            "capacities": {
+              "Theater": "50",
+              "Classroom": "30",
+              "U-Shape": "17",
+              "Boardroom": "16",
+              "Banquet": "20",
+              "Cocktail": "20"
+            }
+          },
+          {
+            "name": "White Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/671_1734288050.jpg?itok=_yfVkR6y",
+            "area": "85m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 10,95m x 7,95m",
+              "Ceiling height: 4,4m"
+            ],
+            "capacities": {
+              "Theater": "60",
+              "Classroom": "36",
+              "U-Shape": "20",
+              "Boardroom": "18",
+              "Banquet": "20",
+              "Cocktail": "30"
+            }
+          },
+          {
+            "name": "Pink Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/684_1734288176.jpg?itok=_tTSF_70",
+            "area": "85m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 10,85m x 7,95m",
+              "Ceiling height: 4,4m"
+            ],
+            "capacities": {
+              "Theater": "60",
+              "Classroom": "36",
+              "U-Shape": "20",
+              "Boardroom": "18",
+              "Banquet": "20",
+              "Cocktail": "30"
+            }
+          },
+          {
+            "name": "Blue Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/697_1734288285.jpg?itok=f44jRNVb",
+            "area": "115m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 14,6m x 7,95m",
+              "Ceiling height: 4,4m"
+            ],
+            "capacities": {
+              "Theater": "80",
+              "Classroom": "51",
+              "U-Shape": "26",
+              "Boardroom": "22",
+              "Banquet": "40",
+              "Cocktail": "20"
+            }
+          },
+          {
+            "name": "Yellow Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/671 (1)_1734288407.jpg?itok=exCnnzxo",
+            "area": "105m 2",
+            "description": "A modern event space suitable for small- to medium-sized events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 12,95m x 8,1m",
+              "Ceiling height: 4,4m"
+            ],
+            "capacities": {
+              "Theater": "70",
+              "Classroom": "45",
+              "U-Shape": "24",
+              "Boardroom": "20",
+              "Banquet": "30",
+              "Cocktail": "40"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "destination": "Nha Trang",
+      "name": "Vinpearl Nha Trang Theater",
+      "url": "https://vinpearl.com/vi/vinpearl-nha-trang-theater",
+      "address": "Hon Tre Island, Nha Trang City, Khanh Hoa Province, Vietnam",
+      "phone": "(+84) 258 3598 222 | (+84) 705 754 343",
+      "summary": "The Theater of Dreams",
+      "detail": {
+        "name": "Vinpearl Nha Trang Theater",
+        "source_url": "https://vinpearl.com/vi/vinpearl-nha-trang-theater",
+        "subtitle": "The Theater of Dreams",
+        "overview": "With a capacity of up to 1,500 seats and world-class modern equipment, Vinpearl Nha Trang Theater provides an exceptional venue for cultural exchange, outstanding artistic performances, and premium entertainment.",
+        "overview_image_urls": [
+          "https://statics.vinpearl.com/styles/765x750/public/2024_07/743_1721891724.jpg?itok=v6fXOIEV",
+          "https://statics.vinpearl.com/styles/765x750/public/2024_07/745_1721891735.jpg?itok=rJ10NFUH"
+        ],
+        "rooms": [
+          {
+            "name": "Vinpearl Nha Trang Theater",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/732_1734107345.jpg?itok=8fnaiqE9",
+            "area": "4686m 2",
+            "description": "The theater accommodates a wide range of major events and professional artistic performances, from classical to contemporary productions, including orchestral concerts, ballet performances, and award ceremonies.",
+            "specifications": [],
+            "capacities": {
+              "Theater": "1500"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "destination": "Nha Trang",
+      "name": "Vinpearl Resort Nha Trang",
+      "url": "https://vinpearl.com/vi/vinpearl-resort-nha-trang",
+      "address": "Hon Tre Island, Nha Trang City, Khanh Hoa Province, Vietnam",
+      "phone": "(+84) 258 359 8222",
+      "summary": "Where a Million Joyful Wonders Began"
+    },
+    {
+      "destination": "Nha Trang",
+      "name": "Vinpearl Resort & Spa Nha Trang Bay",
+      "url": "https://vinpearl.com/vi/vinpearl-resort-spa-nha-trang-bay",
+      "address": "Hon Tre Island, Nha Trang City, Khanh Hoa Province, Vietnam",
+      "phone": "(+84) 258 359 8999",
+      "summary": "Embracing the Beauty of Nha Trang Bay"
+    },
+    {
+      "destination": "Nam Hoi An",
+      "name": "Vinpearl Resort & Golf Nam Hoi An",
+      "url": "https://vinpearl.com/vi/vinpearl-resort-golf-nam-hoi-an",
+      "address": "Vo Chi Cong Street, Binh Minh Commune, Thang Binh District, Quang Nam Province, Vietnam",
+      "phone": "(+84) 235 367 6888 I (+84) 235 367 6777",
+      "summary": "A Resort Masterpiece in the Heritage Region"
+    },
+    {
+      "destination": "Ha Long",
+      "name": "Vinpearl Resort & Spa Ha Long",
+      "url": "https://vinpearl.com/vi/vinpearl-resort-spa-ha-long",
+      "address": "Reu Island, Bai Chay, Ha Long City, Quang Ninh Province, Vietnam",
+      "phone": "(+84) 203 385 7858",
+      "summary": "A Masterpiece in the Heart of a Natural Wonder"
+    },
+    {
+      "destination": "Hanoi",
+      "name": "Almaz Convention Center Hanoi",
+      "url": "https://vinpearl.com/vi/almaz-convention-center-ha-noi",
+      "address": "Hoa Lan Street, Vinhomes Riverside Urban Area, Phuc Loi, Long Bien, Hanoi",
+      "phone": "(+84) 243 657 3888 I (+84) 94 9898 222",
+      "summary": "International-Standard Meetings and Elegant Weddings in the Heart of Hanoi",
+      "detail": {
+        "name": "Almaz Convention Center Hanoi",
+        "source_url": "https://vinpearl.com/vi/almaz-convention-center-ha-noi",
+        "subtitle": "International-Standard Meetings and Elegant Weddings in the Heart of Hanoi",
+        "overview": "Designed in a classical Baroque style, Almaz Convention Center Hanoi shines like a magnificent European castle. With modern, international-standard facilities, Almaz is a premier choice for prestigious events and memorable wedding celebrations, offering nine distinct venues with a combined capacity of more than 1,600 guests.",
+        "overview_image_urls": [
+          "https://statics.vinpearl.com/styles/765x750/public/2024_06/Ảnh trang 5_1718945531.jpg?itok=8-YFqqdJ",
+          "https://statics.vinpearl.com/styles/765x750/public/2024_06/Convention Center 2_1718945542.jpg?itok=od5_Hcbx"
+        ],
+        "rooms": [
+          {
+            "name": "White Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/65 - 69_1734278411.png?itok=2dsyzsMb",
+            "area": "89m 2",
+            "description": "A small meeting room suitable for events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 9,8m x 7,6m",
+              "Ceiling height: 4m"
+            ],
+            "capacities": {
+              "Theater": "50",
+              "Classroom": "30",
+              "U-Shape": "35",
+              "Banquet": "36",
+              "Cocktail": "40"
+            }
+          },
+          {
+            "name": "Yellow Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/65 - 69_1734278536.png?itok=akQRinZ-",
+            "area": "87m 2",
+            "description": "A small meeting room suitable for events with fewer than 50 guests.",
+            "specifications": [
+              "Dimensions: 9,8m x 7,6m",
+              "Ceiling height: 4m"
+            ],
+            "capacities": {
+              "Theater": "50",
+              "Classroom": "30",
+              "U-Shape": "35",
+              "Banquet": "36",
+              "Cocktail": "40"
+            }
+          },
+          {
+            "name": "Pink Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/93_1734278634.png?itok=CPYczUVT",
+            "area": "422m 2",
+            "description": "A versatile column-free function room equipped with modern facilities, suitable for banquets and conferences of various sizes.",
+            "specifications": [
+              "Dimensions: 24m x 15m",
+              "Ceiling height: 4m"
+            ],
+            "capacities": {
+              "Theater": "230",
+              "Classroom": "150",
+              "U-Shape": "200",
+              "Banquet": "216",
+              "Cocktail": "324"
+            }
+          },
+          {
+            "name": "Blue Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/107_1734278762.png?itok=GoGOsbVN",
+            "area": "522m 2",
+            "description": "A versatile column-free function room equipped with modern facilities, suitable for banquets and conferences of various sizes.",
+            "specifications": [
+              "Dimensions: 24,5m x 17,6m",
+              "Ceiling height: 4m"
+            ],
+            "capacities": {
+              "Theater": "350",
+              "Classroom": "200",
+              "U-Shape": "250",
+              "Banquet": "288",
+              "Cocktail": "432"
+            }
+          },
+          {
+            "name": "Black Diamond",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/121_1734278878.png?itok=RLb8qjgp",
+            "area": "70m 2",
+            "description": "A small meeting room suitable for events with fewer than 20 guests.",
+            "specifications": [
+              "Dimensions: 9,4m x 7,4m",
+              "Ceiling height: 4m"
+            ],
+            "capacities": {
+              "Boardroom": "20"
+            }
+          },
+          {
+            "name": "Patio",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/135_1734278966.png?itok=TMGVASTq",
+            "area": "392m 2",
+            "description": "Another highlight on the first floor is the outdoor Patio beside the lake, surrounded by an open and romantic natural setting. It is an ideal venue for outdoor parties, romantic weddings, and events requiring an open-air space.",
+            "specifications": [
+              "Dimensions: 31m x 11,2m"
+            ],
+            "capacities": {
+              "Banquet": "280",
+              "Cocktail": "250"
+            }
+          },
+          {
+            "name": "Circular Lobby",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/149_1734279092.png?itok=uPUaw6E1",
+            "area": "315m 2",
+            "description": "The central Circular Lobby on the first floor is a dedicated reception area for large functions. Its spacious, elegant setting at the heart of Almaz Convention Center is suitable for networking events, guest receptions, speaker sessions, product exhibitions, fashion shows, and similar programs.",
+            "specifications": [
+              "Dimensions: 22,839m x 12,938m"
+            ],
+            "capacities": {
+              "Cocktail": "250"
+            }
+          },
+          {
+            "name": "Grand Ballroom",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/166_1734284221.png?itok=15uXHmqT",
+            "area": "1040m 2",
+            "description": "Grand Ballroom is the largest venue, featuring a column-free design and elegant crystal chandeliers. Covering 1,040 m² with a 6.2-meter ceiling and capacity for up to 1,000 guests, it provides a complete and sophisticated setting for important events.",
+            "specifications": [
+              "Dimensions: 40m x 23,5m",
+              "Ceiling height: 6,2m"
+            ],
+            "capacities": {
+              "Theater": "1200",
+              "Classroom": "700",
+              "U-Shape": "500",
+              "Banquet": "720",
+              "Cocktail": "1080"
+            }
+          },
+          {
+            "name": "Princess Ballroom",
+            "image_url": "https://statics.vinpearl.com/styles/805x440/public/2024_12/180_1734284385.png?itok=cq7SD4Ds",
+            "area": "779m 2",
+            "description": "Princess Ballroom features a column-free design and refined crystal lighting similar to Grand Ballroom. With an area of 780 m², a 5.2-meter ceiling, and capacity for 700 guests, it is a premier choice for prestigious events.",
+            "specifications": [
+              "Dimensions: 28m x 23m",
+              "Ceiling height: 5,2m"
+            ],
+            "capacities": {
+              "Theater": "800",
+              "Classroom": "350",
+              "U-Shape": "350",
+              "Banquet": "432",
+              "Cocktail": "648"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "destination": "Hanoi",
+      "name": "VinPalace Co Loa",
+      "url": "https://vinpearl.com/vi/vinpalace-co-loa-0",
+      "address": "Truong Sa, Dong Hoi, Dong Anh, Hanoi, Vietnam",
+      "phone": "094 989 82 22",
+      "summary": "The No. 1 choice for international-standard exhibitions, conferences, and grand, luxurious weddings."
+    }
+  ]
+}

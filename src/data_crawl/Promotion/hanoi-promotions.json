@@ -1,0 +1,3290 @@
+{
+  "destination": "Hanoi",
+  "destination_slug": "hanoi",
+  "total_promotions": 6,
+  "promotions": [
+    {
+      "promotion_id": "1b2fd7cba7c92687519ea6c3",
+      "title": "Buy at a bargain price and relax in peace with Vinpearl and Vietnam Airlines",
+      "slug": "combo-vinpearl-vietnam-airlines",
+      "summary": "Update the latest Vinpearl offers and promotions nationwide, at the entire 5* hotel, resort, and entertainment system. Hunt now before you miss out!",
+      "promotion_type": [
+        "combo_package",
+        "flight_hotel_package",
+        "spa_offer",
+        "food_offer",
+        "resort_package"
+      ],
+      "promotion_status": "active",
+      "status_reason": "Not due to end yet (2026-10-10)",
+      "status_calculated_at": "2026-08-01T18:55:26Z",
+      "source_brand": "vinpearl",
+      "related_brands": [],
+      "source_domain": "vinpearl.com",
+      "source_domains": [
+        "vinpearl.com"
+      ],
+      "primary_source_url": "https://vinpearl.com/vi/combo-vinpearl-vietnam-airlines",
+      "source_urls": [
+        "https://vinpearl.com/vi/combo-vinpearl-vietnam-airlines"
+      ],
+      "canonical_url": "https://vinpearl.com/vi/combo-vinpearl-vietnam-airlines",
+      "language": "en",
+      "image_urls": [
+        "https://statics.vinpearl.com/bannerVNA.jpg",
+        "https://statics.vinpearl.com/uu-dai-vietnam-airlines.png",
+        "https://statics.vinpearl.com/Hinh-anh-Vinpearl-Resort-Nha-Trang_1680082155.jpg",
+        "https://statics.vinpearl.com/Untitled-2_1773110949.jpg",
+        "https://statics.vinpearl.com/VW-7_1750469050.jpg",
+        "https://statics.vinpearl.com/uu-dai-vinpearl-resort-golf-nam-hoi-an-1_1732291409.jpg",
+        "https://statics.vinpearl.com/huong-dan-vi.jpg",
+        "https://statics.vinpearl.com/huong-dan-vi-1.jpg"
+      ],
+      "booking_url": "https://booking.vinpearl.com/",
+      "app_url": null,
+      "terms_url": null,
+      "related_promotions": [
+        "https://statics.vinpearl.com/uu-dai-vinpearl-resort-golf-nam-hoi-an-1_1732291409.jpg"
+      ],
+      "related_articles": [],
+      "destinations": [
+        "Nha Trang",
+        "Phu Quoc",
+        "Hoi An",
+        "Hanoi",
+        "Ho Chi Minh City"
+      ],
+      "applicable_properties": [],
+      "applicable_services": [
+        "room",
+        "hotel",
+        "resort",
+        "flight_package",
+        "theme_park_ticket",
+        "experience",
+        "spa",
+        "food_and_beverage"
+      ],
+      "customer_groups": [],
+      "member_tiers": [],
+      "channels": [
+        "website",
+        "booking_page"
+      ],
+      "promo_codes": [],
+      "benefits": [
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "Stay: From now until October 10, 2026\n\nBook Vinpearl x Vietnam Airlines combo, receive immediate promotion: Up to 15% discount when booking Vinpearl hotel combo + Vietnam Airlines air tickets Up to 30% off…",
+          "source_text": "Up to 15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "Special offer: Up to 15% off when booking Vinpearl hotel combo + Vietnam Airlines air tickets Up to 30% off onsite services at the hotel (food, spa, entertainment... subject to applicable conditions...",
+          "source_text": "Up to 30% off"
+        }
+      ],
+      "discount_text": "Up to 30%",
+      "booking_period": {
+        "raw_text": "& stay: From now until October 10, 2026",
+        "start_date": null,
+        "end_date": "2026-10-10"
+      },
+      "stay_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "purchase_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "redemption_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "general_validity": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "recurring_schedule": null,
+      "published_at": null,
+      "updated_at": null,
+      "terms_and_conditions": [],
+      "excluded_dates": [],
+      "combination_rules": [],
+      "redemption_steps": [
+        "With just a few simple steps, you can complete your hotel and air ticket combo booking:",
+        "Step 1: Visit the official combo booking channel at booking.vinpearl.com, select \"Hotel + Flight tickets\"",
+        "Step 2: Select departure - destination, check-in - check-out dates, room number and number of guests. Then click “Search”.",
+        "Step 3: Choose hotel and room type",
+        "Step 4: Choose the airline \"Vietnam Airlines\" and the appropriate flight",
+        "Step 5: Check the offer and complete payment.",
+        "Book the Vinpearl x Vietnam Airlines combo now to enjoy an all-inclusive vacation: Buy at a bargain price, relax in Phu Quoc, Nha Trang and Hoi An!",
+        "Data is being updated."
+      ],
+      "contact_information": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Buy at a bargain price and relax in peace with Vinpearl and Vietnam Airlines"
+        },
+        {
+          "level": 2,
+          "text": "Fly conveniently, relax luxuriously and enjoy many incentives in the same journey with the Vinpearl x Vietnam Airlines combo. Explore Phu Quoc, Nha Trang, Hoi An... with up to 15% off combos and up to 30% off onsite services for a more complete vacation."
+        },
+        {
+          "level": 2,
+          "text": "1. Promotion program information"
+        },
+        {
+          "level": 2,
+          "text": "2. Combo Vinpearl x Vietnam Airlines good price"
+        },
+        {
+          "level": 2,
+          "text": "3. Instructions for booking Vinpearl x Vietnam Airlines combo"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "1. Promotion program information",
+          "level": 2,
+          "content": [
+            "Booking & stay period: From now until October 10, 2026",
+            "Book Vinpearl x Vietnam Airlines combo, receive immediate promotion: Up to 15% discount when booking Vinpearl hotel combo + Vietnam Airlines air tickets Up to 30% discount on onsite services at the hotel (food, spa, entertainment... subject to applicable conditions)",
+            "Order combo now",
+            "Why should you choose the Vinpearl x Vietnam Airlines combo?",
+            "Save costs: Book hotel and air ticket combos to enjoy more favorable prices than when booking each service individually.",
+            "More convenient: One booking for the entire trip, quick, simple and time-saving travel planning.",
+            "Flexible choice: Easily choose flights, hotels and length of stay that suit your schedule."
+          ]
+        },
+        {
+          "heading": "2. Combo Vinpearl x Vietnam Airlines good price",
+          "level": 2,
+          "content": [
+            "Phu Quoc, Nha Trang and Hoi An are top vacation destinations, where the beauty of the blue sea, classy resort space and unique cultural experiences converge. To plan a complete vacation and optimize costs, you can immediately refer to the Vinpearl x Vietnam Airlines combo offer below:",
+            "Stage | Order link",
+            "Hanoi - Hoi An | BOOK NOW",
+            "Ho Chi Minh City - Hoi An | BOOK NOW",
+            "Hanoi - Nha Trang | BOOK NOW",
+            "Ho Chi Minh City - Nha Trang | BOOK NOW",
+            "Ho Chi Minh City - Phu Quoc | BOOK NOW",
+            "Note: Offers may vary depending on destination, booking time, room class and ticket class. Please carefully check order information, price conditions and applicable policies before placing your order."
+          ]
+        },
+        {
+          "heading": "3. Instructions for booking Vinpearl x Vietnam Airlines combo",
+          "level": 2,
+          "content": [
+            "With just a few simple steps, you can complete your hotel and air ticket combo booking:",
+            "Step 1: Visit the official combo booking channel at booking.vinpearl.com, select \"Hotel + Flight tickets\"",
+            "Step 2: Select departure - destination, check-in - check-out dates, room number and number of guests. Then click “Search”.",
+            "Step 3: Choose hotel and room type",
+            "Step 4: Choose the airline \"Vietnam Airlines\" and the appropriate flight",
+            "Step 5: Check the offer and complete payment.",
+            "Book the Vinpearl x Vietnam Airlines combo now to enjoy an all-inclusive vacation: Buy at a bargain price, relax in Phu Quoc, Nha Trang and Hoi An!",
+            "Data is being updated."
+          ]
+        }
+      ],
+      "bullet_lists": [
+        {
+          "type": "ul",
+          "items": [
+            "Up to 15% discount when booking Vinpearl hotel combo + Vietnam Airlines air tickets",
+            "Up to 30% discount on onsite services at the hotel (food, spa, entertainment... subject to applicable conditions)"
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Save costs: Book hotel and air ticket combos to enjoy more favorable prices than when booking each service individually.",
+            "More convenient: One booking for the entire trip, quick, simple and time-saving travel planning.",
+            "Flexible choice: Easily choose flights, hotels and length of stay that suit your schedule."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Step 1: Visit the official combo booking channel at booking.vinpearl.com, select \"Hotel + Flight tickets\"",
+            "Step 2: Select departure - destination, check-in - check-out dates, room number and number of guests. Then click “Search”.",
+            "Step 3: Choose hotel and room type",
+            "Step 4: Choose the airline \"Vietnam Airlines\" and the appropriate flight",
+            "Step 5: Check the offer and complete payment."
+          ]
+        }
+      ],
+      "tables": [
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Book Vinpearl x Vietnam Airlines combo, receive immediate promotion: Up to 15% discount when booking Vinpearl hotel combo + Vietnam Airlines air tickets Up to 30% discount on onsite services at the hotel (food, spa, entertainment... subject to applicable conditions)"
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Stage",
+              "Order link"
+            ],
+            [
+              "Hanoi - Hoi An",
+              "BOOK NOW"
+            ],
+            [
+              "Ho Chi Minh City - Hoi An",
+              "BOOK NOW"
+            ],
+            [
+              "Hanoi - Nha Trang",
+              "BOOK NOW"
+            ],
+            [
+              "TP HCM - Nha Trang",
+              "BOOK NOW"
+            ],
+            [
+              "Ho Chi Minh City - Phu Quoc",
+              "BOOK NOW"
+            ]
+          ]
+        }
+      ],
+      "full_text": "Buy at a bargain price and relax in peace with Vinpearl and Vietnam Airlines\n\n1. Promotion program information\n\nBooking & stay period: From now until October 10, 2026\n\nBook Vinpearl x Vietnam Airlines combo, receive immediate promotion: Up to 15% discount when booking Vinpearl hotel combo + Vietnam Airlines air tickets Up to 30% discount on onsite services at the hotel (food, spa, entertainment... subject to applicable conditions)\n\nOrder combo now\n\nWhy should you choose the Vinpearl x Vietnam Airlines combo?\n\nSave costs: Book hotel and air ticket combos to enjoy more favorable prices than when booking each service individually.\n\nMore convenient: One booking for the entire trip, quick, simple and time-saving travel planning.\n\nFlexible choice: Easily choose flights, hotels and length of stay that suit your schedule.\n\n2. Combo Vinpearl x Vietnam Airlines good price\n\nPhu Quoc, Nha Trang and Hoi An are top vacation destinations, where the beauty of the blue sea, classy resort space and unique cultural experiences converge. To plan a complete vacation and optimize costs, you can immediately refer to the Vinpearl x Vietnam Airlines combo offer below:\n\nStage | Order link\n\nHanoi - Hoi An | BOOK NOW\n\nHo Chi Minh City - Hoi An | BOOK NOW\n\nHanoi - Nha Trang | BOOK NOW\n\nHo Chi Minh City - Nha Trang | BOOK NOW\n\nHo Chi Minh City - Phu Quoc | BOOK NOW\n\nNote: Offers may vary depending on destination, booking time, room class and ticket class. Please carefully check order information, price conditions and applicable policies before placing your order.\n\n3. Instructions for booking Vinpearl x Vietnam Airlines combo\n\nWith just a few simple steps, you can complete your hotel and air ticket combo booking:\n\nStep 1: Visit the official combo booking channel at booking.vinpearl.com, select \"Hotel + Flight tickets\"\n\nStep 2: Select departure - destination, check-in - check-out dates, room number and number of guests. Then click “Search”.\n\nStep 3: Choose hotel and room type\n\nStep 4: Choose the airline \"Vietnam Airlines\" and the appropriate flight\n\nStep 5: Check the offer and complete payment.\n\nBook the Vinpearl x Vietnam Airlines combo now to enjoy an all-inclusive vacation: Buy at a bargain price, relax in Phu Quoc, Nha Trang and Hoi An!\n\nData is being updated.",
+      "word_count": 463,
+      "crawled_at": "2026-08-01T18:55:22Z",
+      "content_hash": "921d6d75b0f148a0929bf633dca1732a4e234fe7a7133cd1f033f84008279f13",
+      "crawl_method": "httpx_impersonate",
+      "quality_score": 0.9,
+      "needs_review": false,
+      "review_notes": [
+        "No applicable conditions found"
+      ],
+      "duplicate_candidates": []
+    },
+    {
+      "promotion_id": "ee6a4848575f1c9b8b86ca7e",
+      "title": "MasterCard card privileges: 10% discount when booking VinWonders tickets",
+      "slug": "the-mastercard-dat-ve-vinwonders",
+      "summary": "MasterCard cardholders enjoy a 10% discount when booking entertainment tickets via the VinWonders website/app. Don't miss the opportunity to explore the top class amusement park chain in Vietnam at the most optimal cost!",
+      "promotion_type": [
+        "app_offer",
+        "promo_code",
+        "ticket_discount",
+        "spa_offer",
+        "cross_brand_offer"
+      ],
+      "promotion_status": "active",
+      "status_reason": "Crawling date is in general_validity (2026-06-06 - 2026-08-31)",
+      "status_calculated_at": "2026-08-01T18:55:26Z",
+      "source_brand": "vinwonders",
+      "related_brands": [
+        "vinpearl",
+        "vinpearl_safari",
+        "grand_world"
+      ],
+      "source_domain": "vinwonders.com",
+      "source_domains": [
+        "vinwonders.com"
+      ],
+      "primary_source_url": "https://vinwonders.com/vi/uu-dai/the-mastercard-dat-ve-vinwonders",
+      "source_urls": [
+        "https://vinwonders.com/vi/uu-dai/the-mastercard-dat-ve-vinwonders"
+      ],
+      "canonical_url": "https://vinwonders.com/vi/uu-dai/the-mastercard-dat-ve-vinwonders",
+      "language": "en",
+      "image_urls": [
+        "https://static.vinwonders.com/production_style/style/images/ic_Calendar_2805.svg"
+      ],
+      "booking_url": null,
+      "app_url": null,
+      "terms_url": null,
+      "related_promotions": [
+        "https://vinwonders.com/vi/uu-dai/teddy-junior-adventure",
+        "https://vinwonders.com/vi/uu-dai/tang-voucher-500k-khi-dang-nhap-app-lan-dau",
+        "https://vinwonders.com/vi/uu-dai/safari-passport-phu-quoc"
+      ],
+      "related_articles": [],
+      "destinations": [
+        "Nha Trang",
+        "Phu Quoc",
+        "Hoi An",
+        "Nghe An",
+        "Hanoi",
+        "Hai Phong",
+        "Ho Chi Minh City"
+      ],
+      "applicable_properties": [
+        "Vinwonders Chu The Mastercard",
+        "Vinwonders. Dung Bo Lo",
+        "Vinwonders.Com Hoac Ung Dung",
+        "Vinwonders Doi Tuong Ap",
+        "Vinwonders.Com App Vinwonders Luu",
+        "Vinwonders Luu Y: Moi",
+        "Vinwonders Trong Thoi Gian",
+        "Vinwonders Nam Hoi An",
+        "Vinwonders Nha Trang Vinpearl",
+        "Vinwonders Phu Quoc Vinpearl",
+        "Vinwonders Vu Yen Vinwonders",
+        "Vinwonders Cua Hoi Vinwonders",
+        "Vinwonders Wave Park &",
+        "Vinpearl Safari Phu Quoc Grand",
+        "Grand World Phu Quoc Cong",
+        "Grand World – Ocean City",
+        "Vinpearl Harbour Nha Trang Aquafield"
+      ],
+      "applicable_services": [
+        "theme_park_ticket",
+        "safari_ticket",
+        "spa"
+      ],
+      "customer_groups": [
+        "app_user"
+      ],
+      "member_tiers": [],
+      "channels": [
+        "website",
+        "mobile_app"
+      ],
+      "promo_codes": [],
+      "benefits": [
+        {
+          "benefit_type": "percentage_discount",
+          "value": 10.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "MasterCard card privileges: 10% discount when booking VinWonders tickets\n\nMasterCard cardholders enjoy a 10% discount when booking entertainment tickets through w",
+          "source_text": "10%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 10.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "MasterCard card rights: 10% discount when booking VinWonders tickets\n\nMasterCard cardholders enjoy a 10% discount when booking entertainment tickets via the VinWonders website/app. Don't miss the opportunity to explore the…",
+          "source_text": "10% discount"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 10.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Vietnam's top class entertainment at the most optimal cost!\n\n1. Offer details\n\nOffers | 10% discount (maximum 200,000 VND/order) for MasterCard cardholders when ordering services at V…",
+          "source_text": "10% off"
+        }
+      ],
+      "discount_text": "10% off",
+      "booking_period": {
+        "raw_text": "and use tickets | June 6, 2026 - August 31, 2026 (program may end earlier than expected depending on budget status)",
+        "start_date": "2026-06-06",
+        "end_date": "2026-08-31"
+      },
+      "stay_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "purchase_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "redemption_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "general_validity": {
+        "raw_text": "06/06 - 31/08/2026",
+        "start_date": "2026-06-06",
+        "end_date": "2026-08-31"
+      },
+      "recurring_schedule": null,
+      "published_at": "2026-07-06",
+      "updated_at": null,
+      "terms_and_conditions": [],
+      "excluded_dates": [
+        "Not applicable concurrently with other promotions that require entering promotional codes."
+      ],
+      "combination_rules": [
+        "Not applicable concurrently with other promotions that require entering promotional codes."
+      ],
+      "redemption_steps": [],
+      "contact_information": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "MasterCard card privileges: 10% discount when booking VinWonders tickets"
+        },
+        {
+          "level": 2,
+          "text": "1. Offer details"
+        },
+        {
+          "level": 2,
+          "text": "2. Application facilities and ticket booking link"
+        },
+        {
+          "level": 2,
+          "text": "Related articles"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "General content",
+          "level": 2,
+          "content": [
+            "MasterCard cardholders enjoy a 10% discount when booking entertainment tickets via the VinWonders website/app. Don't miss the opportunity to explore the top class amusement park chain in Vietnam at the most optimal cost!"
+          ]
+        },
+        {
+          "heading": "1. Offer details",
+          "level": 2,
+          "content": [
+            "Offers | 10% discount (maximum 200,000 VND/order) for MasterCard cardholders when ordering services at VinWonders.com or VinWonders application",
+            "Applicable objects | Customers pay directly with a MasterCard card with a BIN starting with the number \"2\" or \"5\"",
+            "Time to book and use tickets | June 6, 2026 - August 31, 2026 (program may end earlier than expected depending on budget status)",
+            "Applicable channels | Website VinWonders.com/ App VinWonders",
+            "Note:",
+            "Each card can apply the promotion once per month for each VinWonders service during the program period.",
+            "Not applicable concurrently with other promotions that require entering promotional codes."
+          ]
+        },
+        {
+          "heading": "2. Application facilities and ticket booking link",
+          "level": 2,
+          "content": [
+            "Facility | Book tickets",
+            "VinWonders Nam Hoi An",
+            "VinWonders Nha Trang",
+            "Vinpearl Harbour Nha Trang",
+            "Aquafield Nha Trang",
+            "Hon Tam",
+            "VinWonders Phu Quoc",
+            "Vinpearl Safari Phu Quoc",
+            "Grand World Phu Quoc",
+            "Grand Park – City. Ho Chi Minh",
+            "VinWonders Vu Yen",
+            "VinWonders Cua Hoi",
+            "VinWonders Wave Park & Water Park – Ocean City",
+            "VinKE & Vinpearl Aquarium Times City",
+            "Grand World – Ocean City",
+            "Aquafield Ocean City (Sauna & Spa)",
+            "The Land of Heavenly Heroes"
+          ]
+        }
+      ],
+      "bullet_lists": [
+        {
+          "type": "ul",
+          "items": [
+            "Each card can apply the promotion once per month for each VinWonders service during the program period.",
+            "Not applicable concurrently with other promotions that require entering promotional codes."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "🧸 Teddy Junior Adventure – The adventure of Bear Museum explorers 👀",
+            "Get a free voucher worth 500K when logging into the VinWonders app for the first time",
+            "Safari Passport – Incarnate as an explorer, hunting throughout Vinpearl Safari Phu Quoc"
+          ]
+        }
+      ],
+      "tables": [
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Offers",
+              "10% discount (maximum 200,000 VND/order) for MasterCard cardholders when ordering services at VinWonders.com or VinWonders application"
+            ],
+            [
+              "Applicable subjects",
+              "Customers pay directly with a MasterCard card with a BIN starting with the number \"2\" or \"5\""
+            ],
+            [
+              "Time to book and use tickets",
+              "June 6, 2026 - August 31, 2026 (program may end earlier than expected depending on budget status)"
+            ],
+            [
+              "Applicable channel",
+              "Website VinWonders.com/ App VinWonders"
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Facility",
+              "Book tickets"
+            ],
+            [
+              "VinWonders Nam Hoi An",
+              ""
+            ],
+            [
+              "VinWonders Nha Trang",
+              ""
+            ],
+            [
+              "Vinpearl Harbour Nha Trang",
+              ""
+            ],
+            [
+              "Aquafield Nha Trang",
+              ""
+            ],
+            [
+              "Hon Tam",
+              ""
+            ],
+            [
+              "VinWonders Phu Quoc",
+              ""
+            ],
+            [
+              "Vinpearl Safari Phu Quoc",
+              ""
+            ],
+            [
+              "Grand World Phu Quoc",
+              ""
+            ],
+            [
+              "Grand Park – City. Ho Chi Minh",
+              ""
+            ],
+            [
+              "VinWonders Vu Yen",
+              ""
+            ],
+            [
+              "VinWonders Cua Hoi",
+              ""
+            ],
+            [
+              "VinWonders Wave Park & Water Park – Ocean City",
+              ""
+            ],
+            [
+              "VinKE & Vinpearl Aquarium Times City",
+              ""
+            ],
+            [
+              "Grand World – Ocean City",
+              ""
+            ],
+            [
+              "Aquafield Ocean City (Sauna & Spa)",
+              ""
+            ],
+            [
+              "The Land of Heavenly Heroes",
+              ""
+            ]
+          ]
+        }
+      ],
+      "full_text": "MasterCard card privileges: 10% discount when booking VinWonders tickets\n\nMasterCard cardholders enjoy a 10% discount when booking entertainment tickets via the VinWonders website/app. Don't miss the opportunity to explore the top class amusement park chain in Vietnam at the most optimal cost!\n\n1. Offer details\n\nOffers | 10% discount (maximum 200,000 VND/order) for MasterCard cardholders when ordering services at VinWonders.com or VinWonders application\n\nApplicable objects | Customers pay directly with a MasterCard card with a BIN starting with the number \"2\" or \"5\"\n\nTime to book and use tickets | June 6, 2026 - August 31, 2026 (program may end earlier than expected depending on budget status)\n\nApplicable channels | Website VinWonders.com/ App VinWonders\n\nNote:\n\nEach card can apply the promotion once per month for each VinWonders service during the program period.\n\nNot applicable concurrently with other promotions that require entering promotional codes.\n\n2. Application facilities and ticket booking link\n\nFacility | Book tickets\n\nVinWonders Nam Hoi An\n\nVinWonders Nha Trang\n\nVinpearl Harbor Nha Trang\n\nAquafield Nha Trang\n\nHon Tam\n\nVinWonders Phu Quoc\n\nVinpearl Safari Phu Quoc\n\nGrand World Phu Quoc\n\nGrand Park – City. Ho Chi Minh\n\nVinWonders Vu Yen\n\nVinWonders Cua Hoi\n\nVinWonders Wave Park & Water Park – Ocean City\n\nVinKE & Vinpearl Aquarium Times City\n\nGrand World – Ocean City\n\nAquafield Ocean City (Sauna & Spa)\n\nThe Land of Heavenly Heroes",
+      "word_count": 268,
+      "crawled_at": "2026-08-01T18:55:25Z",
+      "content_hash": "cb2e65920c5fed2325f2de37c63ee487ca6bb7e8702841ccbb34404210120618",
+      "crawl_method": "httpx",
+      "quality_score": 0.83,
+      "needs_review": false,
+      "review_notes": [
+        "No applicable conditions found"
+      ],
+      "duplicate_candidates": []
+    },
+    {
+      "promotion_id": "b6ed06c80b93d4e394f6a25f",
+      "title": "Up to 15% discount on VinWonders tickets for all STARLUX Airlines passengers",
+      "slug": "uu-dai-vinwonders-starlux",
+      "summary": "Enjoy up to 15% discount on ticket prices at VinWonders exclusively for STARLUX Airlines passengers. Don't miss the opportunity to enjoy exciting entertainment experiences at a more economical cost.",
+      "promotion_type": [
+        "combo_package",
+        "flight_hotel_package",
+        "ticket_discount",
+        "spa_offer",
+        "cross_brand_offer"
+      ],
+      "promotion_status": "active",
+      "status_reason": "Not due to end yet (2027-03-31)",
+      "status_calculated_at": "2026-08-01T18:55:26Z",
+      "source_brand": "vinwonders",
+      "related_brands": [
+        "vinpearl",
+        "vinpearl_safari",
+        "grand_world"
+      ],
+      "source_domain": "vinwonders.com",
+      "source_domains": [
+        "vinwonders.com"
+      ],
+      "primary_source_url": "https://vinwonders.com/vi/uu-dai/uu-dai-vinwonders-starlux",
+      "source_urls": [
+        "https://vinwonders.com/vi/uu-dai/uu-dai-vinwonders-starlux"
+      ],
+      "canonical_url": "https://vinwonders.com/vi/uu-dai/uu-dai-vinwonders-starlux",
+      "language": "en",
+      "image_urls": [],
+      "booking_url": null,
+      "app_url": null,
+      "terms_url": null,
+      "related_promotions": [
+        "https://vinwonders.com/vi/uu-dai/uu-dai-vinclub-vin33",
+        "https://vinwonders.com/vi/uu-dai/teddy-junior-adventure",
+        "https://vinwonders.com/vi/uu-dai/combo-dat-nuoc-thien-hung-ca"
+      ],
+      "related_articles": [],
+      "destinations": [
+        "Nha Trang",
+        "Phu Quoc",
+        "Hoi An",
+        "Da Nang",
+        "Nghe An",
+        "Ha Tinh",
+        "Hanoi",
+        "Hai Phong",
+        "Ho Chi Minh City"
+      ],
+      "applicable_properties": [
+        "Vinwonders Cho Toan Bo",
+        "Vinwonders Danh Rieng Cho",
+        "Vinwonders Va Starlux Airlines.",
+        "Vinwonders Nha Trang |",
+        "Vinwonders Phu Quoc |",
+        "Vinwonders Nam Hoi An",
+        "Vinwonders Cua Hoi |",
+        "Vinwonders Wave Park &",
+        "Vinwonders Vu Yen |",
+        "Vinwonders Vinpearl Harbour Aquafield.",
+        "Vinwonders (Da Gan Link",
+        "Vinpearl Safari Phu Quoc |",
+        "Grand World Phu Quoc |",
+        "Vinpearl Harbour Nha Trang |",
+        "Vinpearl Harbour Aquafield. Viec Mua"
+      ],
+      "applicable_services": [
+        "flight_package",
+        "theme_park_ticket",
+        "safari_ticket",
+        "experience",
+        "spa"
+      ],
+      "customer_groups": [
+        "family"
+      ],
+      "member_tiers": [],
+      "channels": [
+        "call_center",
+        "front_desk"
+      ],
+      "promo_codes": [],
+      "benefits": [
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "Up to 15% discount on VinWonders tickets for all STARLUX Airlines passengers\n\nEnjoy exclusive discounts on soles",
+          "source_text": "Up to 15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "up to 15% of VinWonders tickets for all STARLUX Airlines passengers\n\nEnjoy an exclusive discount of up to 15% on ticket prices at VinWonders exclusively for STARLUX Airlines passengers. Don't miss…",
+          "source_text": "up to 15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "ines.\n\n1.1. Nha Trang\n\nBasis of application | Offers | Ticket booking link\n\nVinpearl Harbor Nha Trang | 15% off 2-way cable car tickets\n\nVinWonders Nha Trang | 5% discount on admission tickets\n\nAquafield Dentistry…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Book tickets\n\nVinpearl Harbor Nha Trang | 15% off 2-way cable car tickets\n\nVinWonders Nha Trang | 5% discount on admission tickets\n\nAquafield Nha Trang | 15% off 4-hour Korean sauna tickets\n\nHon Tam…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "15% 2-way cable car tickets\n\nVinWonders Nha Trang | 5% discount on admission tickets\n\nAquafield Nha Trang | 15% off 4-hour Korean sauna tickets\n\nHon Tam | 15% off standard mud bath tickets\n\n1.2. Ph…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "5% off admission tickets\n\nAquafield Nha Trang | 15% off 4-hour Korean sauna tickets\n\nHon Tam | 15% off standard mud bath tickets\n\n1.2. Phu Quoc\n\nBasis of application | Offers | Ticket booking link\n\nVinW…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "standard congestion\n\n1.2. Phu Quoc\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Phu Quoc | 5% discount on admission tickets\n\nVinpearl Safari Phu Quoc | 5% discount on admission tickets\n\nGrand World Phu Quoc |…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "offer | Ticket booking link\n\nVinWonders Phu Quoc | 5% discount on admission tickets\n\nVinpearl Safari Phu Quoc | 5% discount on admission tickets\n\nGrand World Phu Quoc | 5% discount on tickets to see Tinh Hoa Vietnam show\n\n5% off…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "5% discount on admission tickets\n\nVinpearl Safari Phu Quoc | 5% discount on admission tickets\n\nGrand World Phu Quoc | 5% discount on tickets to see Tinh Hoa Vietnam show\n\n5% discount on tickets to visit the Teddy Bear Museum\n\n1.3. Da N…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "National | 5% discount on admission tickets\n\nGrand World Phu Quoc | 5% discount on tickets to see Tinh Hoa Vietnam show\n\n5% discount on tickets to visit the Teddy Bear Museum\n\n1.3. Da Nang – Hoi An\n\nBasis of application | Offers | L…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "ddy\n\n1.3. Da Nang – Hoi An\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Nam Hoi An | 5% discount on admission tickets\n\n1.4. Nghe An – Ha Tinh\n\nBasis of application | Offers | Ticket booking link\n\nVinWond…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "o door\n\n1.4. Nghe An – Ha Tinh\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Cua Hoi | 5% discount on two-way cable car tickets\n\n5% off water park tickets\n\n5% off indoor game tickets and…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Basis of application | Offers | Ticket booking link\n\nVinWonders Cua Hoi | 5% discount on two-way cable car tickets\n\n5% off water park tickets\n\n5% discount on indoor and outdoor game tickets\n\n5% off game tickets t…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Book tickets\n\nVinWonders Cua Hoi | 5% discount on two-way cable car tickets\n\n5% off water park tickets\n\n5% discount on indoor and outdoor game tickets\n\n5% off game tickets on the island\n\nHa Tin Water Park…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "2-way suspension\n\n5% off water park tickets\n\n5% discount on indoor and outdoor game tickets\n\n5% off game tickets on the island\n\nHa Tinh Water Park | 5% off water park tickets\n\n1.5. Hanoi…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "5% of indoor and outdoor game tickets\n\n5% off game tickets on the island\n\nHa Tinh Water Park | 5% off water park tickets\n\n1.5. Hanoi – Hung Yen\n\nBasis of application | Offers | Ticket booking link\n\nAh…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Noi – Hung Yen\n\nBasis of application | Offers | Ticket booking link\n\nAquafield Ocean City Sauna & Spa | 15% off 4-hour Jjimjilbang sauna tickets\n\nVinWonders Wave Park & Water Park | 15% off tickets…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "una & Spa | 15% off 4-hour Jjimjilbang sauna tickets\n\nVinWonders Wave Park & Water Park | 15% off wave park tickets\n\n15% off water park tickets\n\n15% off park tickets…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "4 hours of Jjimjilbang\n\nVinWonders Wave Park & Water Park | 15% off wave park tickets\n\n15% off water park tickets\n\n15% off water park + wave park tickets\n\nVinKE & V…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Wave Park & Water Park | 15% off wave park tickets\n\n15% off water park tickets\n\n15% off water park + wave park tickets\n\nVinKE & Vinpearl Aquarium | 15% off tickets and…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "g water tablets\n\n15% off water park + wave park tickets\n\nVinKE & Vinpearl Aquarium | 15% off tickets to Vinpearl Aquarium\n\n15% off tickets to VinKE amusement park…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "wave park\n\nVinKE & Vinpearl Aquarium | 15% off tickets to Vinpearl Aquarium\n\n15% off tickets to VinKE amusement park\n\n1.6. Hai Phong\n\nBasis of application | Offers | Link…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "VinKE education\n\n1.6. Hai Phong\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Vu Yen | 5% discount on game area + zoo combo\n\n5% discount on water park admission tickets\n\n5% off game combos…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "at apply | Offers | Ticket booking link\n\nVinWonders Vu Yen | 5% discount on game area + zoo combo\n\n5% discount on water park admission tickets\n\n5% off combo games + zoo + water park\n\n1.7.…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "inWonders Vu Yen | 5% discount on game area + zoo combo\n\n5% discount on water park admission tickets\n\n5% off combo games + zoo + water park\n\n1.7. Ho Chi Minh City\n\nBasis of application…",
+          "source_text": "5% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "1.7. Ho Chi Minh City\n\nBasis of application | Offers | Ticket booking link\n\nGrand Park | 15% discount on entrance tickets to Tropical Island Water Park\n\n15% discount on admission tickets to Games Park…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Ticket booking link\n\nGrand Park | 15% discount on entrance tickets to Tropical Island Water Park\n\n15% off entrance tickets to Dream Garden Games Park\n\n15% off Combo Water Park + Gam…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "a Tropical Island Water Park\n\n15% off entrance tickets to Dream Garden Games Park\n\n15% off Water Park + Games Grand Park Dream Garden Combo\n\n2. Terms & conditions…",
+          "source_text": "15% off"
+        }
+      ],
+      "discount_text": "Up to 15%",
+      "booking_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "stay_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "purchase_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "redemption_period": {
+        "raw_text": "& Validity: 1 Airline ticket = 1 Discount ticket (at respective destination). Valid within 7 days from flight date.",
+        "start_date": null,
+        "end_date": null
+      },
+      "general_validity": {
+        "raw_text": "01/08 - 31/03/2027",
+        "start_date": null,
+        "end_date": "2027-03-31"
+      },
+      "recurring_schedule": "weekend",
+      "published_at": "2026-08-01",
+      "updated_at": null,
+      "terms_and_conditions": [
+        "Water games will be temporarily closed during the low season (around October - March).",
+        "All land experiences remain open year-round.",
+        "Prices may vary depending on time (weekends, summer peak season, holidays).",
+        "The program only applies to STARLUX Airlines passengers traveling to VinWonders/Vinpearl Harbor/Aquafield destinations. Ticket purchases must be made through the VinWonders link (link attached above).",
+        "Usage Limit & Validity: 1 Airline Ticket = 1 Discount Ticket (at respective destination). Valid within 7 days from flight date.",
+        "On-site verification: Must present Passport (Birth Certificate for children) + matching STARLUX flight ticket at the boarding gate. Information of passengers and accompanying guests must match.",
+        "Policy & Compliance: Non-refundable, non-exchangeable and non-combinable with other promotions. In case you cannot present valid documents, you will have to pay the price difference according to the standard price at the counter.",
+        "If you require further information or assistance, please contact the Customer Care Center via:",
+        "Hotline: 1900 2323 89 (extension: 3)",
+        "Email: [email protected]"
+      ],
+      "excluded_dates": [],
+      "combination_rules": [
+        "Policy & Compliance: Non-refundable, non-exchangeable and non-combinable with other promotions. In case you cannot present valid documents, you will have to pay the price difference according to the standard price at the counter."
+      ],
+      "redemption_steps": [],
+      "contact_information": [
+        "If you require further information or assistance, please contact the Customer Care Center via:",
+        "Hotline: 1900 2323 89 (extension: 3)",
+        "Email: [email protected]"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Up to 15% discount on VinWonders tickets for all STARLUX Airlines passengers"
+        },
+        {
+          "level": 2,
+          "text": "1. Details of incentives in each region"
+        },
+        {
+          "level": 3,
+          "text": "1.1. Nha Trang"
+        },
+        {
+          "level": 3,
+          "text": "1.2. Phu Quoc"
+        },
+        {
+          "level": 3,
+          "text": "1.3. Da Nang – Hoi An"
+        },
+        {
+          "level": 3,
+          "text": "1.4. Nghe An – Ha Tinh"
+        },
+        {
+          "level": 3,
+          "text": "1.5. Hanoi – Hung Yen"
+        },
+        {
+          "level": 3,
+          "text": "1.6. Hai Phong"
+        },
+        {
+          "level": 3,
+          "text": "1.7. Ho Chi Minh City"
+        },
+        {
+          "level": 2,
+          "text": "2. Terms & conditions"
+        },
+        {
+          "level": 2,
+          "text": "Related articles"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "General content",
+          "level": 2,
+          "content": [
+            "Enjoy an exclusive discount of up to 15% on ticket prices at VinWonders exclusively for STARLUX Airlines passengers. Don't miss the opportunity to enjoy exciting entertainment experiences with VinWonders and STARLUX Airlines."
+          ]
+        },
+        {
+          "heading": "1.1. Nha Trang",
+          "level": 3,
+          "content": [
+            "Basis of application | Offers | Ticket booking link",
+            "Vinpearl Harbor Nha Trang | 15% off 2-way cable car tickets",
+            "VinWonders Nha Trang | 5% discount on admission tickets",
+            "Aquafield Nha Trang | 15% off 4-hour Korean sauna tickets",
+            "Hon Tam | 15% off standard mud bath tickets"
+          ]
+        },
+        {
+          "heading": "1.2. Phu Quoc",
+          "level": 3,
+          "content": [
+            "Basis of application | Offers | Ticket booking link",
+            "VinWonders Phu Quoc | 5% discount on admission tickets",
+            "Vinpearl Safari Phu Quoc | 5% discount on admission tickets",
+            "Grand World Phu Quoc | 5% discount on tickets to see Tinh Hoa Vietnam show",
+            "5% discount on tickets to visit the Teddy Bear Museum"
+          ]
+        },
+        {
+          "heading": "1.3. Da Nang – Hoi An",
+          "level": 3,
+          "content": [
+            "Basis of application | Offers | Ticket booking link",
+            "VinWonders Nam Hoi An | 5% discount on admission tickets"
+          ]
+        },
+        {
+          "heading": "1.4. Nghe An – Ha Tinh",
+          "level": 3,
+          "content": [
+            "Basis of application | Offers | Ticket booking link",
+            "VinWonders Cua Hoi | 5% discount on two-way cable car tickets",
+            "5% off water park tickets",
+            "5% discount on indoor and outdoor game tickets",
+            "5% off game tickets on the island",
+            "Ha Tinh Water Park | 5% off water park tickets"
+          ]
+        },
+        {
+          "heading": "1.5. Hanoi – Hung Yen",
+          "level": 3,
+          "content": [
+            "Basis of application | Offers | Ticket booking link",
+            "Aquafield Ocean City Sauna & Spa | 15% off 4-hour Jjimjilbang sauna tickets",
+            "VinWonders Wave Park & Water Park | 15% off wave park tickets",
+            "15% off water park tickets",
+            "15% off water park + wave park tickets",
+            "VinKE & Vinpearl Aquarium | 15% off tickets to Vinpearl Aquarium",
+            "15% off tickets to VinKE amusement park"
+          ]
+        },
+        {
+          "heading": "1.6. Hai Phong",
+          "level": 3,
+          "content": [
+            "Basis of application | Offers | Ticket booking link",
+            "VinWonders Vu Yen | 5% discount on game area + zoo combo",
+            "5% discount on water park admission tickets",
+            "5% off combo games + zoo + water park"
+          ]
+        },
+        {
+          "heading": "1.7. Ho Chi Minh City",
+          "level": 3,
+          "content": [
+            "Basis of application | Offers | Ticket booking link",
+            "Grand Park | 15% discount on entrance tickets to Tropical Island Water Park",
+            "15% off entrance tickets to Dream Garden Games Park",
+            "15% off Water Park + Games Grand Park Dream Garden Combo"
+          ]
+        },
+        {
+          "heading": "2. Terms & conditions",
+          "level": 2,
+          "content": [
+            "Water games will be temporarily closed during the low season (around October - March).",
+            "All land experiences remain open year-round.",
+            "Prices may vary depending on time (weekends, summer peak season, holidays).",
+            "The program only applies to STARLUX Airlines passengers traveling to VinWonders/Vinpearl Harbor/Aquafield destinations. Ticket purchases must be made through the VinWonders link (link attached above).",
+            "Usage Limit & Validity: 1 Airline Ticket = 1 Discount Ticket (at respective destination). Valid within 7 days from flight date.",
+            "On-site verification: Must present Passport (Birth Certificate for children) + matching STARLUX flight ticket at the boarding gate. Information of passengers and accompanying guests must match.",
+            "Policy & Compliance: Non-refundable, non-exchangeable and non-combinable with other promotions. In case you cannot present valid documents, you will have to pay the price difference according to the standard price at the counter.",
+            "If you require further information or assistance, please contact the Customer Care Center via:",
+            "Hotline: 1900 2323 89 (extension: 3)",
+            "Email: [email protected]"
+          ]
+        }
+      ],
+      "bullet_lists": [
+        {
+          "type": "ul",
+          "items": [
+            "Water games will be temporarily closed during the low season (around October - March).",
+            "All land experiences remain open year-round.",
+            "Prices may vary depending on time (weekends, summer peak season, holidays).",
+            "The program only applies to STARLUX Airlines passengers traveling to VinWonders/Vinpearl Harbor/Aquafield destinations. Ticket purchases must be made through the VinWonders link (link attached above).",
+            "Usage Limit & Validity: 1 Airline Ticket = 1 Discount Ticket (at respective destination). Valid within 7 days from flight date.",
+            "On-site verification: Must present Passport (Birth Certificate for children) + matching STARLUX flight ticket at the boarding gate. Information of passengers and accompanying guests must match.",
+            "Policy & Compliance: Non-refundable, non-exchangeable and non-combinable with other promotions. In case you cannot present valid documents, you will have to pay the price difference according to the standard price at the counter."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Hotline: 1900 2323 89 (extension: 3)",
+            "Email: [email protected]"
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Offer VIN33 – X3 Fun privileges exclusively for VinClub members",
+            "🧸 Teddy Junior Adventure – The adventure of Bear Museum explorers 👀",
+            "30% Discount Thien Hung Ca Country Combo: Full experience package, full day of discovery"
+          ]
+        }
+      ],
+      "tables": [
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Basis of application",
+              "Offers",
+              "Ticket booking link"
+            ],
+            [
+              "Vinpearl Harbour Nha Trang",
+              "15% off 2-way cable car tickets",
+              ""
+            ],
+            [
+              "VinWonders Nha Trang",
+              "5% discount on admission tickets",
+              ""
+            ],
+            [
+              "Aquafield Nha Trang",
+              "15% off 4-hour Korean sauna tickets",
+              ""
+            ],
+            [
+              "Hon Tam",
+              "15% off standard mud bath tickets",
+              ""
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Basis of application",
+              "Offers",
+              "Ticket booking link"
+            ],
+            [
+              "VinWonders Phu Quoc",
+              "5% discount on admission tickets",
+              ""
+            ],
+            [
+              "Vinpearl Safari Phu Quoc",
+              "5% discount on admission tickets",
+              ""
+            ],
+            [
+              "Grand World Phu Quoc",
+              "5% discount on tickets to see Tinh Hoa Vietnam show",
+              ""
+            ],
+            [
+              "5% discount on tickets to visit the Teddy Bear Museum",
+              ""
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Basis of application",
+              "Offers",
+              "Ticket booking link"
+            ],
+            [
+              "VinWonders Nam Hoi An",
+              "5% discount on admission tickets",
+              ""
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Basis of application",
+              "Offers",
+              "Ticket booking link"
+            ],
+            [
+              "VinWonders Cua Hoi",
+              "5% discount on two-way cable car tickets",
+              ""
+            ],
+            [
+              "5% off water park tickets"
+            ],
+            [
+              "5% discount on indoor and outdoor game tickets"
+            ],
+            [
+              "5% off game tickets on the island"
+            ],
+            [
+              "Ha Tinh Water Park",
+              "5% off water park tickets",
+              ""
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Basis of application",
+              "Offers",
+              "Ticket booking link"
+            ],
+            [
+              "Aquafield Ocean City Sauna & Spa",
+              "15% off 4-hour Jjimjilbang sauna tickets",
+              ""
+            ],
+            [
+              "VinWonders Wave Park & Water Park",
+              "15% off wave park tickets",
+              ""
+            ],
+            [
+              "15% off water park tickets",
+              ""
+            ],
+            [
+              "15% off water park + wave park tickets",
+              ""
+            ],
+            [
+              "VinKE & Vinpearl Aquarium",
+              "15% off tickets to Vinpearl Aquarium",
+              ""
+            ],
+            [
+              "15% off tickets to VinKE amusement park",
+              ""
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Basis of application",
+              "Offers",
+              "Ticket booking link"
+            ],
+            [
+              "VinWonders Vu Yen",
+              "5% discount on game area + zoo combo",
+              ""
+            ],
+            [
+              "5% discount on water park admission tickets",
+              ""
+            ],
+            [
+              "5% off combo games + zoo + water park",
+              ""
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Basis of application",
+              "Offers",
+              "Ticket booking link"
+            ],
+            [
+              "Grand Park",
+              "15% discount on entrance tickets to Tropical Island Water Park",
+              ""
+            ],
+            [
+              "15% off entrance tickets to Dream Garden Games Park",
+              ""
+            ],
+            [
+              "15% off Water Park + Games Grand Park Dream Garden Combo",
+              ""
+            ]
+          ]
+        }
+      ],
+      "full_text": "Up to 15% discount on VinWonders tickets for all STARLUX Airlines passengers\n\nEnjoy an exclusive discount of up to 15% on ticket prices at VinWonders exclusively for STARLUX Airlines passengers. Don't miss the opportunity to enjoy exciting entertainment experiences with VinWonders and STARLUX Airlines.\n\n1.1. Nha Trang\n\nBasis of application | Offers | Ticket booking link\n\nVinpearl Harbor Nha Trang | 15% off 2-way cable car tickets\n\nVinWonders Nha Trang | 5% discount on admission tickets\n\nAquafield Nha Trang | 15% off 4-hour Korean sauna tickets\n\nHon Tam | 15% off standard mud bath tickets\n\n1.2. Phu Quoc\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Phu Quoc | 5% discount on admission tickets\n\nVinpearl Safari Phu Quoc | 5% discount on admission tickets\n\nGrand World Phu Quoc | 5% discount on tickets to see Tinh Hoa Vietnam show\n\n5% discount on tickets to visit the Teddy Bear Museum\n\n1.3. Da Nang – Hoi An\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Nam Hoi An | 5% discount on admission tickets\n\n1.4. Nghe An – Ha Tinh\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Cua Hoi | 5% discount on two-way cable car tickets\n\n5% off water park tickets\n\n5% discount on indoor and outdoor game tickets\n\n5% off game tickets on the island\n\nHa Tinh Water Park | 5% off water park tickets\n\n1.5. Hanoi – Hung Yen\n\nBasis of application | Offers | Ticket booking link\n\nAquafield Ocean City Sauna & Spa | 15% off 4-hour Jjimjilbang sauna tickets\n\nVinWonders Wave Park & Water Park | 15% off wave park tickets\n\n15% off water park tickets\n\n15% off water park + wave park tickets\n\nVinKE & Vinpearl Aquarium | 15% off tickets to Vinpearl Aquarium\n\n15% off tickets to VinKE amusement park\n\n1.6. Hai Phong\n\nBasis of application | Offers | Ticket booking link\n\nVinWonders Vu Yen | 5% discount on game area + zoo combo\n\n5% discount on water park admission tickets\n\n5% off combo games + zoo + water park\n\n1.7. Ho Chi Minh City\n\nBasis of application | Offers | Ticket booking link\n\nGrand Park | 15% discount on entrance tickets to Tropical Island Water Park\n\n15% off entrance tickets to Dream Garden Games Park\n\n15% off Water Park + Games Grand Park Dream Garden Combo\n\n2. Terms & conditions\n\nWater games will be temporarily closed during the low season (around October - March).\n\nAll land experiences remain open year-round.\n\nPrices may vary depending on time (weekends, summer peak season, holidays).\n\nThe program only applies to STARLUX Airlines passengers traveling to VinWonders/Vinpearl Harbor/Aquafield destinations. Ticket purchases must be made through the VinWonders link (link attached above).\n\nUsage Limit & Validity: 1 Airline Ticket = 1 Discount Ticket (at respective destination). Valid within 7 days from flight date.\n\nOn-site verification: Must present Passport (Birth Certificate for children) + matching STARLUX flight ticket at the boarding gate. Information of passengers and accompanying guests must match.\n\nPolicy & Compliance: Non-refundable, non-exchangeable and non-combinable with other promotions. In case you cannot present valid documents, you will have to pay the price difference according to the standard price at the counter.\n\nIf you require further information or assistance, please contact the Customer Care Center via:\n\nHotline: 1900 2323 89 (extension: 3)\n\nEmail: [email protected]",
+      "word_count": 695,
+      "crawled_at": "2026-08-01T18:55:25Z",
+      "content_hash": "bb6668c004bdcd71940c43aa0689cf2994b04ffa5816a965f1f1817a918794f4",
+      "crawl_method": "httpx",
+      "quality_score": 0.93,
+      "needs_review": false,
+      "review_notes": [],
+      "duplicate_candidates": []
+    },
+    {
+      "promotion_id": "cefdf74fbfa6b7ad5d6c0cb4",
+      "title": "VinClub Membership Privileges: Up to 15% Discount When Buying VinWonders Tickets",
+      "slug": "vinwonders-uu-dai-15-hoi-vien-vinclub",
+      "summary": "Become a VinClub member to enjoy up to 15% discount when purchasing VinWonders tickets via the VinWonders website and application. In addition, you also have the opportunity to accumulate and redeem reward points to receive discounts on your next bookings.",
+      "promotion_type": [
+        "member_offer",
+        "vinclub_offer",
+        "app_offer",
+        "promo_code",
+        "voucher",
+        "ticket_discount",
+        "food_offer",
+        "event_offer",
+        "cross_brand_offer"
+      ],
+      "promotion_status": "active",
+      "status_reason": "Crawling date is in general_validity (2026-01-01 - 2026-12-31)",
+      "status_calculated_at": "2026-08-01T18:55:26Z",
+      "source_brand": "vinwonders",
+      "related_brands": [
+        "vinpearl",
+        "vinpearl_safari",
+        "grand_world",
+        "vinclub"
+      ],
+      "source_domain": "vinwonders.com",
+      "source_domains": [
+        "vinwonders.com"
+      ],
+      "primary_source_url": "https://vinwonders.com/vi/uu-dai/vinwonders-uu-dai-15-hoi-vien-vinclub",
+      "source_urls": [
+        "https://vinwonders.com/vi/uu-dai/vinwonders-uu-dai-15-hoi-vien-vinclub"
+      ],
+      "canonical_url": "https://vinwonders.com/vi/uu-dai/vinwonders-uu-dai-15-hoi-vien-vinclub",
+      "language": "en",
+      "image_urls": [],
+      "booking_url": "https://booking.vinwonders.com/vi-VND/search?adultQuantity=1&code=NTVW1",
+      "app_url": null,
+      "terms_url": null,
+      "related_promotions": [
+        "https://vinwonders.com/vi/uu-dai/uu-dai-vinclub-vin33",
+        "https://vinwonders.com/vi/uu-dai/teddy-junior-adventure",
+        "https://vinwonders.com/vi/uu-dai/tang-voucher-500k-khi-dang-nhap-app-lan-dau",
+        "https://vinwonders.com/vi/uu-dai/safari-passport-phu-quoc"
+      ],
+      "related_articles": [],
+      "destinations": [
+        "Nha Trang",
+        "Phu Quoc",
+        "Hoi An",
+        "Nghe An",
+        "Hanoi",
+        "Hai Phong",
+        "Hue"
+      ],
+      "applicable_properties": [
+        "Vinwonders Tro Thanh Hoi",
+        "Vinwonders Qua Website Va",
+        "Vinwonders. Ngoai Ra, Quy",
+        "Vinwonders Va Cac Diem",
+        "Vinwonders Tai Website Vinwonders.Com",
+        "Vinwonders.Com Va Ung Dung",
+        "Vinwonders Va Nhap Ma",
+        "Vinwonders Nha Trang, Vinwonders",
+        "Vinwonders Phu Quoc, Vinpearl",
+        "Vinwonders Nha Trang Vinwonders",
+        "Vinwonders Phu Quoc Vinpearl",
+        "Vinwonders Wave Park &",
+        "Vinwonders Cua Hoi, Vinwonders",
+        "Vinwonders Nam Hoi An,",
+        "Vinwonders Vu Yen. Hang",
+        "Vinwonders Cua Hoi Vinwonders",
+        "Vinwonders Nam Hoi An",
+        "Vinwonders Vu Yen Luu",
+        "Vinwonders! 2.1. Cach Tich",
+        "Vinwonders. Gia Tri Diem"
+      ],
+      "applicable_services": [
+        "theme_park_ticket",
+        "safari_ticket",
+        "experience",
+        "food_and_beverage",
+        "membership"
+      ],
+      "customer_groups": [
+        "vinclub_member",
+        "app_user"
+      ],
+      "member_tiers": [
+        "Gold",
+        "Platinum",
+        "Diamond"
+      ],
+      "channels": [
+        "website",
+        "mobile_app",
+        "call_center"
+      ],
+      "promo_codes": [
+        {
+          "code": "MEMBER2",
+          "description": "",
+          "source_text": "MEMBER2",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "NONE",
+          "description": "/MEMBER/GOLD | 2% | MEMBER2",
+          "source_text": "Vinpearl Safari Phu Quoc:\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinC offers",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "GOLD",
+          "description": "| 2% | MEMBER2",
+          "source_text": "Phu Quoc fari:\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for v",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "PLATINUM",
+          "description": "| 3% | PLATINUM3",
+          "source_text": "member | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinWonders Nha T",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "PLATINUM3",
+          "description": "DIAMOND | 5% | DIAMOND5",
+          "source_text": "offers | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinWonders Nha Trang\n\nVinWonders",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "DIAMOND",
+          "description": "| 5% | DIAMOND5",
+          "source_text": "preferential\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinWonders Nha Trang\n\nVinWonders Phu Quoc",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "DIAMOND5",
+          "description": "Log in to receive VinClub offers and hunt for tickets now",
+          "source_text": "MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinWonders Nha Trang\n\nVinWonders Phu Quoc\n\nVinpearl Safari",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "MEMBER10",
+          "description": "PLATINUM | 12% | PLATINUM12",
+          "source_text": ".\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 10% | MEMBER10\n\nPLATINUM | 12% | PLATINUM12\n\nDIAMOND | 15% | DIAMOND15\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVi",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "PLATINUM12",
+          "description": "DIAMOND | 15% | DIAMOND15",
+          "source_text": "treat | Promotion code\n\nNONE/MEMBER/GOLD | 10% | MEMBER10\n\nPLATINUM | 12% | PLATINUM12\n\nDIAMOND | 15% | DIAMOND15\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinpearl Harbor Nha Trang\n\nAqua",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "MEMBER3",
+          "description": "PLATINUM | 4% | PLATINUM4",
+          "source_text": "n.\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 3% | MEMBER3\n\nPLATINUM | 4% | PLATINUM4\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nGrand",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "PLATINUM4",
+          "description": "DIAMOND | 5% | DIAMOND5",
+          "source_text": "offers | Promotion code\n\nNONE/MEMBER/GOLD | 3% | MEMBER3\n\nPLATINUM | 4% | PLATINUM4\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nGrand World Phu Quoc\n\nVinWonders",
+          "conditions": [],
+          "validity": null
+        }
+      ],
+      "benefits": [
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "VinClub Membership Privileges: Up to 15% Discount When Buying VinWonders Tickets\n\nBecome a VinClub member to enjoy up to 15% discount on purchases",
+          "source_text": "Promotion Up To 15%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "inClub: Up to 15% Discount When Buying VinWonders Tickets\n\nBecome a VinClub member to enjoy up to 15% discount when purchasing VinWonders tickets via the VinWonders website and application. In addition, Qu…",
+          "source_text": "Discount up to 15%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "and entertainment destinations within the ecosystem. See now here.\n\n1. Ticket purchase benefits with up to 15% discount\n\nVinClub members buy VinWonders tickets at website vinwonders.com…",
+          "source_text": "Discount up to 15%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "Visit the website vinwonders.com and VinWonders application and enter the promotional code to enjoy up to 15% discount on services. Preferential rates apply according to membership class and facility. Hunt for tickets online now!…",
+          "source_text": "up to 15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 2.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "c, Vinpearl Safari Phu Quoc:\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLogin to receive benefits…",
+          "source_text": "2%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 3.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "snail:\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now…",
+          "source_text": "3%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "offers | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinWonders Nha Trang\n\nVi…",
+          "source_text": "5%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 10.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "City), Grand Park.\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 10% | MEMBER10\n\nPLATINUM | 12% | PLATINUM12\n\nDIAMOND | 15% | DIAMOND15\n\nSign in to get…",
+          "source_text": "10%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 12.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": ".\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 10% | MEMBER10\n\nPLATINUM | 12% | PLATINUM12\n\nDIAMOND | 15% | DIAMOND15\n\nLog in to receive VinClub offers and hunt for tickets...",
+          "source_text": "12%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "treat | Promotion code\n\nNONE/MEMBER/GOLD | 10% | MEMBER10\n\nPLATINUM | 12% | PLATINUM12\n\nDIAMOND | 15% | DIAMOND15\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinpearl Harbor Nha…",
+          "source_text": "15%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 3.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "m Hoi An, VinWonders Vu Yen.\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 3% | MEMBER3\n\nPLATINUM | 4% | PLATINUM4\n\nDIAMOND | 5% | DIAMOND5\n\nLogin to receive benefits…",
+          "source_text": "3%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 4.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "en.\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 3% | MEMBER3\n\nPLATINUM | 4% | PLATINUM4\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now…",
+          "source_text": "4%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 5.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "offers | Promotion code\n\nNONE/MEMBER/GOLD | 3% | MEMBER3\n\nPLATINUM | 4% | PLATINUM4\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nGrand World Phu Quoc\n\nVi…",
+          "source_text": "5%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 1.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "rs can only accumulate VPoints in 01 VinClub account.\n\nMembership Class | Point accumulation level\n\nGOLD | 1%\n\nPLATINUM | 1.5%\n\nDIAMOND | 2%\n\n2.2. How to spend VPoint\n\nVPoint is used to…",
+          "source_text": "1%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 1.5,
+          "unit": "percent",
+          "maximum": false,
+          "description": "h VPoint into 01 VinClub account.\n\nMembership Class | Point accumulation level\n\nGOLD | 1%\n\nPLATINUM | 1.5%\n\nDIAMOND | 2%\n\n2.2. How to spend VPoint\n\nVPoint is used to pay bills…",
+          "source_text": "1.5%"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 2.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "VinClub account.\n\nMembership Class | Point accumulation level\n\nGOLD | 1%\n\nPLATINUM | 1.5%\n\nDIAMOND | 2%\n\n2.2. How to spend VPoint\n\nVPoint is used to pay for online ticket purchases...",
+          "source_text": "2%"
+        },
+        {
+          "benefit_type": "voucher",
+          "value": 200000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "VinWonders or use services at Vinpearl:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Applicable when buying fish...",
+          "source_text": "Voucher 200,000 VND"
+        },
+        {
+          "benefit_type": "voucher",
+          "value": 300000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "services at Vinpearl:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Applicable when purchasing services on the website...",
+          "source_text": "Voucher 300,000 VND"
+        },
+        {
+          "benefit_type": "voucher",
+          "value": 500000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "l:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Applicable when purchasing services on the VinWonders website/app…",
+          "source_text": "Voucher 500,000 VND"
+        },
+        {
+          "benefit_type": "voucher",
+          "value": 200000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "h gives members special discount vouchers:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Each customer is…",
+          "source_text": "Voucher 200,000 VND"
+        },
+        {
+          "benefit_type": "voucher",
+          "value": 300000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "Special offer vouchers:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Each customer is given 02 vouchers: 01…",
+          "source_text": "Voucher 300,000 VND"
+        },
+        {
+          "benefit_type": "voucher",
+          "value": 500000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "t:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Each customer is given 02 vouchers: 01 voucher is applicable when...",
+          "source_text": "Voucher 500,000 VND"
+        },
+        {
+          "benefit_type": "multiplier",
+          "value": 3.0,
+          "unit": "times",
+          "maximum": false,
+          "description": "waist.\n\nSPECIAL, on the occasion of the 33rd anniversary of the establishment of Vingroup, VinClub members receive X3 entertainment privileges with attractive incentives at VinWonders and entertainment destinations in the system...",
+          "source_text": "X3"
+        },
+        {
+          "benefit_type": "upgrade",
+          "value": null,
+          "unit": null,
+          "maximum": false,
+          "description": "rl and Vingroup are waiting for you, register for VinClub membership today!\n\n3. VinClub card upgrade benefits\n\nWhen upgrading to VinClub membership, customers will receive a voucher…",
+          "source_text": "upgrade VinClub card\n\nWhen upgrading"
+        }
+      ],
+      "discount_text": "Up to 15%",
+      "booking_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "stay_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "purchase_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "redemption_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "general_validity": {
+        "raw_text": "01/01 - 31/12/2026",
+        "start_date": "2026-01-01",
+        "end_date": "2026-12-31"
+      },
+      "recurring_schedule": null,
+      "published_at": "2026-07-31",
+      "updated_at": null,
+      "terms_and_conditions": [],
+      "excluded_dates": [
+        "The above incentives do not include products that are clearly stated in the terms and conditions of each period and incentive programs, if any."
+      ],
+      "combination_rules": [],
+      "redemption_steps": [],
+      "contact_information": [
+        "Contact information: Hotline: 1900 23 23 28 Email: [email protected]"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "VinClub Membership Privileges: Up to 15% Discount When Buying VinWonders Tickets"
+        },
+        {
+          "level": 2,
+          "text": "1. Ticket purchase benefits with up to 15% discount"
+        },
+        {
+          "level": 2,
+          "text": "2. Benefits & highlights"
+        },
+        {
+          "level": 2,
+          "text": "3. VinClub card upgrade benefits"
+        },
+        {
+          "level": 2,
+          "text": "4. Birthday gifts for VinClub members"
+        },
+        {
+          "level": 2,
+          "text": "Related articles"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "General content",
+          "level": 2,
+          "content": [
+            "Become a VinClub member to enjoy up to 15% discount when purchasing VinWonders tickets via the VinWonders website and application. In addition, you also have the opportunity to accumulate and redeem reward points to receive discounts on your next bookings.",
+            "SPECIAL, on the occasion of the 33rd anniversary of the establishment of Vingroup, VinClub members receive X3 entertainment privileges with attractive incentives at VinWonders and entertainment destinations in the ecosystem. See now here."
+          ]
+        },
+        {
+          "heading": "1. Ticket purchase benefits with up to 15% discount",
+          "level": 2,
+          "content": [
+            "VinClub members who buy VinWonders entertainment tickets at the website vinwonders.com and VinWonders application and enter the promotional code will enjoy up to 15% discount on services. Preferential rates apply according to membership class and facility. Hunt for tickets online now!",
+            "Group 1: VinWonders Nha Trang, VinWonders Phu Quoc, Vinpearl Safari Phu Quoc:",
+            "Membership Class | Preferential rates | Promotion code",
+            "NONE/MEMBER/GOLD | 2% | MEMBER2",
+            "PLATINUM | 3% | PLATINUM3",
+            "DIAMOND | 5% | DIAMOND5",
+            "Log in to receive VinClub offers and hunt for tickets now!",
+            "VinWonders Nha Trang",
+            "VinWonders Phu Quoc",
+            "Vinpearl Safari Phu Quoc",
+            "Group 2: Vinpearl Harbor Nha Trang, Aquafield Nha Trang, Hon Tam Mud Bath, VinWonders Wave Park & Water Park, VinKE & Vinpearl Aquarium (Times City), Grand World (Ocean City), Grand Park.",
+            "Membership Class | Preferential rates | Promotion code",
+            "NONE/MEMBER/GOLD | 10% | MEMBER10",
+            "PLATINUM | 12% | PLATINUM12",
+            "DIAMOND | 15% | DIAMOND15",
+            "Log in to receive VinClub offers and hunt for tickets now!",
+            "Vinpearl Harbour Nha Trang",
+            "Aquafield Nha Trang",
+            "Mud bath at Hon Tam",
+            "VinWonders Wave Park & Water Park",
+            "VinKE & Vinpearl Aquarium",
+            "Grand World (Ocean City)",
+            "Grand Park",
+            "Group 3: Grand World Phu Quoc, VinWonders Cua Hoi, VinWonders Nam Hoi An, VinWonders Vu Yen.",
+            "Membership Class | Preferential rates | Promotion code",
+            "NONE/MEMBER/GOLD | 3% | MEMBER3",
+            "PLATINUM | 4% | PLATINUM4",
+            "DIAMOND | 5% | DIAMOND5",
+            "Log in to receive VinClub offers and hunt for tickets now!",
+            "Grand World Phu Quoc",
+            "VinWonders Cua Hoi",
+            "VinWonders Nam Hoi An",
+            "VinWonders Vu Yen",
+            "Note:",
+            "Membership promotion code is applied at the same time on the directly discounted price.",
+            "The above incentives do not include products that are clearly stated in the terms and conditions of each period and incentive programs, if any."
+          ]
+        },
+        {
+          "heading": "2. Benefits & highlights",
+          "level": 2,
+          "content": [
+            "In addition to discounts, VinClub members from Gold level or higher can also accumulate Vpoints after each order and use these points for subsequent ticket bookings. Maximize your savings and enjoy your experience - have fun with VinWonders!",
+            "2.1. How to accumulate VPoints:",
+            "VPoints are accumulated on each transaction (VAT included) after preferential deduction according to VinWonders policy.",
+            "The value of VPoint accumulated points is converted according to the formula 1,000 VND = 1 VPoint.",
+            "VPoint is used indefinitely.",
+            "Each online transaction for VinWonders can only accumulate VPoints in 01 VinClub account.",
+            "Membership Class | Point accumulation level",
+            "GOLD | 1%",
+            "PLATINUM | 1.5%",
+            "DIAMOND | 2%",
+            "2.2. How to spend VPoint",
+            "VPoint is used to pay for online ticket purchases on the VinWonders web/app. Customers can choose to focus on the checkout flow (refer to the illustration below).",
+            "VPoints cannot be converted to cash.",
+            "VPoint spending value is converted according to the formula 1,000 VND = 1 VPoint.",
+            "Each transaction can only be used to spend VPoints from 01 VinClub account.",
+            "With a quick, convenient and completely free registration method, you will enjoy attractive benefits exclusively for Vinclub members and experience unique, 1-0-2 entertainment, discovery, cultural and festival activities at VinWonders. Furthermore, many incentives within the Vinpearl and Vingroup ecosystems are waiting for you, register as a VinClub member today!"
+          ]
+        },
+        {
+          "heading": "3. VinClub card upgrade benefits",
+          "level": 2,
+          "content": [
+            "When upgrading VinClub membership, customers will be given preferential vouchers corresponding to each card class, applicable when purchasing VinWonders tickets or using services at Vinpearl:",
+            "Gold Rank | Platinum Class | Diamond class",
+            "Voucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND",
+            "Note: Applicable when purchasing services on VinWonders website/app Voucher validity: within 03 months from the date of receipt of voucher"
+          ]
+        },
+        {
+          "heading": "4. Birthday gifts for VinClub members",
+          "level": 2,
+          "content": [
+            "On the occasion of their birthday, VinClub offers members special promotional vouchers:",
+            "Gold Rank | Platinum Class | Diamond class",
+            "Voucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND",
+            "Note: Each customer is given 02 vouchers: 01 voucher is applicable when purchasing services on the VinWonders website/app, 01 voucher is applicable when using culinary services at Vinpearl establishments. Voucher validity: within 03 months from the date of receipt of the voucher. Make sure to check the application eligibility when the customer provides the voucher. Applicable to customers who already have date of birth data in their account before their birthday.",
+            "Contact information: Hotline: 1900 23 23 28 Email: [email protected]"
+          ]
+        }
+      ],
+      "bullet_lists": [
+        {
+          "type": "ul",
+          "items": [
+            "Group 1: VinWonders Nha Trang, VinWonders Phu Quoc, Vinpearl Safari Phu Quoc:"
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Group 2: Vinpearl Harbor Nha Trang, Aquafield Nha Trang, Hon Tam Mud Bath, VinWonders Wave Park & Water Park, VinKE & Vinpearl Aquarium (Times City), Grand World (Ocean City), Grand Park."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Group 3: Grand World Phu Quoc, VinWonders Cua Hoi, VinWonders Nam Hoi An, VinWonders Vu Yen."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Membership promotion code is applied at the same time on the directly discounted price.",
+            "The above incentives do not include products that are clearly stated in the terms and conditions of each period and incentive programs, if any."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "VPoints are accumulated on each transaction (VAT included) after preferential deduction according to VinWonders policy.",
+            "The value of VPoint accumulated points is converted according to the formula 1,000 VND = 1 VPoint.",
+            "VPoint is used indefinitely.",
+            "Each online transaction for VinWonders can only accumulate VPoints in 01 VinClub account."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "VPoint is used to pay for online ticket purchases on the VinWonders web/app. Customers can choose to focus on the checkout flow (refer to the illustration below).",
+            "VPoints cannot be converted to cash.",
+            "VPoint spending value is converted according to the formula 1,000 VND = 1 VPoint.",
+            "Each transaction can only be used to spend VPoints from 01 VinClub account."
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Applicable when purchasing services on VinWonders website/app",
+            "Voucher validity: within 03 months from the date of receipt of voucher"
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Each customer is given 02 vouchers: 01 voucher applied when purchasing services on the VinWonders website/app, 01 voucher applied when using culinary services at Vinpearl establishments.",
+            "Voucher validity: within 03 months from the date of receipt of voucher",
+            "Make sure to check applicable terms and conditions when customers provide vouchers",
+            "Applicable to customers who already have birth date data in their account before their birthday"
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "🧸 Teddy Junior Adventure – The adventure of Bear Museum explorers 👀",
+            "Get a free voucher worth 500K when logging into the VinWonders app for the first time",
+            "Safari Passport – Incarnate as an explorer, hunting throughout Vinpearl Safari Phu Quoc"
+          ]
+        }
+      ],
+      "tables": [
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "SPECIAL, on the occasion of the 33rd anniversary of the establishment of Vingroup, VinClub members receive X3 entertainment privileges with attractive incentives at VinWonders and entertainment destinations in the ecosystem. See now here."
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Membership class",
+              "Preferential rate",
+              "Promotion code"
+            ],
+            [
+              "NONE/MEMBER/GOLD",
+              "2%",
+              "MEMBER2"
+            ],
+            [
+              "PLATINUM",
+              "3%",
+              "PLATINUM3"
+            ],
+            [
+              "DIAMOND",
+              "5%",
+              "DIAMOND5"
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Membership class",
+              "Preferential rate",
+              "Promotion code"
+            ],
+            [
+              "NONE/MEMBER/GOLD",
+              "10%",
+              "MEMBER10"
+            ],
+            [
+              "PLATINUM",
+              "12%",
+              "PLATINUM12"
+            ],
+            [
+              "DIAMOND",
+              "15%",
+              "DIAMOND15"
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Membership class",
+              "Preferential rate",
+              "Promotion code"
+            ],
+            [
+              "NONE/MEMBER/GOLD",
+              "3%",
+              "MEMBER3"
+            ],
+            [
+              "PLATINUM",
+              "4%",
+              "PLATINUM4"
+            ],
+            [
+              "DIAMOND",
+              "5%",
+              "DIAMOND5"
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Membership class",
+              "Point accumulation level"
+            ],
+            [
+              "GOLD",
+              "1%"
+            ],
+            [
+              "PLATINUM",
+              "1.5%"
+            ],
+            [
+              "DIAMOND",
+              "2%"
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Gold rank",
+              "Platinum level",
+              "Diamond class"
+            ],
+            [
+              "Voucher 200,000 VND",
+              "Voucher 300,000 VND",
+              "Voucher 500,000 VND"
+            ],
+            [
+              "Note: Applicable when purchasing services on VinWonders website/app Voucher validity: within 03 months from the date of receipt of voucher"
+            ]
+          ]
+        },
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Gold rank",
+              "Platinum level",
+              "Diamond class"
+            ],
+            [
+              "Voucher 200,000 VND",
+              "Voucher 300,000 VND",
+              "Voucher 500,000 VND"
+            ],
+            [
+              "Note: Each customer is given 02 vouchers: 01 voucher is applicable when purchasing services on the VinWonders website/app, 01 voucher is applicable when using culinary services at Vinpearl establishments. Voucher validity: within 03 months from the date of receipt of the voucher. Make sure to check the application eligibility when the customer provides the voucher. Applicable to customers who already have date of birth data in their account before their birthday."
+            ]
+          ]
+        }
+      ],
+      "full_text": "VinClub Membership Privileges: Up to 15% Discount When Buying VinWonders Tickets\n\nBecome a VinClub member to enjoy up to 15% discount when purchasing VinWonders tickets via the VinWonders website and application. In addition, you also have the opportunity to accumulate and redeem reward points to receive discounts on your next bookings.\n\nSPECIAL, on the occasion of the 33rd anniversary of the establishment of Vingroup, VinClub members receive X3 entertainment privileges with attractive incentives at VinWonders and entertainment destinations in the ecosystem. See now here.\n\n1. Ticket purchase benefits with up to 15% discount\n\nVinClub members who buy VinWonders entertainment tickets at the website vinwonders.com and VinWonders application and enter the promotional code will enjoy up to 15% discount on services. Preferential rates apply according to membership class and facility. Hunt for tickets online now!\n\nGroup 1: VinWonders Nha Trang, VinWonders Phu Quoc, Vinpearl Safari Phu Quoc:\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 2% | MEMBER2\n\nPLATINUM | 3% | PLATINUM3\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinWonders Nha Trang\n\nVinWonders Phu Quoc\n\nVinpearl Safari Phu Quoc\n\nGroup 2: Vinpearl Harbor Nha Trang, Aquafield Nha Trang, Hon Tam Mud Bath, VinWonders Wave Park & Water Park, VinKE & Vinpearl Aquarium (Times City), Grand World (Ocean City), Grand Park.\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 10% | MEMBER10\n\nPLATINUM | 12% | PLATINUM12\n\nDIAMOND | 15% | DIAMOND15\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nVinpearl Harbor Nha Trang\n\nAquafield Nha Trang\n\nMud bath at Hon Tam\n\nVinWonders Wave Park & Water Park\n\nVinKE & Vinpearl Aquarium\n\nGrand World (Ocean City)\n\nGrand Park\n\nGroup 3: Grand World Phu Quoc, VinWonders Cua Hoi, VinWonders Nam Hoi An, VinWonders Vu Yen.\n\nMembership Class | Preferential rates | Promotion code\n\nNONE/MEMBER/GOLD | 3% | MEMBER3\n\nPLATINUM | 4% | PLATINUM4\n\nDIAMOND | 5% | DIAMOND5\n\nLog in to receive VinClub offers and hunt for tickets now!\n\nGrand World Phu Quoc\n\nVinWonders Cua Hoi\n\nVinWonders Nam Hoi An\n\nVinWonders Vu Yen\n\nNote:\n\nMembership promotion code is applied at the same time on the directly discounted price.\n\nThe above incentives do not include products that are clearly stated in the terms and conditions of each period and incentive programs, if any.\n\n2. Benefits & highlights\n\nIn addition to discounts, VinClub members from Gold level or higher can also accumulate Vpoints after each order and use these points for subsequent ticket bookings. Maximize your savings and enjoy your experience - have fun with VinWonders!\n\n2.1. How to accumulate VPoints:\n\nVPoints are accumulated on each transaction (VAT included) after preferential deduction according to VinWonders policy.\n\nThe value of VPoint accumulated points is converted according to the formula 1,000 VND = 1 VPoint.\n\nVPoint is used indefinitely.\n\nEach online transaction for VinWonders can only accumulate VPoints in 01 VinClub account.\n\nMembership Class | Point accumulation level\n\nGOLD | 1%\n\nPLATINUM | 1.5%\n\nDIAMOND | 2%\n\n2.2. How to spend VPoint\n\nVPoint is used to pay for online ticket purchases on the VinWonders web/app. Customers can choose to focus on the checkout flow (refer to the illustration below).\n\nVPoints cannot be converted to cash.\n\nVPoint spending value is converted according to the formula 1,000 VND = 1 VPoint.\n\nEach transaction can only be used to spend VPoints from 01 VinClub account.\n\nWith a quick, convenient and completely free registration method, you will enjoy attractive benefits exclusively for Vinclub members and experience unique, 1-0-2 entertainment, discovery, cultural and festival activities at VinWonders. Furthermore, many incentives within the Vinpearl and Vingroup ecosystems are waiting for you, register as a VinClub member today!\n\n3. VinClub card upgrade benefits\n\nWhen upgrading VinClub membership, customers will be given preferential vouchers corresponding to each card class, applicable when purchasing VinWonders tickets or using services at Vinpearl:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Applicable when purchasing services on VinWonders website/app Voucher validity: within 03 months from the date of receipt of voucher\n\n4. Birthday gifts for VinClub members\n\nOn the occasion of their birthday, VinClub offers members special promotional vouchers:\n\nGold Rank | Platinum Class | Diamond class\n\nVoucher 200,000 VND | Voucher 300,000 VND | Voucher 500,000 VND\n\nNote: Each customer is given 02 vouchers: 01 voucher is applicable when purchasing services on the VinWonders website/app, 01 voucher is applicable when using culinary services at Vinpearl establishments. Voucher validity: within 03 months from the date of receipt of the voucher. Make sure to check the application eligibility when the customer provides the voucher. Applicable to customers who already have date of birth data in their account before their birthday.\n\nContact information: Hotline: 1900 23 23 28 Email: [email protected]",
+      "word_count": 965,
+      "crawled_at": "2026-08-01T18:55:26Z",
+      "content_hash": "6996e566920403230a3e2f4075ca36444f41d838d577914a560011500daa6a77",
+      "crawl_method": "httpx",
+      "quality_score": 0.9,
+      "needs_review": false,
+      "review_notes": [
+        "No applicable conditions found"
+      ],
+      "duplicate_candidates": []
+    },
+    {
+      "promotion_id": "708c814c95ca112fc3cbe953",
+      "title": "[MEGA SALE 8.8] Up to 50% off VinWonders ticket prices",
+      "slug": "flash-sale-double-day",
+      "summary": "On the occasion of August 8, VinWonders offers you a promotion with up to 50% discount on ticket prices. Go swinging with your friends, freely explore VinWonders and enjoy a bustling vacation with countless great deals.",
+      "promotion_type": [
+        "flash_sale",
+        "app_offer",
+        "promo_code",
+        "voucher",
+        "combo_package",
+        "ticket_discount",
+        "spa_offer",
+        "food_offer",
+        "cross_brand_offer"
+      ],
+      "promotion_status": "upcoming",
+      "status_reason": "The start date has not yet arrived (2026-08-08)",
+      "status_calculated_at": "2026-08-01T18:55:26Z",
+      "source_brand": "vinwonders",
+      "related_brands": [
+        "vinpearl",
+        "vinpearl_safari",
+        "grand_world"
+      ],
+      "source_domain": "vinwonders.com",
+      "source_domains": [
+        "vinwonders.com"
+      ],
+      "primary_source_url": "https://vinwonders.com/vi/uu-dai/flash-sale-double-day",
+      "source_urls": [
+        "https://vinwonders.com/vi/uu-dai/flash-sale-double-day"
+      ],
+      "canonical_url": "https://vinwonders.com/vi/uu-dai/flash-sale-double-day",
+      "language": "en",
+      "image_urls": [
+        "https://static.vinwonders.com/production/2026/07/7.7-NO-TEXT-1920x920-copy-1_1783313339.jpg",
+        "https://static.vinwonders.com/production/2026/07/final-mobile_1783336451.jpg",
+        "https://vinwonders.com/wp-content/themes/vinwonders/images/location-white.svg",
+        "https://static.vinwonders.com/production/2026/04/vinwonders-nha-trang-sale.jpg",
+        "https://static.vinwonders.com/production/2025/12/VinWonders-Nam-Hoi-An-creates-a-day-full-of-discovery.jpg",
+        "https://static.vinwonders.com/production/2026/05/3cbd16b8edc74f6abc7f7cfa0e91caec_VPHB_Photos15_vinwonders-nha-trang-ve-vao-cua-2-chieu.jpg",
+        "https://static.vinwonders.com/production/2025/09/xong-hoi-tai-aquafield-ocean-city.jpg",
+        "https://static.vinwonders.com/production/2025/10/tam-bun-khoang-tai-hon-tam.jpg",
+        "https://static.vinwonders.com/production/2025/12/vinwonders-phu-quoc-1.jpg",
+        "https://static.vinwonders.com/production/2025/12/vinpearl-safari-phu-quoc.jpg",
+        "https://static.vinwonders.com/production/Venice-grand-world-phu-quoc.jpg",
+        "https://static.vinwonders.com/production/2025/08/check-in-cong-vien-grand-park.jpg",
+        "https://static.vinwonders.com/production/2025/09/banner-vw-vu-yen.jpg",
+        "https://static.vinwonders.com/production/2026/02/Thuy-cung-Vinpearl-Aquarium.jpg",
+        "https://static.vinwonders.com/production/2025/09/phong-may-Aquafield-Ocean-City.jpg",
+        "https://static.vinwonders.com/production/2026/04/cong-vien-nuoc-vinwonders-cua-hoi-2.jpg",
+        "https://static.vinwonders.com/production/2025/09/cheo-thuyen-kayak-tai-vinwonders-wave-parkwater-park.jpg",
+        "https://static.vinwonders.com/production/2026/05/mega-grand-world-ha-noi-5_1778470879.jpg",
+        "https://vinwonders.com/wp-content/themes/vinwonders/images/cart-offers.png",
+        "https://static.vinwonders.com/production/2026/02/vinwonders-nha-trang-6_1695746695.jpg"
+      ],
+      "booking_url": "https://booking.vinwonders.com/vi-VND/cart?quantity=1&ticketCode=VW00661VWNT11NL1&usingDate=2025-06-15",
+      "app_url": null,
+      "terms_url": null,
+      "related_promotions": [],
+      "related_articles": [],
+      "destinations": [
+        "Nha Trang",
+        "Phu Quoc",
+        "Hoi An",
+        "Nghe An",
+        "Hanoi",
+        "Hai Phong",
+        "Ho Chi Minh City"
+      ],
+      "applicable_properties": [
+        "Vinwonders Gioi Thieu Chuong",
+        "Vinwonders Uu Dai Den",
+        "Vinwonders De Nhan Duoc",
+        "Vinwonders Nha Trang –",
+        "Vinwonders Nam Hoi An",
+        "Vinwonders Phu Quoc Voi",
+        "Vinwonders Cua Hoi Voi",
+        "Vinwonders Wave Park &",
+        "Vinwonders Nha Trang Giam",
+        "Vinwonders Phu Quoc Giam",
+        "Vinwonders Vu Yen Giam",
+        "Vinwonders Cua Hoi Giam",
+        "Vinwonders 2026 Loai Ve",
+        "Vinwonders Phu Quoc |",
+        "Vinwonders Nha Trang |",
+        "Vinwonders Vu Yen |",
+        "Vinwonders Cua Hoi |",
+        "Vinwonders Nhan Thong Tin",
+        "Vinpearl Safari Phu Quoc –",
+        "Vinpearl Safari Phu Quoc Giam"
+      ],
+      "applicable_services": [
+        "theme_park_ticket",
+        "safari_ticket",
+        "tour",
+        "experience",
+        "spa",
+        "food_and_beverage",
+        "transportation"
+      ],
+      "customer_groups": [
+        "app_user",
+        "family"
+      ],
+      "member_tiers": [],
+      "channels": [
+        "mobile_app"
+      ],
+      "promo_codes": [
+        {
+          "code": "VWNT15",
+          "description": "",
+          "source_text": "VWNT15",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "VWNHA30",
+          "description": "",
+          "source_text": "VWNHA30",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "SAFPQ15",
+          "description": "",
+          "source_text": "SAFPQ15",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "VWPQ15",
+          "description": "",
+          "source_text": "VWPQ15",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "GWPQ30",
+          "description": "",
+          "source_text": "GWPQ30",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "VPHB30",
+          "description": "",
+          "source_text": "VPHB30",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "AQF30",
+          "description": "",
+          "source_text": "AQF30",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "HT30",
+          "description": "",
+          "source_text": "HT30",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "VWVY15",
+          "description": "",
+          "source_text": "VWVY15",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "GP50",
+          "description": "",
+          "source_text": "GP50",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "GIẢM TRỰC TIẾP",
+          "description": "",
+          "source_text": "Direct discount",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "VKATC50",
+          "description": "",
+          "source_text": "VKATC50",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "VWCH30",
+          "description": "",
+          "source_text": "VWCH30",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "WP50",
+          "description": "",
+          "source_text": "WP50",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "GW30",
+          "description": "",
+          "source_text": "GW30",
+          "conditions": [],
+          "validity": null
+        }
+      ],
+      "benefits": [
+        {
+          "benefit_type": "percentage_discount",
+          "value": 50.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "[MEGA SALE 8.8] Up to 50% off VinWonders ticket prices\n\nINTRODUCING THE PROMOTION PROGRAM\n\n⏰ Application time: 00:00 – 23:59 08/",
+          "source_text": "Up to 50% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 50.0,
+          "unit": "percent",
+          "maximum": true,
+          "description": "H OFFER\n\n⏰ Application time: 00:00 – 23:59 August 8, 2026\n\n🎁 On the occasion of the double day of August 8, VinWonders offers up to 50% discount on ticket prices (maximum 300,000 VND) when booking tickets on August 8, 2026.\n\nNote:…",
+          "source_text": "Up to 50% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "poetic sceneries and memorable moments\n\nPROMOTION CODE COUNTER\n\nVinWonders Nha Trang\n\n15% off\n\nVWNT15\n\nVinWonders Nam Hoi An\n\n30% off\n\nVWNHA30\n\nVinpearl Safari Phu Quoc\n\nFake…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "remember\n\nPROMOTION CODE COUNTER\n\nVinWonders Nha Trang\n\n15% off\n\nVWNT15\n\nVinWonders Nam Hoi An\n\n30% off\n\nVWNHA30\n\nVinpearl Safari Phu Quoc\n\n15% off\n\nSAFPQ15\n\nVinWonders Phu Quoc\n\nReduce…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "ng\n\n15% off\n\nVWNT15\n\nVinWonders Nam Hoi An\n\n30% off\n\nVWNHA30\n\nVinpearl Safari Phu Quoc\n\n15% off\n\nSAFPQ15\n\nVinWonders Phu Quoc\n\n15% off\n\nVWPQ15\n\nGrand World Phu Quoc\n\n30% off…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "An\n\n30% off\n\nVWNHA30\n\nVinpearl Safari Phu Quoc\n\n15% off\n\nSAFPQ15\n\nVinWonders Phu Quoc\n\n15% off\n\nVWPQ15\n\nGrand World Phu Quoc\n\n30% off\n\nGWPQ30\n\nVinpearl Harbor Nha Trang\n\nReduce…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Phu Quoc\n\n15% off\n\nSAFPQ15\n\nVinWonders Phu Quoc\n\n15% off\n\nVWPQ15\n\nGrand World Phu Quoc\n\n30% off\n\nGWPQ30\n\nVinpearl Harbor Nha Trang\n\n30% off\n\nVPHB30\n\nAquafield Nha Trang\n\nReduce…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "snail\n\n15% off\n\nVWPQ15\n\nGrand World Phu Quoc\n\n30% off\n\nGWPQ30\n\nVinpearl Harbor Nha Trang\n\n30% off\n\nVPHB30\n\nAquafield Nha Trang\n\n30% off\n\nAQF30\n\nHon Tam\n\n30% off\n\nHT30\n\nVinWonde…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "uoc\n\n30% off\n\nGWPQ30\n\nVinpearl Harbor Nha Trang\n\n30% off\n\nVPHB30\n\nAquafield Nha Trang\n\n30% off\n\nAQF30\n\nHon Tam\n\n30% off\n\nHT30\n\nVinWonders Vu Yen\n\n15% off\n\nVWVY15\n\nPark…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Pearl Harbor Nha Trang\n\n30% off\n\nVPHB30\n\nAquafield Nha Trang\n\n30% off\n\nAQF30\n\nHon Tam\n\n30% off\n\nHT30\n\nVinWonders Vu Yen\n\n15% off\n\nVWVY15\n\nGrand Park – City. Ho Chi Minh…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "VPHB30\n\nAquafield Nha Trang\n\n30% off\n\nAQF30\n\nHon Tam\n\n30% off\n\nHT30\n\nVinWonders Vu Yen\n\n15% off\n\nVWVY15\n\nGrand Park – City. Ho Chi Minh\n\n50% off\n\nGP50\n\nAquafield Ocean…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 50.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "m 30%\n\nHT30\n\nVinWonders Vu Yen\n\n15% off\n\nVWVY15\n\nGrand Park – City. Ho Chi Minh\n\n50% off\n\nGP50\n\nAquafield Ocean City (Sauna & Spa)\n\n30% off\n\nDirect discount\n\nVinKE & Vin…",
+          "source_text": "50% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Grand Park – City. Ho Chi Minh\n\n50% off\n\nGP50\n\nAquafield Ocean City (Sauna & Spa)\n\n30% off\n\nDirect discount\n\nVinKE & Vinpearl Aquarium Times City\n\n50% off\n\nVKATC50\n\nVinWon…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 50.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Ocean City (Sauna & Spa)\n\n30% off\n\nDirect discount\n\nVinKE & Vinpearl Aquarium Times City\n\n50% off\n\nVKATC50\n\nVinWonders Cua Hoi\n\n30% off\n\nVWCH30\n\nVinWonders Wave Park & Water Park…",
+          "source_text": "50% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "m directly\n\nVinKE & Vinpearl Aquarium Times City\n\n50% off\n\nVKATC50\n\nVinWonders Cua Hoi\n\n30% off\n\nVWCH30\n\nVinWonders Wave Park & Water Park\n\n50% off\n\nWP50\n\nGrand World – Ocean…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 50.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "50% negative\n\nVKATC50\n\nVinWonders Cua Hoi\n\n30% off\n\nVWCH30\n\nVinWonders Wave Park & Water Park\n\n50% off\n\nWP50\n\nGrand World – Ocean City\n\n30% off\n\nGW30\n\nVINWONDERS 2026 TICKET PRICES\n\nTicket type…",
+          "source_text": "50% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 30.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "30%\n\nVWCH30\n\nVinWonders Wave Park & Water Park\n\n50% off\n\nWP50\n\nGrand World – Ocean City\n\n30% off\n\nGW30\n\nVINWONDERS 2026 TICKET PRICES\n\nTicket type (standard) | Adults (VND) | Children (…",
+          "source_text": "30% off"
+        },
+        {
+          "benefit_type": "gift",
+          "value": 200000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "Grand World Phu Quoc with Water Taxi, Essence of Vietnam show, Bear Museum and gift voucher 200,000 VND\n\nExplore the vibrant water park and Dream Garden with fun games…",
+          "source_text": "donate 200,000 VND"
+        }
+      ],
+      "discount_text": "Up to 50%",
+      "booking_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "stay_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "purchase_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "redemption_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "general_validity": {
+        "raw_text": "00:00 – 23:59 08/08/2026",
+        "start_date": "2026-08-08",
+        "end_date": "2026-08-08"
+      },
+      "recurring_schedule": null,
+      "published_at": null,
+      "updated_at": null,
+      "terms_and_conditions": [],
+      "excluded_dates": [
+        "The program applies to standard admission tickets and combo tickets as prescribed, not applicable to individual utility tickets, Local and Student tickets."
+      ],
+      "combination_rules": [
+        "Enjoy a Korean standard sauna with 7 treatment rooms that combine hot and cold baths, dry and wet saunas, and relax in a separate space.",
+        "Enjoy a premium Korean-standard sauna experience with a system of 9 specialized treatment rooms, combining hot and cold baths and wet and dry saunas"
+      ],
+      "redemption_steps": [],
+      "contact_information": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "[MEGA SALE 8.8] Up to 50% off VinWonders ticket prices"
+        },
+        {
+          "level": 2,
+          "text": "INTRODUCING THE PROMOTION PROGRAM"
+        },
+        {
+          "level": 2,
+          "text": "PROMOTION CODE COUNTER"
+        },
+        {
+          "level": 2,
+          "text": "INSTRUCTIONS FOR BOOKING TICKETS TO RECEIVE PROMOTIONS"
+        },
+        {
+          "level": 2,
+          "text": "VINWONDERS 2026 TICKET PRICES"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "INTRODUCING THE PROMOTION PROGRAM",
+          "level": 2,
+          "content": [
+            "⏰ Application time: 00:00 – 23:59 August 8, 2026",
+            "🎁 On the occasion of the double day of August 8, VinWonders offers up to 50% discount on ticket prices (maximum 300,000 VND) when booking tickets on August 8, 2026.",
+            "Note:",
+            "The number of promotional codes is limited, the program may end earlier than expected when the codes run out.",
+            "Customers please buy tickets via VinWonders web/app to receive incentives.",
+            "Each account can apply the promotion once.",
+            "The program applies to standard admission tickets and combo tickets as prescribed, not applicable to individual utility tickets, Local and Student tickets.",
+            "Ready to explore VinWonders Nha Trang - a park of records with 6 themed zones and hundreds of exciting entertainment experiences",
+            "Explore VinWonders Nam Hoi An with River Safari, Water Park, Folklore Island, Adventure Land and colorful Game zone",
+            "Don't miss the journey through the air, see the entire bay from the spectacular 2-way cable car, admire the blue ocean stretching endlessly",
+            "Enjoy a Korean standard sauna with 7 treatment rooms that combine hot and cold baths, dry and wet saunas, and relax in a separate space.",
+            "Relax in a mineral mud bath, cleanse your skin, regenerate energy and restore your body, then immerse yourself in the cool sea water",
+            "Fully experience VinWonders Phu Quoc with thrilling games, a vibrant water park and impressive check-in points",
+            "Explore Vinpearl Safari Phu Quoc - the first semi-wild zoo in Vietnam with attractive culinary vouchers to make your journey more complete",
+            "Enjoy a day at Grand World Phu Quoc with Water Taxi, Essence of Vietnam show, Bear Museum and gift voucher of 200,000 VND",
+            "Explore the vibrant water park and Dream Garden with exciting entertainment games such as dolphin roller coaster, music express, spinning cup,...",
+            "Have fun at the Zoo - Animal Kingdom and Game area, explore the lively animal world and experience all-day entertainment",
+            "Explore the exciting ocean world at Vinpearl Aquarium and immerse yourself in the creative entertainment and educational space at VinKE",
+            "Enjoy a premium Korean-standard sauna experience with a system of 9 specialized treatment rooms, combining hot and cold baths and wet and dry saunas",
+            "Experience VinWonders Cua Hoi with a unique sea-crossing cable car and a vibrant water park with 17 clusters of top-notch water slides",
+            "Explore VinWonders Wave Park & Water Park with a series of exciting water games and attractive slides suitable for all ages",
+            "Explore Grand World – Ocean City with a 2-way gondola ticket, admire the poetic scenery and capture memorable moments"
+          ]
+        },
+        {
+          "heading": "PROMOTION CODE COUNTER",
+          "level": 2,
+          "content": [
+            "VinWonders Nha Trang",
+            "15% off",
+            "VWNT15",
+            "VinWonders Nam Hoi An",
+            "30% off",
+            "VWNHA30",
+            "Vinpearl Safari Phu Quoc",
+            "15% off",
+            "SAFPQ15",
+            "VinWonders Phu Quoc",
+            "15% off",
+            "VWPQ15",
+            "Grand World Phu Quoc",
+            "30% off",
+            "GWPQ30",
+            "Vinpearl Harbour Nha Trang",
+            "30% off",
+            "VPHB30",
+            "Aquafield Nha Trang",
+            "30% off",
+            "AQF30",
+            "Hon Tam",
+            "30% off",
+            "HT30",
+            "VinWonders Vu Yen",
+            "15% off",
+            "VWVY15",
+            "Grand Park – City. Ho Chi Minh",
+            "50% off",
+            "GP50",
+            "Aquafield Ocean City (Sauna & Spa)",
+            "30% off",
+            "Direct discount",
+            "VinKE & Vinpearl Aquarium Times City",
+            "50% off",
+            "VKATC50",
+            "VinWonders Cua Hoi",
+            "30% off",
+            "VWCH30",
+            "VinWonders Wave Park & Water Park",
+            "50% off",
+            "WP50",
+            "Grand World – Ocean City",
+            "30% off",
+            "GW30"
+          ]
+        },
+        {
+          "heading": "VINWONDERS 2026 TICKET PRICES",
+          "level": 2,
+          "content": [
+            "Ticket type (standard) | Adults (VND) | Children (VND) | Elderly people (VND)",
+            "VinWonders Phu Quoc | 950,000 | 710,000 | 710,000",
+            "Vinpearl Safari Phu Quoc | 850,000 | 650,000 | 650,000",
+            "VinWonders Nha Trang | 1.050.000 | 800.000 | 800.000",
+            "VinWonders Nam Hoi An | 650,000 | 450,000 | 450,000",
+            "VinWonders Vu Yen | 550,000 | 400,000 | 550,000",
+            "VinWonders Wave Park & Water Park | 300.000 | 230.000 | 300.000",
+            "VinWonders Cua Hoi | 200,000 | 120,000 | 200,000",
+            "Download now VinWonders App",
+            "Receive preferential information quickly and experience high-tech digital maps"
+          ]
+        }
+      ],
+      "bullet_lists": [
+        {
+          "type": "ul",
+          "items": [
+            "The number of promotional codes is limited, the program may end earlier than expected when the codes run out.",
+            "Customers please buy tickets via VinWonders web/app to receive incentives.",
+            "Each account can apply the promotion once.",
+            "The program applies to standard admission tickets and combo tickets as prescribed, not applicable to individual utility tickets, Local and Student tickets."
+          ]
+        }
+      ],
+      "tables": [
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Ticket type (standard)",
+              "Adults (VND)",
+              "Children (VND)",
+              "Elderly people (VND)"
+            ],
+            [
+              "VinWonders Phu Quoc",
+              "950.000",
+              "710.000",
+              "710.000"
+            ],
+            [
+              "Vinpearl Safari Phu Quoc",
+              "850.000",
+              "650.000",
+              "650.000"
+            ],
+            [
+              "VinWonders Nha Trang",
+              "1.050.000",
+              "800.000",
+              "800.000"
+            ],
+            [
+              "VinWonders Nam Hoi An",
+              "650.000",
+              "450.000",
+              "450.000"
+            ],
+            [
+              "VinWonders Vu Yen",
+              "550.000",
+              "400.000",
+              "550.000"
+            ],
+            [
+              "VinWonders Wave Park & Water Park",
+              "300.000",
+              "230.000",
+              "300.000"
+            ],
+            [
+              "VinWonders Cua Hoi",
+              "200.000",
+              "120.000",
+              "200.000"
+            ]
+          ]
+        }
+      ],
+      "full_text": "[MEGA SALE 8.8] Up to 50% off VinWonders ticket prices\n\nINTRODUCING THE PROMOTION PROGRAM\n\n⏰ Application time: 00:00 – 23:59 August 8, 2026\n\n🎁 On the occasion of the double day of August 8, VinWonders offers up to 50% discount on ticket prices (maximum 300,000 VND) when booking tickets on August 8, 2026.\n\nNote:\n\nThe number of promotional codes is limited, the program may end earlier than expected when the codes run out.\n\nCustomers please buy tickets via VinWonders web/app to receive incentives.\n\nEach account can apply the promotion once.\n\nThe program applies to standard admission tickets and combo tickets as prescribed, not applicable to individual utility tickets, Local and Student tickets.\n\nReady to explore VinWonders Nha Trang - a park of records with 6 themed zones and hundreds of exciting entertainment experiences\n\nExplore VinWonders Nam Hoi An with River Safari, Water Park, Folklore Island, Adventure Land and colorful Game zone\n\nDon't miss the journey through the air, see the entire bay from the spectacular 2-way cable car, admire the blue ocean stretching endlessly\n\nEnjoy a Korean standard sauna with 7 treatment rooms that combine hot and cold baths, dry and wet saunas, and relax in a separate space.\n\nRelax in a mineral mud bath, cleanse your skin, regenerate energy and restore your body, then immerse yourself in the cool sea water\n\nFully experience VinWonders Phu Quoc with thrilling games, a vibrant water park and impressive check-in points\n\nExplore Vinpearl Safari Phu Quoc - the first semi-wild zoo in Vietnam with attractive culinary vouchers to make your journey more complete\n\nEnjoy a day at Grand World Phu Quoc with Water Taxi, Essence of Vietnam show, Bear Museum and gift voucher of 200,000 VND\n\nExplore the vibrant water park and Dream Garden with exciting entertainment games such as dolphin roller coaster, music express, spinning cup,...\n\nHave fun at the Zoo - Animal Kingdom and Game area, explore the lively animal world and experience all-day entertainment\n\nExplore the exciting ocean world at Vinpearl Aquarium and immerse yourself in the creative entertainment and educational space at VinKE\n\nEnjoy a premium Korean-standard sauna experience with a system of 9 specialized treatment rooms, combining hot and cold baths and wet and dry saunas\n\nExperience VinWonders Cua Hoi with a unique sea-crossing cable car and a vibrant water park with 17 clusters of top-notch water slides\n\nExplore VinWonders Wave Park & Water Park with a series of exciting water games and attractive slides suitable for all ages\n\nExplore Grand World – Ocean City with a 2-way gondola ticket, admire the poetic scenery and capture memorable moments\n\nPROMOTION CODE COUNTER\n\nVinWonders Nha Trang\n\n15% off\n\nVWNT15\n\nVinWonders Nam Hoi An\n\n30% off\n\nVWNHA30\n\nVinpearl Safari Phu Quoc\n\n15% off\n\nSAFPQ15\n\nVinWonders Phu Quoc\n\n15% off\n\nVWPQ15\n\nGrand World Phu Quoc\n\n30% off\n\nGWPQ30\n\nVinpearl Harbor Nha Trang\n\n30% off\n\nVPHB30\n\nAquafield Nha Trang\n\n30% off\n\nAQF30\n\nHon Tam\n\n30% off\n\nHT30\n\nVinWonders Vu Yen\n\n15% off\n\nVWVY15\n\nGrand Park – City. Ho Chi Minh\n\n50% off\n\nGP50\n\nAquafield Ocean City (Sauna & Spa)\n\n30% off\n\nDirect discount\n\nVinKE & Vinpearl Aquarium Times City\n\n50% off\n\nVKATC50\n\nVinWonders Cua Hoi\n\n30% off\n\nVWCH30\n\nVinWonders Wave Park & Water Park\n\n50% off\n\nWP50\n\nGrand World – Ocean City\n\n30% off\n\nGW30\n\nVINWONDERS 2026 TICKET PRICES\n\nTicket type (standard) | Adults (VND) | Children (VND) | Elderly people (VND)\n\nVinWonders Phu Quoc | 950,000 | 710,000 | 710,000\n\nVinpearl Safari Phu Quoc | 850,000 | 650,000 | 650,000\n\nVinWonders Nha Trang | 1,050,000 | 800,000 | 800,000\n\nVinWonders Nam Hoi An | 650,000 | 450,000 | 450,000\n\nVinWonders Vu Yen | 550,000 | 400,000 | 550,000\n\nVinWonders Wave Park & Water Park | 300,000 | 230,000 | 300,000\n\nVinWonders Cua Hoi | 200,000 | 120,000 | 200,000\n\nDownload now VinWonders App\n\nReceive preferential information quickly and experience high-tech digital maps",
+      "word_count": 764,
+      "crawled_at": "2026-08-01T18:55:24Z",
+      "content_hash": "6763eef2e2aa7963d1b7d4bfd61b5a0104ba7c4b216db473fabe242416952ef4",
+      "crawl_method": "httpx",
+      "quality_score": 0.9,
+      "needs_review": false,
+      "review_notes": [
+        "No applicable conditions found"
+      ],
+      "duplicate_candidates": []
+    },
+    {
+      "promotion_id": "ce3febc3c30da128a7377ef8",
+      "title": "🧡 Happy Member Day: X3 exclusive offer 🧡",
+      "slug": "member-day",
+      "summary": "Only on this 15th, X3 offers promotions for customers who are VinClub members or new registered members of the month. Hunt now, don't miss out!",
+      "promotion_type": [
+        "member_offer",
+        "vinclub_offer",
+        "app_offer",
+        "voucher",
+        "combo_package",
+        "ticket_discount",
+        "spa_offer",
+        "seasonal_offer",
+        "promo_code",
+        "cross_brand_offer"
+      ],
+      "promotion_status": "upcoming",
+      "status_reason": "The start date has not yet arrived (2026-08-15)",
+      "status_calculated_at": "2026-08-01T18:55:26Z",
+      "source_brand": "vinwonders",
+      "related_brands": [
+        "vinpearl",
+        "vinpearl_safari",
+        "grand_world",
+        "vinclub"
+      ],
+      "source_domain": "vinwonders.com",
+      "source_domains": [
+        "vinwonders.com"
+      ],
+      "primary_source_url": "https://vinwonders.com/vi/uu-dai/member-day",
+      "source_urls": [
+        "https://vinwonders.com/vi/uu-dai/member-day"
+      ],
+      "canonical_url": "https://vinwonders.com/vi/uu-dai/member-day",
+      "language": "en",
+      "image_urls": [
+        "https://static.vinwonders.com/production/2026/03/VWs-1920x1080-1.jpg",
+        "https://vinwonders.com/wp-content/themes/vinwonders/images/location-white.svg",
+        "https://static.vinwonders.com/production/2026/02/z7566705550462_793e5fbd373de5dcb2f66330a3f9a533.jpg",
+        "https://static.vinwonders.com/production/2025/12/VinWonders-Nam-Hoi-An-creates-a-day-full-of-discovery.jpg",
+        "https://static.vinwonders.com/production/2025/09/banner-vw-vu-yen.jpg",
+        "https://static.vinwonders.com/production/2026/05/cong-vien-nuoc-vinwonders-cua-hoi-2_1778470118.jpg",
+        "https://static.vinwonders.com/production/2026/05/cong-vien-nuoc-ha-tinh-2_1778470116.jpg",
+        "https://static.vinwonders.com/production/2026/05/696522081_845402598612463_8382850482423826329_n_1778475497.jpg",
+        "https://static.vinwonders.com/production/2025/12/vinwonders-phu-quoc-1.jpg",
+        "https://static.vinwonders.com/production/2025/12/vinpearl-safari-phu-quoc.jpg",
+        "https://static.vinwonders.com/production/Venice-grand-world-phu-quoc.jpg",
+        "https://static.vinwonders.com/production/2026/02/image-4-1.jpg",
+        "https://static.vinwonders.com/production/2025/09/xong-hoi-tai-aquafield-ocean-city.jpg",
+        "https://static.vinwonders.com/production/2025/10/tam-bun-khoang-tai-hon-tam.jpg",
+        "https://static.vinwonders.com/production/2025/08/check-in-cong-vien-grand-park.jpg",
+        "https://static.vinwonders.com/production/2026/02/Thuy-cung-Vinpearl-Aquarium.jpg",
+        "https://static.vinwonders.com/production/2025/09/phong-may-Aquafield-Ocean-City.jpg",
+        "https://static.vinwonders.com/production/2026/05/341e938f351e41248b1d79cd53de27c5_a3-52-_1778475509.jpg",
+        "https://vinwonders.com/wp-content/themes/vinwonders/images/cart-offers.png",
+        "https://static.vinwonders.com/production/2026/02/vinwonders-nha-trang-6_1695746695.jpg"
+      ],
+      "booking_url": "https://booking.vinwonders.com/vi-VND/search?code=NTVW1&style=b&tab=all&usingDate=11-05-2026",
+      "app_url": null,
+      "terms_url": null,
+      "related_promotions": [],
+      "related_articles": [],
+      "destinations": [
+        "Nha Trang",
+        "Phu Quoc",
+        "Hoi An",
+        "Nghe An",
+        "Ha Tinh",
+        "Hanoi",
+        "Hai Phong",
+        "Ho Chi Minh City"
+      ],
+      "applicable_properties": [
+        "Vinwonders Phu Quoc, Vinpearl",
+        "Vinwonders Nha Trang. Pearlvw8:",
+        "Vinwonders Nam Hoi An,",
+        "Vinwonders Vu Yen, Vinwonders",
+        "Vinwonders Cua Hoi. Pearlvw15:",
+        "Vinwonders Wave Park &",
+        "Vinwonders. Moi Tai Khoan",
+        "Vinwonders Nha Trang –",
+        "Vinwonders Nam Hoi An",
+        "Vinwonders Phu Quoc Voi",
+        "Vinwonders Nha Trang Giam",
+        "Vinwonders Vu Yen Giam",
+        "Vinwonders Phu Quoc Giam",
+        "Vinwonders Cua Hoi Giam",
+        "Vinwonders 2026 Loai Ve",
+        "Vinwonders Nha Trang |",
+        "Vinwonders Vu Yen |",
+        "Vinwonders Phu Quoc |",
+        "Vinwonders Cua Hoi |",
+        "Vinwonders Nhan Thong Tin"
+      ],
+      "applicable_services": [
+        "theme_park_ticket",
+        "safari_ticket",
+        "experience",
+        "spa",
+        "membership"
+      ],
+      "customer_groups": [
+        "vinclub_member",
+        "app_user",
+        "family"
+      ],
+      "member_tiers": [],
+      "channels": [
+        "mobile_app"
+      ],
+      "promo_codes": [
+        {
+          "code": "PEARLVW6",
+          "description": "",
+          "source_text": "PEARLVW6",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "PEARLVW8",
+          "description": "",
+          "source_text": "PEARLVW8",
+          "conditions": [],
+          "validity": null
+        },
+        {
+          "code": "PEARLVW15",
+          "description": "",
+          "source_text": "PEARLVW15",
+          "conditions": [],
+          "validity": null
+        }
+      ],
+      "benefits": [
+        {
+          "benefit_type": "percentage_discount",
+          "value": 6.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "VinClub members or new registered members during the month. Hunt now, don't miss out!\n\nPEARLVW6: 6% discount when buying entertainment tickets at VinWonders Phu Quoc, Vinpearl Safari Phu Quoc, VinWonders...",
+          "source_text": "6% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 8.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Play at VinWonders Phu Quoc, Vinpearl Safari Phu Quoc, VinWonders Nha Trang.\n\nPEARLVW8: 8% discount when buying entertainment tickets at VinWonders Nam Hoi An, Grand World Phu Quoc, VinWonders Vu...",
+          "source_text": "8% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "ders Nam Hoi An, Grand World Phu Quoc, VinWonders Vu Yen, VinWonders Cua Hoi.\n\nPEARLVW15: 15% discount when buying entertainment tickets at Vinpearl Harbor Nha Trang, Aquafield Nha Trang, Hon Tam...",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 6.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "romantic and take free photos right on the boat\n\nPROMOTION CODE COUNTER\n\nVinWonders Nha Trang\n\n6% off\n\nPEARLVW6\n\nVinWonders Nam Hoi An\n\n8% off\n\nPEARLVW8\n\nVinWonders Vu Yen\n\n8% off…",
+          "source_text": "6% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 8.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "boat\n\nPROMOTION CODE COUNTER\n\nVinWonders Nha Trang\n\n6% off\n\nPEARLVW6\n\nVinWonders Nam Hoi An\n\n8% off\n\nPEARLVW8\n\nVinWonders Vu Yen\n\n8% off\n\nPEARLVW8\n\nVinpearl Safari Phu Quoc\n\n6 off…",
+          "source_text": "8% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 8.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "ha Trang\n\n6% off\n\nPEARLVW6\n\nVinWonders Nam Hoi An\n\n8% off\n\nPEARLVW8\n\nVinWonders Vu Yen\n\n8% off\n\nPEARLVW8\n\nVinpearl Safari Phu Quoc\n\n6% off\n\nPEARLVW6\n\nVinWonders Phu Quoc\n\nReduce…",
+          "source_text": "8% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 6.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Oh An\n\n8% off\n\nPEARLVW8\n\nVinWonders Vu Yen\n\n8% off\n\nPEARLVW8\n\nVinpearl Safari Phu Quoc\n\n6% off\n\nPEARLVW6\n\nVinWonders Phu Quoc\n\n6% off\n\nPEARLVW6\n\nGrand World Phu Quoc\n\n8% off…",
+          "source_text": "6% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 6.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Yen\n\n8% off\n\nPEARLVW8\n\nVinpearl Safari Phu Quoc\n\n6% off\n\nPEARLVW6\n\nVinWonders Phu Quoc\n\n6% off\n\nPEARLVW6\n\nGrand World Phu Quoc\n\n8% off\n\nPEARLVW8\n\nVinWonders Cua Hoi\n\n8% off…",
+          "source_text": "6% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 8.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Howl Quoc\n\n6% off\n\nPEARLVW6\n\nVinWonders Phu Quoc\n\n6% off\n\nPEARLVW6\n\nGrand World Phu Quoc\n\n8% off\n\nPEARLVW8\n\nVinWonders Cua Hoi\n\n8% off\n\nPEARLVW8\n\nHa Tinh Water Park\n\n15 off…",
+          "source_text": "8% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 8.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Phu Quoc\n\n6% off\n\nPEARLVW6\n\nGrand World Phu Quoc\n\n8% off\n\nPEARLVW8\n\nVinWonders Cua Hoi\n\n8% off\n\nPEARLVW8\n\nHa Tinh Water Park\n\n15% off\n\nPEARLVW15\n\nVinWonders Wave Park & Wa…",
+          "source_text": "8% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "ú Quoc\n\n8% off\n\nPEARLVW8\n\nVinWonders Cua Hoi\n\n8% off\n\nPEARLVW8\n\nHa Tinh Water Park\n\n15% off\n\nPEARLVW15\n\nVinWonders Wave Park & Water Park\n\n15% off\n\nPEARLVW15\n\nAquafield Nh…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "PEARLVW8\n\nHa Tinh Water Park\n\n15% off\n\nPEARLVW15\n\nVinWonders Wave Park & Water Park\n\n15% off\n\nPEARLVW15\n\nAquafield Nha Trang\n\n15% off\n\nPEARLVW15\n\nVinpearl Harbor Nha Trang…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "PEARLVW15\n\nVinWonders Wave Park & Water Park\n\n15% off\n\nPEARLVW15\n\nAquafield Nha Trang\n\n15% off\n\nPEARLVW15\n\nVinpearl Harbor Nha Trang\n\n15% off\n\nPEARLVW15\n\nHon Tam\n\n15% off\n\nPE…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "15% off\n\nPEARLVW15\n\nAquafield Nha Trang\n\n15% off\n\nPEARLVW15\n\nVinpearl Harbor Nha Trang\n\n15% off\n\nPEARLVW15\n\nHon Tam\n\n15% off\n\nPEARLVW15\n\nGrand Park\n\n15% off\n\nPEARLV…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "Nha Trang\n\n15% off\n\nPEARLVW15\n\nVinpearl Harbor Nha Trang\n\n15% off\n\nPEARLVW15\n\nHon Tam\n\n15% off\n\nPEARLVW15\n\nGrand Park\n\n15% off\n\nPEARLVW15\n\nAquafield Ocean City (After…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "rbour Nha Trang\n\n15% off\n\nPEARLVW15\n\nHon Tam\n\n15% off\n\nPEARLVW15\n\nGrand Park\n\n15% off\n\nPEARLVW15\n\nAquafield Ocean City (Sauna & Spa)\n\n15% off\n\nPEARLVW15\n\nVinKE & Vin…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "PEARLVW15\n\nGrand Park\n\n15% off\n\nPEARLVW15\n\nAquafield Ocean City (Sauna & Spa)\n\n15% off\n\nPEARLVW15\n\nVinKE & Vinpearl Aquarium\n\n15% off\n\nPEARLVW15\n\nGrand World – Ocean…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "VW15\n\nAquafield Ocean City (Sauna & Spa)\n\n15% off\n\nPEARLVW15\n\nVinKE & Vinpearl Aquarium\n\n15% off\n\nPEARLVW15\n\nGrand World – Ocean City\n\n15% off\n\nPEARLVW15\n\nTICKET PRICE VINWONDERS 202…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "percentage_discount",
+          "value": 15.0,
+          "unit": "percent",
+          "maximum": false,
+          "description": "15%\n\nPEARLVW15\n\nVinKE & Vinpearl Aquarium\n\n15% off\n\nPEARLVW15\n\nGrand World – Ocean City\n\n15% off\n\nPEARLVW15\n\nVINWONDERS 2026 TICKET PRICES\n\nTicket type (standard) | Adults (VND) | Children…",
+          "source_text": "15% off"
+        },
+        {
+          "benefit_type": "gift",
+          "value": 200000.0,
+          "unit": "VND",
+          "maximum": false,
+          "description": "Grand World Phu Quoc with Water Taxi, Essence of Vietnam show, Bear Museum and gift voucher 200,000 VND\n\nSee the entire bay from the spectacular 2-way cable car, admire the ocean...",
+          "source_text": "donate 200,000 VND"
+        },
+        {
+          "benefit_type": "multiplier",
+          "value": 3.0,
+          "unit": "times",
+          "maximum": false,
+          "description": "🧡 Happy Member Day: X3 exclusive offer 🧡\n\nINTRODUCING THE PROMOTION PROGRAM\n\n⏰ Application time: 00:00 – 23:59 August 15, 2026\n\n🎁 Only",
+          "source_text": "X3"
+        },
+        {
+          "benefit_type": "multiplier",
+          "value": 3.0,
+          "unit": "times",
+          "maximum": false,
+          "description": "INCENTIVE PROGRAM\n\n⏰ Application time: 00:00 – 23:59 August 15, 2026\n\n🎁 Only on this 15th, X3 offers promotions for customers who are VinClub members or new registered members in the month...",
+          "source_text": "X3"
+        }
+      ],
+      "discount_text": "15% off",
+      "booking_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "stay_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "purchase_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "redemption_period": {
+        "raw_text": null,
+        "start_date": null,
+        "end_date": null
+      },
+      "general_validity": {
+        "raw_text": "00:00 – 23:59 15/08/2026",
+        "start_date": "2026-08-15",
+        "end_date": "2026-08-15"
+      },
+      "recurring_schedule": null,
+      "published_at": null,
+      "updated_at": null,
+      "terms_and_conditions": [],
+      "excluded_dates": [],
+      "combination_rules": [
+        "Enjoy a Korean standard sauna with 7 treatment rooms that combine hot and cold baths, dry and wet saunas, and relax in a separate space.",
+        "Enjoy a premium Korean-standard sauna experience with a system of 9 specialized treatment rooms, combining hot and cold baths and wet and dry saunas"
+      ],
+      "redemption_steps": [],
+      "contact_information": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "🧡 Happy Member Day: X3 exclusive offer 🧡"
+        },
+        {
+          "level": 2,
+          "text": "INTRODUCING THE PROMOTION PROGRAM"
+        },
+        {
+          "level": 2,
+          "text": "PROMOTION CODE COUNTER"
+        },
+        {
+          "level": 2,
+          "text": "INSTRUCTIONS FOR BOOKING TICKETS TO RECEIVE PROMOTIONS"
+        },
+        {
+          "level": 2,
+          "text": "VINWONDERS 2026 TICKET PRICES"
+        }
+      ],
+      "sections": [
+        {
+          "heading": "INTRODUCING THE PROMOTION PROGRAM",
+          "level": 2,
+          "content": [
+            "⏰ Application time: 00:00 – 23:59 August 15, 2026",
+            "🎁 Only on this 15th, X3 offers promotions for customers who are VinClub members or new registered members of the month. Hunt now, don't miss out!",
+            "PEARLVW6: 6% discount when buying entertainment tickets at VinWonders Phu Quoc, Vinpearl Safari Phu Quoc, VinWonders Nha Trang.",
+            "PEARLVW8: 8% discount when buying entertainment tickets at VinWonders Nam Hoi An, Grand World Phu Quoc, VinWonders Vu Yen, VinWonders Cua Hoi.",
+            "PEARLVW15: 15% discount when buying entertainment tickets at Vinpearl Harbor Nha Trang, Aquafield Nha Trang, Hon Tam, Grand Park - City. Ho Chi Minh, Aquafield Ocean City (Sauna & Spa), VinKE & Vinpearl Aquarium Times City, VinWonders Wave Park & Water Park, Grand World – Ocean City, Ha Tinh Water Park",
+            "Note:",
+            "To receive the promotion, please log in to your account and buy tickets via the VinWonders web/app.",
+            "Each account can apply the promotion once.",
+            "Ready to explore VinWonders Nha Trang - a park of records with 6 themed zones and hundreds of exciting entertainment experiences",
+            "Explore VinWonders Nam Hoi An with River Safari, Water Park, Folklore Island, Adventure Land and colorful Game zone",
+            "Have fun at the Zoo - Animal Kingdom and Game area, explore the lively animal world and experience exciting entertainment",
+            "Standard combo includes round-trip cable car ticket and admission to Aquatopia water park with 17 attractive slides for an explosive day of fun",
+            "Explore Ha Tinh Water Park, the largest water park in the North Central region, with more than 30 thrilling games and a 70-meter high Ferris wheel",
+            "Enjoy fun and cool off in the summer at VinWonders Wave Park & Water Park with a series of exciting games and thrilling slides",
+            "Fully experience VinWonders Phu Quoc with thrilling games, a vibrant water park and impressive check-in points",
+            "Explore Vinpearl Safari Phu Quoc - the first and only semi-wild zoo in Vietnam built according to the world Safari model",
+            "Enjoy a day at Grand World Phu Quoc with Water Taxi, Essence of Vietnam show, Bear Museum and gift voucher of 200,000 VND",
+            "See the entire bay from the spectacular 2-way cable car, admire the blue ocean and poetic natural scenery from above",
+            "Enjoy a Korean standard sauna with 7 treatment rooms that combine hot and cold baths, dry and wet saunas, and relax in a separate space.",
+            "Relax in a mineral mud bath, cleanse your skin, regenerate energy and restore your body, then immerse yourself in the cool sea water",
+            "Have fun at the water park and Dream Garden with a variety of water games suitable for all ages and exciting entertainment games",
+            "Explore the exciting ocean world at Vinpearl Aquarium and immerse yourself in the creative entertainment and educational space at VinKE",
+            "Enjoy a premium Korean-standard sauna experience with a system of 9 specialized treatment rooms, combining hot and cold baths and wet and dry saunas",
+            "Explore Grand World – Ocean City with a 2-way Gondola boat ticket, admire the romantic river views and take free photos right on the boat"
+          ]
+        },
+        {
+          "heading": "PROMOTION CODE COUNTER",
+          "level": 2,
+          "content": [
+            "VinWonders Nha Trang",
+            "6% off",
+            "PEARLVW6",
+            "VinWonders Nam Hoi An",
+            "8% off",
+            "PEARLVW8",
+            "VinWonders Vu Yen",
+            "8% off",
+            "PEARLVW8",
+            "Vinpearl Safari Phu Quoc",
+            "6% off",
+            "PEARLVW6",
+            "VinWonders Phu Quoc",
+            "6% off",
+            "PEARLVW6",
+            "Grand World Phu Quoc",
+            "8% off",
+            "PEARLVW8",
+            "VinWonders Cua Hoi",
+            "8% off",
+            "PEARLVW8",
+            "Ha Tinh Water Park",
+            "15% off",
+            "PEARLVW15",
+            "VinWonders Wave Park & Water Park",
+            "15% off",
+            "PEARLVW15",
+            "Aquafield Nha Trang",
+            "15% off",
+            "PEARLVW15",
+            "Vinpearl Harbour Nha Trang",
+            "15% off",
+            "PEARLVW15",
+            "Hon Tam",
+            "15% off",
+            "PEARLVW15",
+            "Grand Park",
+            "15% off",
+            "PEARLVW15",
+            "Aquafield Ocean City (Sauna & Spa)",
+            "15% off",
+            "PEARLVW15",
+            "VinKE & Vinpearl Aquarium",
+            "15% off",
+            "PEARLVW15",
+            "Grand World – Ocean City",
+            "15% off",
+            "PEARLVW15"
+          ]
+        },
+        {
+          "heading": "VINWONDERS 2026 TICKET PRICES",
+          "level": 2,
+          "content": [
+            "Ticket type (standard) | Adults (VND) | Children (VND) | Elderly people (VND)",
+            "VinWonders Nha Trang | 1.050.000 | 800.000 | 800.000",
+            "VinWonders Nam Hoi An | 650,000 | 450,000 | 450,000",
+            "VinWonders Vu Yen | 300,000 | 200,000 | 300,000",
+            "VinWonders Phu Quoc | 950,000 | 710,000 | 710,000",
+            "Vinpearl Safari Phu Quoc | 850,000 | 650,000 | 650,000",
+            "Aquafield Ocean City (Sauna & Spa) | 600.000 | 400.000 | 600.000",
+            "VinWonders Cua Hoi | 200,000 | 120,000 | 200,000",
+            "Ha Tinh Water Park | 80,000 | 40,000 | 80,000",
+            "Download now VinWonders App",
+            "Receive preferential information quickly and experience high-tech digital maps"
+          ]
+        }
+      ],
+      "bullet_lists": [
+        {
+          "type": "ul",
+          "items": [
+            "PEARLVW6: 6% discount when buying entertainment tickets at VinWonders Phu Quoc, Vinpearl Safari Phu Quoc, VinWonders Nha Trang.",
+            "PEARLVW8: 8% discount when buying entertainment tickets at VinWonders Nam Hoi An, Grand World Phu Quoc, VinWonders Vu Yen, VinWonders Cua Hoi.",
+            "PEARLVW15: 15% discount when buying entertainment tickets at Vinpearl Harbor Nha Trang, Aquafield Nha Trang, Hon Tam, Grand Park - City. Ho Chi Minh, Aquafield Ocean City (Sauna & Spa), VinKE & Vinpearl Aquarium Times City, VinWonders Wave Park & Water Park, Grand World – Ocean City, Ha Tinh Water Park"
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "To receive the promotion, please log in to your account and buy tickets via the VinWonders web/app.",
+            "Each account can apply the promotion once."
+          ]
+        }
+      ],
+      "tables": [
+        {
+          "caption": null,
+          "headers": [],
+          "rows": [
+            [
+              "Ticket type (standard)",
+              "Adults (VND)",
+              "Children (VND)",
+              "Elderly people (VND)"
+            ],
+            [
+              "VinWonders Nha Trang",
+              "1.050.000",
+              "800.000",
+              "800.000"
+            ],
+            [
+              "VinWonders Nam Hoi An",
+              "650.000",
+              "450.000",
+              "450.000"
+            ],
+            [
+              "VinWonders Vu Yen",
+              "300.000",
+              "200.000",
+              "300.000"
+            ],
+            [
+              "VinWonders Phu Quoc",
+              "950.000",
+              "710.000",
+              "710.000"
+            ],
+            [
+              "Vinpearl Safari Phu Quoc",
+              "850.000",
+              "650.000",
+              "650.000"
+            ],
+            [
+              "Aquafield Ocean City (Sauna & Spa)",
+              "600.000",
+              "400.000",
+              "600.000"
+            ],
+            [
+              "VinWonders Cua Hoi",
+              "200.000",
+              "120.000",
+              "200.000"
+            ],
+            [
+              "Ha Tinh Water Park",
+              "80.000",
+              "40.000",
+              "80.000"
+            ]
+          ]
+        }
+      ],
+      "full_text": "🧡 Happy Member Day: X3 exclusive offer 🧡\n\nINTRODUCING THE PROMOTION PROGRAM\n\n⏰ Application time: 00:00 – 23:59 August 15, 2026\n\n🎁 Only on this 15th, X3 offers promotions for customers who are VinClub members or new registered members of the month. Hunt now, don't miss out!\n\nPEARLVW6: 6% discount when buying entertainment tickets at VinWonders Phu Quoc, Vinpearl Safari Phu Quoc, VinWonders Nha Trang.\n\nPEARLVW8: 8% discount when buying entertainment tickets at VinWonders Nam Hoi An, Grand World Phu Quoc, VinWonders Vu Yen, VinWonders Cua Hoi.\n\nPEARLVW15: 15% discount when buying entertainment tickets at Vinpearl Harbor Nha Trang, Aquafield Nha Trang, Hon Tam, Grand Park - City. Ho Chi Minh, Aquafield Ocean City (Sauna & Spa), VinKE & Vinpearl Aquarium Times City, VinWonders Wave Park & Water Park, Grand World – Ocean City, Ha Tinh Water Park\n\nNote:\n\nTo receive the promotion, please log in to your account and buy tickets via the VinWonders web/app.\n\nEach account can apply the promotion once.\n\nReady to explore VinWonders Nha Trang - a park of records with 6 themed zones and hundreds of exciting entertainment experiences\n\nExplore VinWonders Nam Hoi An with River Safari, Water Park, Folklore Island, Adventure Land and colorful Game zone\n\nHave fun at the Zoo - Animal Kingdom and Game area, explore the lively animal world and experience exciting entertainment\n\nStandard combo includes round-trip cable car ticket and admission to Aquatopia water park with 17 attractive slides for an explosive day of fun\n\nExplore Ha Tinh Water Park, the largest water park in the North Central region, with more than 30 thrilling games and a 70-meter high Ferris wheel\n\nEnjoy fun and cool off in the summer at VinWonders Wave Park & Water Park with a series of exciting games and thrilling slides\n\nFully experience VinWonders Phu Quoc with thrilling games, a vibrant water park and impressive check-in points\n\nExplore Vinpearl Safari Phu Quoc - the first and only semi-wild zoo in Vietnam built according to the world Safari model\n\nEnjoy a day at Grand World Phu Quoc with Water Taxi, Essence of Vietnam show, Bear Museum and gift voucher of 200,000 VND\n\nSee the entire bay from the spectacular 2-way cable car, admire the blue ocean and poetic natural scenery from above\n\nEnjoy a Korean standard sauna with 7 treatment rooms that combine hot and cold baths, dry and wet saunas, and relax in a separate space.\n\nRelax in a mineral mud bath, cleanse your skin, regenerate energy and restore your body, then immerse yourself in the cool sea water\n\nHave fun at the water park and Dream Garden with a variety of water games suitable for all ages and exciting entertainment games\n\nExplore the exciting ocean world at Vinpearl Aquarium and immerse yourself in the creative entertainment and educational space at VinKE\n\nEnjoy a premium Korean-standard sauna experience with a system of 9 specialized treatment rooms, combining hot and cold baths and wet and dry saunas\n\nExplore Grand World – Ocean City with a 2-way Gondola boat ticket, admire the romantic river views and take free photos right on the boat\n\nPROMOTION CODE COUNTER\n\nVinWonders Nha Trang\n\n6% off\n\nPEARLVW6\n\nVinWonders Nam Hoi An\n\n8% off\n\nPEARLVW8\n\nVinWonders Vu Yen\n\n8% off\n\nPEARLVW8\n\nVinpearl Safari Phu Quoc\n\n6% off\n\nPEARLVW6\n\nVinWonders Phu Quoc\n\n6% off\n\nPEARLVW6\n\nGrand World Phu Quoc\n\n8% off\n\nPEARLVW8\n\nVinWonders Cua Hoi\n\n8% off\n\nPEARLVW8\n\nHa Tinh Water Park\n\n15% off\n\nPEARLVW15\n\nVinWonders Wave Park & Water Park\n\n15% off\n\nPEARLVW15\n\nAquafield Nha Trang\n\n15% off\n\nPEARLVW15\n\nVinpearl Harbor Nha Trang\n\n15% off\n\nPEARLVW15\n\nHon Tam\n\n15% off\n\nPEARLVW15\n\nGrand Park\n\n15% off\n\nPEARLVW15\n\nAquafield Ocean City (Sauna & Spa)\n\n15% off\n\nPEARLVW15\n\nVinKE & Vinpearl Aquarium\n\n15% off\n\nPEARLVW15\n\nGrand World – Ocean City\n\n15% off\n\nPEARLVW15\n\nVINWONDERS 2026 TICKET PRICES\n\nTicket type (standard) | Adults (VND) | Children (VND) | Elderly people (VND)\n\nVinWonders Nha Trang | 1,050,000 | 800,000 | 800,000\n\nVinWonders Nam Hoi An | 650,000 | 450,000 | 450,000\n\nVinWonders Vu Yen | 300,000 | 200,000 | 300,000\n\nVinWonders Phu Quoc | 950,000 | 710,000 | 710,000\n\nVinpearl Safari Phu Quoc | 850,000 | 650,000 | 650,000\n\nAquafield Ocean City (Sauna & Spa) | 600,000 | 400,000 | 600,000\n\nVinWonders Cua Hoi | 200,000 | 120,000 | 200,000\n\nHa Tinh Water Park | 80,000 | 40,000 | 80,000\n\nDownload now VinWonders App\n\nReceive preferential information quickly and experience high-tech digital maps",
+      "word_count": 862,
+      "crawled_at": "2026-08-01T18:55:24Z",
+      "content_hash": "02adaea0dbb12829aae30aa3c3e56ca82b6cea4c815fd6bba63107423bc3f880",
+      "crawl_method": "httpx",
+      "quality_score": 0.9,
+      "needs_review": false,
+      "review_notes": [
+        "No applicable conditions found"
+      ],
+      "duplicate_candidates": []
+    }
+  ]
+}

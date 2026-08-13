@@ -1,0 +1,116 @@
+{
+    "dataset_name": "VinWonders Grand Park Dataset",
+    "generated_at": "2026-08-02T14:17:26.387005+00:00",
+    "destination": {
+        "name": "VinWonders Grand Park",
+        "city": "Ho Chi Minh City",
+        "country": "Vietnam"
+    },
+    "page_information": {
+        "page_title": "Grand Park Ho Chi Minh City | Official Website",
+        "source_file": "/mnt/data/grand_park.html",
+        "source_url": "https://vinwonders.com/en/grand-park/",
+        "language": "en-US",
+        "meta_description": "Explore Grand Park with Tropical Island Water Park, The Enchanted Garden Theme Park, white-sand lagoon beaches and exciting activities all year round.",
+        "og_title": "Grand Park Ho Chi Minh City | Official Website",
+        "og_description": "Explore Grand Park with Tropical Island Water Park, The Enchanted Garden Theme Park, white-sand lagoon beaches and exciting activities all year round.",
+        "og_image": null
+    },
+    "sections": {
+        "top_reasons_to_visit": {
+            "title": "THE TOP REASONS YOU MUST VISIT VINWONDERS GRAND PARK",
+            "items": [
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/QUY05946-1.jpg",
+                    "description": "The Enchanted Garden Theme Park on a Grand Scale",
+                    "id": 1
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/500479379_1291977549594081_4123310104717326693_n.jpg",
+                    "description": "The Most Modern Tropical Island Water Park in the City",
+                    "id": 2
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/7c959052df8050de0991.jpg",
+                    "description": "A Series of Exciting Activities All Year Round",
+                    "id": 3
+                }
+            ]
+        },
+        "must_see_events": {
+            "title": "MUST-SEE EVENTS",
+            "items": [
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/3aa995b7e0656f3b3674.jpg",
+                    "title": "Welcome Show",
+                    "time": "3:00 PM – 3:15 PM | Friday to Sunday & Holidays",
+                    "location": "Main Gate – Tropical Island",
+                    "id": 1
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/nhac-giang-sinh-tieng-anh-19.jpg",
+                    "title": "Bigshow Wonder Circus",
+                    "time": "8:00 PM – 8:30 PM | Friday to Sunday",
+                    "location": "The Lawn at Enchanted Garden",
+                    "id": 2
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/PT_07562-1.jpg",
+                    "title": "Dancing with Wonder show - Hawaii",
+                    "time": "3:45 PM – 4:00 PM | Daily",
+                    "location": "Tropical Island",
+                    "id": 3
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/6L1A0722-scaled.jpg",
+                    "title": "Street Clown Circus",
+                    "time": "5:15 PM – 5:30 PM | Daily",
+                    "location": "Enchanted Garden",
+                    "id": 4
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/611000496_122165570474404115_4143951538822102768_n.jpg",
+                    "title": "Mini Wonder Circus",
+                    "time": "6:30 PM – 6:45 PM | Daily",
+                    "location": "Main Gate – Enchanted Garden",
+                    "id": 5
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/276925283842325765.jpg",
+                    "title": "Ocean Heart Music Band",
+                    "time": "7:00 PM – 8:00 PM | Friday to Sunday",
+                    "location": "The Lawn at Enchanted Garden Park and The Tsunami Bay at the Tropical Island",
+                    "id": 6
+                }
+            ]
+        },
+        "must_play_games": {
+            "title": "THE MUST-PLAY GAMES YOU DO NOT WANT TO MISS",
+            "items": [
+                {
+                    "image_url": "https://static.vinwonders.com/production/EVT00005-2-scaled.jpg",
+                    "title": "A diverse world of outdoor adventures",
+                    "description": "More than 30 rides and games, offering a complete journey from gentle relaxation to adrenaline-pumping thrills",
+                    "id": 1
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/605713139_122165003018404115_2458114861886619785_n.jpg",
+                    "title": "Signature water slides",
+                    "description": "Experience the hottest water slides: Mystery River, Turbo Drop, Beast Awakens, Roaring Waves, and more",
+                    "id": 2
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/01/HOA3438-1.jpg",
+                    "title": "Four-season Funfair",
+                    "description": "20 prize games deliver an exciting and engaging play experience.",
+                    "id": 3
+                }
+            ]
+        }
+    },
+    "statistics": {
+        "reason_count": 3,
+        "event_count": 6,
+        "game_count": 3
+    }
+}

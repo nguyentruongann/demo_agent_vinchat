@@ -1,0 +1,202 @@
+# Master data địa danh và khu phức hợp.
+#
+# ĐÂY LÀ FILE VIẾT TAY, KHÔNG SINH TỪ CRAWL. Mọi bảng khác móc về đây, nên sai
+# file này là hỏng cả nhánh dữ liệu. Xem docs/DATABASE.md §4 và §15.1.
+#
+# Quy tắc:
+#   - Mỗi bí danh chỉ được trỏ về ĐÚNG MỘT địa danh (UNIQUE toàn cục).
+#   - Bí danh được chuẩn hoá bằng src/normalize/text.py::normalize_alias
+#     trước khi ghi vào destination_alias.alias_normalized.
+#   - normalize_alias bỏ dấu, thường hoá và bỏ dấu câu, nên 'Hà Nội', 'Ha Noi',
+#     'ha_noi', 'ha-noi' đều ra cùng một khoá. Danh sách dưới đây vẫn liệt kê
+#     đủ các biến thể để người review thấy rõ cái gì đã được phủ; seeder tự khử
+#     trùng nên không sinh ra dòng thừa.
+#   - Danh sách aliases phải phủ hết chuỗi có thật trong data/, đã đối chiếu
+#     bằng scripts/seed_destinations.py --check.
+
+version: 1
+
+# Không phải địa danh. Gặp các chuỗi này thì đặt promotion.is_nationwide = true,
+# TUYỆT ĐỐI không tạo dòng destination giả.
+not_destinations:
+  - Nationwide
+  - Toàn quốc
+
+destinations:
+  - id: ha-noi
+    name_en: Hanoi
+    name_vi: Hà Nội
+    province: Hà Nội
+    region: north
+    has_content: true
+    aliases: [Hanoi, Ha Noi, Hà Nội, ha_noi, ha-noi]
+
+  - id: hai-phong
+    name_en: Hai Phong
+    name_vi: Hải Phòng
+    province: Hải Phòng
+    region: north
+    has_content: true
+    aliases: [Hai Phong, Hải Phòng, hai-phong, Hai Phong City]
+
+  - id: ha-long
+    name_en: Ha Long
+    name_vi: Hạ Long
+    province: Quảng Ninh          # tu dia chi khach san: "Ha Long City, Quang Ninh Province"
+    region: north
+    has_content: true
+    aliases: [Ha Long, Hạ Long, ha-long, Halong, Ha Long City]
+
+  - id: bac-ninh
+    name_en: Bac Ninh
+    name_vi: Bắc Ninh
+    province: Bắc Ninh
+    region: north
+    has_content: true
+    aliases: [Bac Ninh, Bắc Ninh, bac-ninh]
+
+  - id: nghe-an
+    name_en: Nghe An
+    name_vi: Nghệ An
+    province: Nghệ An
+    region: central
+    has_content: true
+    aliases: [Nghe An, Nghệ An, nghe-an, Cua Lo, Cửa Lò]
+
+  - id: ha-tinh
+    name_en: Ha Tinh
+    name_vi: Hà Tĩnh
+    province: Hà Tĩnh
+    region: central
+    has_content: true
+    aliases: [Ha Tinh, Hà Tĩnh, ha-tinh]
+
+  - id: hue
+    name_en: Hue
+    name_vi: Huế
+    province: Huế
+    region: central
+    has_content: false            # chi xuat hien trong promotion, khong co thuc the nao
+    aliases: [Hue, Huế, hue, Thua Thien Hue, Thừa Thiên Huế]
+
+  - id: da-nang
+    name_en: Da Nang
+    name_vi: Đà Nẵng
+    province: Đà Nẵng
+    region: central
+    has_content: false            # chi xuat hien trong promotion
+    aliases: [Da Nang, Đà Nẵng, da-nang, Danang]
+
+  - id: hoi-an
+    name_en: Hoi An
+    name_vi: Hội An
+    province: Quảng Nam           # tu dia chi khach san: "Thang Binh District, Quang Nam Province"
+    region: central
+    has_content: true
+    # "Nam Hoi An" la TEN KHU PHUC HOP nhung trong data no duoc dung nhu ten dia
+    # danh o hotel/golf/mice. Thieu bi danh nay thi ca ba nhom du lieu do khong
+    # noi duoc vao hoi-an, ma chuoi "Hoi An" chi xuat hien trong promotion.
+    aliases: [Hoi An, Hội An, hoi-an, Nam Hoi An, Nam Hội An, nam-hoi-an]
+
+  - id: nha-trang
+    name_en: Nha Trang
+    name_vi: Nha Trang
+    province: Khánh Hòa
+    region: central
+    has_content: true
+    aliases: [Nha Trang, nha-trang, Khanh Hoa, Khánh Hòa, Hon Tre, Hòn Tre]
+
+  - id: ho-chi-minh
+    name_en: Ho Chi Minh City
+    name_vi: Thành phố Hồ Chí Minh
+    province: Thành phố Hồ Chí Minh
+    region: south
+    has_content: true
+    aliases:
+      [
+        Ho Chi Minh City,
+        Thành phố Hồ Chí Minh,
+        ho-chi-minh-city,
+        Ho Chi Minh,
+        Hồ Chí Minh,
+        HCMC,
+        TP HCM,
+        Saigon,
+        Sài Gòn,
+      ]
+
+  - id: phu-quoc
+    name_en: Phu Quoc
+    name_vi: Phú Quốc
+    # Data khong nhat quan: dia chi khach san co ca "Kien Giang Province" lan
+    # "An Giang Province" (Kien Giang sap nhap vao An Giang nam 2025). Lay ten
+    # hien hanh, giu ten cu lam bi danh.
+    province: An Giang
+    region: south
+    has_content: true
+    aliases: [Phu Quoc, Phú Quốc, phu-quoc, Kien Giang, Kiên Giang, An Giang]
+
+  - id: tasmania
+    name_en: Tasmania
+    name_vi: Tasmania
+    province: Tasmania
+    region: null                  # region chi phan vung Viet Nam
+    country: Australia            # KHONG mac dinh cung 'Vietnam'
+    has_content: true             # co san golf Cape Wickham
+    aliases: [Tasmania, "Tasmania, Australia"]
+
+# Khu phức hợp. Vinpearl bán hàng theo KHU chứ không theo khách sạn đơn lẻ.
+# Ba "United Center" (Phú Quốc, Nha Trang, Nam Hội An) do khảo sát vinpearl.com;
+# năm khu còn lại lấy từ destination.name của các file entertainment.
+#
+# aliases ở đây dùng để adapter ánh xạ destination.name của file -> complex.
+complexes:
+  - id: phu-quoc-united-center
+    name: Phu Quoc United Center
+    destination: phu-quoc
+    kind: united_center
+    # phu_quoc_all_data_en.json co section "Welcome to PHU QUOC UNITED CENTER!"
+    # nhung destination.name chi ghi "Phu Quoc".
+    aliases: [Phu Quoc United Center, PHU QUOC UNITED CENTER, Phu Quoc]
+
+  - id: vinpearl-nha-trang
+    name: Vinpearl Nha Trang
+    destination: nha-trang
+    kind: united_center
+    aliases: [Vinpearl Nha Trang, Nha Trang, Hon Tre Island]
+
+  - id: nam-hoi-an
+    name: Vinpearl Nam Hoi An
+    destination: hoi-an
+    kind: united_center
+    aliases: [Nam Hoi An, Vinpearl Nam Hoi An, Nam Hội An]
+
+  - id: grand-world-ocean-city
+    name: Grand World Ocean City
+    destination: ha-noi
+    kind: park_complex
+    aliases: [Grand World Ocean City, Grand World Ocean City East of Hanoi]
+
+  - id: vu-yen-royal-island
+    name: Vu Yen Royal Island
+    destination: hai-phong
+    kind: island
+    aliases: [Vu Yen Royal Island, Vu Yen Island, Đảo Vũ Yên]
+
+  - id: vinwonders-grand-park
+    name: VinWonders Grand Park
+    destination: ho-chi-minh
+    kind: park_complex
+    aliases: [VinWonders Grand Park, Grand Park]
+
+  - id: vinwonders-cua-hoi
+    name: VinWonders Cua Hoi
+    destination: nghe-an
+    kind: park_complex
+    aliases: [VinWonders Cua Hoi, VinWonders Cửa Hội]
+
+  - id: ha-tinh-water-park
+    name: Ha Tinh Water Park
+    destination: ha-tinh
+    kind: park_complex
+    aliases: [Ha Tinh Water Park, Công viên nước Hà Tĩnh]

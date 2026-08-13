@@ -1,0 +1,35 @@
+{
+  "source_url": "https://vinpearl.com/en/vinpearl-golf",
+  "language": "en",
+  "golf_course": {
+    "name": "Cape Wickham Golf Links",
+    "page_url": "https://www.capewickham.com.au/",
+    "location": {
+      "destination": "Tasmania, Australia",
+      "province": null,
+      "city": null,
+      "district": null,
+      "island": null,
+      "full_address": null
+    },
+    "general_information": {
+      "summary": "Cape Wickham Golf Links (Tasmania, Australia) - the first golf course managed and operated by Vinpearl Golf outside Vietnam - marks a new milestone for a Vietnamese brand brimming with ambitions to conquer the world.",
+      "designer": null,
+      "number_of_holes": null,
+      "par": null,
+      "course_length": null,
+      "total_area": null,
+      "terrain_and_landscape": null,
+      "distinctive_features": [
+        "The first golf course managed and operated by Vinpearl Golf outside Vietnam"
+      ],
+      "awards_and_recognitions": []
+    },
+    "amenities": [],
+    "experiences": [],
+    "golf_course_maps": [],
+    "source_urls": [
+      "https://vinpearl.com/en/vinpearl-golf"
+    ]
+  }
+}
