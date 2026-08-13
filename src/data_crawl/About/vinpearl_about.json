@@ -1,0 +1,80 @@
+{
+  "source_url": "https://vinpearl.com/en/about-us",
+  "language": "en",
+  "title": "About Us",
+  "headline": "Experience a distinctively Vietnamese stay like no other",
+  "introduction": "Vinpearl is the leading hospitality brand in Vietnam with a diversified mix of luxury and family resorts, convention centers, restaurants and spas in Vietnam's top destinations. Vinpearl has been a pioneer in Vietnam’s tourism since its founding in 2003, featuring 3 destination complexes, the first of its kind in Vietnam. We set the stage to take our guests away on uniquely personalised and memorable journeys.",
+  "hotels_and_resorts": [
+    {
+      "name": "VinHolidays Fiesta Phu Quoc",
+      "description": "Located at the heart of the Grand World Complex and adjacent to Vinpearl Phu Quoc Cluster, Vinholidays Fiesta Phu Quoc inherits a 5-star ecosystem with diverse entertainment and shopping, which bring the majority of Vietnamese people closer to their dream vacation at one of the most beautiful destinations in the country."
+    },
+    {
+      "name": "Vinpearl Wonderworld Phu Quoc",
+      "description": "Vinpearl Wonderworld Phu Quoc features exclusively villas that focus on the privacy of all guests, and intimate touch with nature, from lush gardens to private, expansive beaches. The resort is also within a close vicinity with an international-standard golf course in the midst of an old-growth forest, which brings a unique experience to any visitor."
+    },
+    {
+      "name": "Vinpearl Resort & Spa Phu Quoc",
+      "description": "Welcoming guests with its bright red tiles, Indochine-style architecture, and an outdoor swimming pool of nearly 5,000m2, Vinpearl Resort & Spa Phu Quoc offers a fun-filled journey with typical natural flavors of the pearl island. Must-try experiences here include savoring a seafood buffet with magnificent sunset views at Pepper Restaurant by the sea, enjoying a unique Balinese massage at spa huts above the lake, and conquering thousands of entertainment experiences at VinWonders right nearby."
+    },
+    {
+      "name": "Vinpearl Resort & Spa Nha Trang Bay",
+      "description": "On the \"paradise island\" of Hon Tre, Vinpearl Resort & Spa Nha Trang Bay is always eye catching with its white bow-shaped architecture and distinctive pure vibe. Located behind the colorful bougainvillea roads, Vinpearl Resort & Spa Nha Trang Bay welcomes guests with a beautiful private beach, a large outdoor swimming pool and tailor-made services for a relaxing family vacation."
+    },
+    {
+      "name": "Vinpearl Resort Nha Trang",
+      "description": "Vinpearl Resort Nha Trang is a peaceful haven for those who love to relax and take care of health, a place to restore energy, a place to mark milestones of happiness and success, such as a dream wedding or a classy meeting."
+    },
+    {
+      "name": "Vinpearl Luxury Nha Trang",
+      "description": "A serene oasis away from the hustle and bustle of city life, Vinpearl Luxury Nha Trang is a heaven for bespoke guests, amidst tropical gardens, expansive coast line and 84 villas embodying exclusivity and rejuvenation. An ideal space to reconnect and cherish every single moment with loved ones, be it a cozy family reunion or a romantic getaway."
+    },
+    {
+      "name": "Vinpearl Beachfront Nha Trang",
+      "description": "Vinpearl Beachfront Nha Trang features sea-view hotel apartments showcasing not only the comfort and convenience Vinpearl is famous for, but full and convenient access to the sunny beach of Nha Trang Bay. This is a new, luxury destination where guests will enjoy a busy shopping center, luxurious restaurants, an outdoor swimming pool with panoramic ocean views, and first-class meeting spaces."
+    },
+    {
+      "name": "Vinpearl Resort & Golf Nam Hoi An",
+      "description": "Vinpearl Resort & Golf Nam Hoi An is the perfect destination for a family vacation with cultural experiences and edutainment products exclusively for children, and also ideal for MICE or reward tourism thanks to its excellent service and a system of superior meeting rooms to cater for events of up to 600 guests."
+    },
+    {
+      "name": "Vinpearl Resort & Spa Ha Long",
+      "description": "As the first & only resort in the North of Vietnam built entirely on the sea, Vinpearl Resort & Spa Ha Long makes an unforgettable impression with 3 private beaches, green premises and an outdoor swimming pool of up to 1,200m2."
+    }
+  ],
+  "signature_product_packages": [
+    {
+      "name": "Family Beach Resorts",
+      "description": "Experience & enjoy the stay at holiday paradise for families at the top-notch beaches in Vietnam"
+    },
+    {
+      "name": "Golf Stay & Play",
+      "description": "Stay & play in the prime nature at the best golf courses in Asia - Pacific"
+    },
+    {
+      "name": "Wellness & Retreat",
+      "description": "Relax & recreate your body, mind and soul with exquisite wellness therapies, which are elevated when harmonizing with nature, culture & Vietnamese history."
+    }
+  ],
+  "mice": [
+    {
+      "name": "Almaz",
+      "description": "Experience all-in-one high-class meetings combined with 5-star resort stays and top-notch entertainment experience. We are committed to your success, as our professionalism and genuine Vietnamese hospitality."
+    }
+  ],
+  "meeting_and_events": [
+    {
+      "name": "Vinpearl Convention Centers",
+      "description": "Vinpearl Convention Centers is a series of conference centers with contemporary architecture, modern equipment, and multifunctional facilities for luxurious meeting and event, which can accommodate up to thousands of people."
+    }
+  ],
+  "company_info": {
+    "address": "Hon Tre Island, Nha Trang Ward, Khanh Hoa Province, Vietnam",
+    "hotline": "1900 23 23 89 (Branch 3)",
+    "account_holder": "Vinpearl Joint Stock Company",
+    "bank_account": "9124412488166 (VND)",
+    "bank": "Vietnam Technological and Commercial Joint-stock Bank (Techcombank) - Head office",
+    "business_registration": "4200456848. The first registration dated on 26 July 2006. The fiftieth registration for change dated on 03 March 2020.",
+    "issued_by": "Khanh Hoa Department of Planning and Investment"
+  }
+}

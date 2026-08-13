@@ -1,0 +1,89 @@
+{
+  "source_url": "https://vinpearl.com/en/vinpearl-golf",
+  "language": "en",
+  "golf_course": {
+    "name": "Vinpearl Golf Nam Hoi An",
+    "page_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an",
+    "location": {
+      "destination": "Nam Hoi An",
+      "province": null,
+      "city": null,
+      "district": null,
+      "island": null,
+      "full_address": null
+    },
+    "general_information": {
+      "summary": "Situated within the most enchanting cultural heritage complex in Vietnam, Vinpearl Golf Nam Hoi An is a visual spectacle with its natural sandy terrain, ever-changing seasonal landscapes, and unique local flora. The course design, characterized by broad fairways and gently undulating greens, invites golfers into an intimate connection with nature, providing an enjoyable and surprising experience without undue pressure. Conveniently located 45 minutes by car from Da Nang International Airport and 17 kilometers South of Hoi An Old Town, Vinpearl Golf Nam Hoi An stands as a must-visit destination for golf enthusiasts and visitors on the journey of exploring the S-shaped land.",
+      "designer": "IMG Worldwide",
+      "number_of_holes": 18,
+      "par": 72,
+      "course_length": "7,038 yards",
+      "total_area": null,
+      "terrain_and_landscape": "Natural sandy terrain; Ever-changing seasonal landscapes; Unique local flora; Broad fairways and gently undulating greens",
+      "distinctive_features": [
+        "The Masterpiece Golf Course Amidst the Heritage Land",
+        "Natural sandy terrain, ever-changing seasonal landscapes, and unique local flora",
+        "Broad fairways and gently undulating greens",
+        "Located 45 minutes by car from Da Nang International Airport and 17 kilometers South of Hoi An Old Town"
+      ],
+      "awards_and_recognitions": []
+    },
+    "amenities": [
+      {
+        "name": "Restaurant",
+        "description": "Accommodating up to 120 guests, the restaurant offers diverse culinary options and event hosting.",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      },
+      {
+        "name": "Driving Range",
+        "description": "Featuring 15 outdoor lanes, long driving, chipping & putting areas",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      },
+      {
+        "name": "Proshop",
+        "description": "Providing a collection of premium fashion items and golf accessories",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      },
+      {
+        "name": "Lockers",
+        "description": "Nearly 260 lockers, steam room, and jacuzzi services",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      }
+    ],
+    "experiences": [
+      {
+        "title": "F&B",
+        "description": "Indulge in Asian-European cuisine with Quang Nam’s signature dishes that are sure to impress even the most discerning diners",
+        "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1847407720_1699416979.jpg.webp?itok=Jhs33zf5",
+        "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      },
+      {
+        "title": "CADDIES",
+        "description": "A team of professional and knowledgeable caddies is ready to assist you",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200801_VPGNT_Lifestyle%20%2821%29_1700561583.jpg.webp?itok=IkBZCrjL",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      },
+      {
+        "title": "GOLF EQUIPMENT RENTAL",
+        "description": "Premium golf shoe and club rental service, providing diverse options for customers",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700561871.jpg.webp?itok=JLsOm2Yh",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      }
+    ],
+    "golf_course_maps": [
+      {
+        "course_type": "Golf Course",
+        "map_name": "Golf Course Map",
+        "map_url": "https://statics.vinpearl.com/anh-ho-01_1700706033.png",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+      }
+    ],
+    "source_urls": [
+      "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an",
+      "https://vinpearl.com/en/vinpearl-golf"
+    ]
+  }
+}

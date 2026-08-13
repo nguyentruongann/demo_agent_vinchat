@@ -1,0 +1,47 @@
+:root {
+  --color-gold: #c9a45c;
+  --color-gold-dark: #b88a44;
+  --color-navy: #0b2e3d;
+  --color-navy-dark: #072f3f;
+  --color-ocean: #0ea5c6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--color-navy);
+  background-color: #ffffff;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+img {
+  display: block;
+}
+
+.bold-serif {
+  font-family: inherit;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #ead08f 0%, #c9a45c 50%, #b88a44 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

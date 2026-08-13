@@ -1,0 +1,190 @@
+.footer {
+  border-top: 1px solid rgba(212, 175, 55, 0.3);
+  padding: 64px 0 0;
+  color: #cbd5e1;
+  background: #10162f; /* Dark blue matching the image */
+  font-family: "Inter", sans-serif;
+}
+
+.footer__container {
+  width: min(100% - 32px, 1280px);
+  margin: 0 auto;
+}
+
+.footer__grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr 3fr 2fr;
+  gap: 40px;
+  padding-bottom: 48px;
+}
+
+.footer__brand-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.footer__column {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.footer__section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.footer__brand {
+  display: flex;
+  align-items: center;
+}
+
+.footer__brand-logo {
+  display: block;
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+
+.footer__contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #f1f5f9;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.footer__contact-item a {
+  color: #fca311; /* Yellow/Orange accent */
+  text-decoration: none;
+}
+
+.footer__contact-item a:hover {
+  text-decoration: underline;
+}
+
+.footer__contact-icon {
+  flex: 0 0 auto;
+  color: #fca311;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+}
+
+.footer__info-block {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.footer__info-block p {
+  margin: 0 0 4px 0;
+}
+
+.footer__heading {
+  margin: 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.footer__list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.footer__link {
+  color: #cbd5e1;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.footer__link:hover {
+  color: #fca311;
+}
+
+.footer__qr-code {
+  width: 80px;
+  height: 80px;
+  background: #fff;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.footer__app-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer__app-links p {
+  margin: 0;
+  color: #fca311;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.footer__store-badge {
+  height: 32px;
+  width: auto;
+}
+
+.footer__bottom {
+  background: #0b1124;
+  padding: 20px 0;
+}
+
+.footer__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(100% - 32px, 1280px);
+  margin: 0 auto;
+}
+
+.footer__copyright {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.footer__socials {
+  display: flex;
+  gap: 20px;
+}
+
+.footer__social-link {
+  color: #ffffff;
+  transition: color 160ms ease;
+}
+
+.footer__social-link:hover {
+  color: #fca311;
+}
+
+@media (max-width: 1024px) {
+  .footer__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .footer {
+    padding-top: 48px;
+  }
+  .footer__grid {
+    grid-template-columns: 1fr;
+  }
+  .footer__bar {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+}

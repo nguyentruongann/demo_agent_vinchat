@@ -1,0 +1,95 @@
+{
+  "source_url": "https://vinpearl.com/en/vinpearl-golf",
+  "language": "en",
+  "golf_course": {
+    "name": "Vinpearl Golf Hai Phong",
+    "page_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong",
+    "location": {
+      "destination": "Hai Phong",
+      "province": null,
+      "city": "Hai Phong City",
+      "district": "Thuy Nguyen Ward",
+      "island": "Vu Yen Island",
+      "full_address": "Vu Yen Island, Thuy Nguyen Ward, Hai Phong City, Vietnam"
+    },
+    "general_information": {
+      "summary": "Nestled on Vu Yen Island, just a 15-minute drive from the bustling city center, Vinpearl Golf Hai Phong delivers a unique golfing experience with 36 holes spread across two distinctive courses. The Marsh Course is renowned for its challenging natural marshy terrain, while the Lake Course boasts breathtaking landscapes intertwined with diverse water features, offering players a serene yet exciting golfing adventure.",
+      "designer": "IMG Worldwide",
+      "number_of_holes": 36,
+      "par": 72,
+      "course_length": "Lake Course: 7,318 yards; Marsh Course: 7,508 yards",
+      "total_area": null,
+      "terrain_and_landscape": "Natural marshy terrain (Marsh Course); Landscapes with diverse water features (Lake Course); Island golf course",
+      "distinctive_features": [
+        "Golf Island in the Heart of the Port City",
+        "36 holes spread across two distinctive courses: Marsh Course and Lake Course",
+        "Marsh Course is renowned for its challenging natural marshy terrain",
+        "Lake Course boasts landscapes intertwined with diverse water features"
+      ],
+      "awards_and_recognitions": []
+    },
+    "amenities": [
+      {
+        "name": "Restaurant",
+        "description": "With a capacity for 200 individual guests or 300 event attendees, the restaurant provides a diverse culinary experience. A VIP room is available for private meeting, accommodating up to 30 guests",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      },
+      {
+        "name": "Driving Range",
+        "description": "Featuring 16 practice lanes with a distance of 300 yards",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      },
+      {
+        "name": "Facilities",
+        "description": "A nighttime lighting system across 27 holes",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      },
+      {
+        "name": "Lockers",
+        "description": "Nearly 300 lockers and steam room service",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      }
+    ],
+    "experiences": [
+      {
+        "title": "F&B",
+        "description": "Enjoy a “culinary journey” in the Port City with a variety of local “must-try” dishes and diverse Asian-European cuisine, catering to all customer desires.",
+        "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1510667981_1699414714.jpg.webp?itok=iS0CGNzp",
+        "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      },
+      {
+        "title": "CADDIES",
+        "description": "A team of professional and knowledgeable caddies is ready to assist you",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200801_VPGNT_Lifestyle%20%2821%29_1700561386.jpg.webp?itok=-e27_sM6",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      },
+      {
+        "title": "GOLF EQUIPMENT RENTAL",
+        "description": "Premium golf shoe and club rental service, providing various options for customers",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700561396.jpg.webp?itok=wi4r6lOo",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      }
+    ],
+    "golf_course_maps": [
+      {
+        "course_type": "Marsh Course",
+        "map_name": "Marsh Course Map",
+        "map_url": "https://statics.vinpearl.com/H%E1%BB%91%201-B_1699354129.png",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      },
+      {
+        "course_type": "Lake Course",
+        "map_name": "Lake Course Map",
+        "map_url": "https://statics.vinpearl.com/H%E1%BB%91%201_1699348629.png",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+      }
+    ],
+    "source_urls": [
+      "https://vinpearl.com/en/vinpearl-golf-hai-phong",
+      "https://vinpearl.com/en/vinpearl-golf"
+    ]
+  }
+}

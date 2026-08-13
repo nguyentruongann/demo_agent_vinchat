@@ -1,0 +1,98 @@
+{
+    "destination": {
+        "name": "Grand World Ocean City",
+        "city": "Hanoi",
+        "country": "Vietnam"
+    },
+    "page_information": {
+        "page_title": "Grand World Ocean City East of Hanoi | Official Website",
+        "source_file": "D:\\vinuni\\T013\\data_crawl\\html\\ha-noi.html",
+        "source_url": "https://vinwonders.com/en/grand-world/",
+        "language": "en-US",
+        "description": "Explore Grand World east of Hanoi with Little Venice, K-Town, The Grand Voyage show, 800+ shops, international festivals and 24/7 entertainment.",
+        "og_title": "Grand World Ocean City East of Hanoi | Official Website",
+        "og_description": "Explore Grand World east of Hanoi with Little Venice, K-Town, The Grand Voyage show, 800+ shops, international festivals and 24/7 entertainment."
+    },
+    "sections": {
+        "reasons_to_visit_grand_world": {
+            "title": "REASONS TO VISIT GRAND WORLD",
+            "items": [
+                {
+                    "image_url": "https://static.vinwonders.com/production/su-kien-scaled-1.jpg",
+                    "description": "A destination for grand festivals, combining the essence of Asian-European culture, art, and architecture"
+                },
+                {
+                    "image_url": null,
+                    "description": "The Venice - Riverside Western Market"
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/k-town.jpg",
+                    "description": "The K-Town - Coastal Eastern Street"
+                }
+            ]
+        },
+        "must_see_events": {
+            "title": "Must-see Events",
+            "items": [
+                {
+                    "name": "The Grand Voyage",
+                    "time": "21:00 - 22:00",
+                    "location": "Venice river",
+                    "image_url": "https://static.vinwonders.com/production/grand-voyage-2.jpg"
+                },
+                {
+                    "name": "Gondola ride",
+                    "time": "10:00 - 20:00",
+                    "location": "Venice river",
+                    "image_url": "https://static.vinwonders.com/production/Thuyen-Gondola-scaled-1.jpg"
+                },
+                {
+                    "name": "Mega-Fun European costume rental",
+                    "time": "10:00 - 24:00",
+                    "location": "Western street",
+                    "image_url": "https://static.vinwonders.com/production/mega-fun.jpg"
+                },
+                {
+                    "name": "Rhythm of Ocean | Street performance",
+                    "time": "18:00 - 23:00",
+                    "location": "Bridges across the Venice river",
+                    "image_url": "https://static.vinwonders.com/production/mega-exp.jpg"
+                },
+                {
+                    "name": "The Grand Voyage",
+                    "time": null,
+                    "location": null,
+                    "image_url": "https://static.vinwonders.com/production/grand-voyage-2.jpg"
+                },
+                {
+                    "name": "Gondola ride",
+                    "time": null,
+                    "location": null,
+                    "image_url": "https://static.vinwonders.com/production/Thuyen-Gondola-scaled-1.jpg"
+                },
+                {
+                    "name": "Mega-Fun European costume rental",
+                    "time": null,
+                    "location": null,
+                    "image_url": "https://static.vinwonders.com/production/mega-fun.jpg"
+                },
+                {
+                    "name": "Rhythm of Ocean | Street performance",
+                    "time": null,
+                    "location": null,
+                    "image_url": "https://static.vinwonders.com/production/mega-exp.jpg"
+                },
+                {
+                    "name": "Mega-Parade",
+                    "time": null,
+                    "location": null,
+                    "image_url": "https://static.vinwonders.com/production/mega-parade.jpg"
+                }
+            ]
+        }
+    },
+    "statistics": {
+        "reason_count": 3,
+        "event_count": 9
+    }
+}

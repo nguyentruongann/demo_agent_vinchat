@@ -1,0 +1,10 @@
+.app-routes {
+  min-height: 100vh;
+  color: #111827;
+  background: #f7f8fb;
+}
+
+.app-routes__main {
+  min-height: 60vh;
+  padding-top: 80px;
+}

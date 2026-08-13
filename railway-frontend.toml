@@ -1,0 +1,18 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.frontend"
+watchPatterns = [
+  "/src/frontend/**",
+  "/src/data_crawl/**",
+  "/package.json",
+  "/package-lock.json",
+  "/vite.config.js",
+  "/Dockerfile.frontend",
+  "/railway-frontend.toml"
+]
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

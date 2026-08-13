@@ -1,0 +1,40 @@
+{
+    "dataset_name": "Ha Tinh Water Park Dataset",
+    "generated_at": "2026-08-02T14:31:25.925258+00:00",
+    "destination": {
+        "name": "Ha Tinh Water Park",
+        "province": "Ha Tinh",
+        "country": "Vietnam"
+    },
+    "page_information": {
+        "page_title": "Ha Tinh Water Park | Official Website",
+        "source_file": "ha_tinh(1).html",
+        "source_url": "https://vinwonders.com/vi/cong-vien-nuoc-ha-tinh/",
+        "language": "en"
+    },
+    "sections": {
+        "tan_huong_mot_mua_he_mat_lanh_tai_cong_vien_nuoc_ha_tinh": {
+            "title": "Enjoy a Refreshing Summer at Ha Tinh Water Park",
+            "items": [
+                {
+                    "image_url": "https://static.vinwonders.com/production/2025/07/CV-nuoc-Ha-Tinh-4-2048x1351-1.jpg",
+                    "description": "Conquer the Challenging SUPER WATER SLIDES",
+                    "id": 1
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2026/03/Anh-chup-Man-hinh-2026-03-26-luc-10.08.45.png",
+                    "description": "Beat the Summer Heat in the Cool Blue Waters of the Wave Pool",
+                    "id": 2
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2025/07/491353977_662583806494398_2827952710154970036_n.jpg",
+                    "description": "Discover the Crystal-Clear Early Summer Sky and Admire Xuan Hai – Loc Ha Beach from a Height of 70 Meters on the Time Wheel",
+                    "id": 3
+                }
+            ]
+        }
+    },
+    "statistics": {
+        "item_count": 3
+    }
+}

@@ -1,0 +1,132 @@
+.destination-card {
+  position: relative;
+  display: flex;
+  min-height: 320px;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  border: 1px solid #1e293b;
+  padding: 24px;
+  color: #ffffff;
+  background: #0a192f;
+  box-shadow: 0 25px 70px rgba(2, 6, 23, 0.35);
+  text-decoration: none;
+  transition:
+    border-color 300ms ease,
+    transform 300ms ease,
+    box-shadow 300ms ease;
+}
+
+.destination-card:hover {
+  border-color: #d4af37;
+  transform: translateY(-3px);
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.42);
+}
+
+.destination-card::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(
+    to top,
+    #0a192f 0%,
+    rgba(10, 25, 47, 0.6) 48%,
+    transparent 100%
+  );
+}
+
+.destination-card__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
+  transition: transform 700ms ease;
+}
+
+.destination-card:hover .destination-card__image {
+  transform: scale(1.1);
+}
+
+.destination-card__badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  border: 1px solid #d4af37;
+  padding: 5px 12px;
+  color: #d4af37;
+  background: #0a192f;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.destination-card__content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+}
+
+.destination-card__label {
+  display: block;
+  color: #d4af37;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.destination-card__title {
+  margin: 0;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  transition: color 300ms ease;
+}
+
+.destination-card:hover .destination-card__title {
+  color: #d4af37;
+}
+
+.destination-card__description {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+.destination-card__action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 8px;
+  color: #d4af37;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: transform 300ms ease;
+}
+
+.destination-card:hover .destination-card__action {
+  transform: translateX(4px);
+}
+
+.destination-card__action-icon {
+  width: 16px;
+  height: 16px;
+}

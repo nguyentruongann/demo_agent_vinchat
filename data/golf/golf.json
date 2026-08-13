@@ -1,0 +1,497 @@
+{
+  "source_url": "https://vinpearl.com/en/vinpearl-golf",
+  "language": "en",
+  "golf_courses": [
+    {
+      "name": "Vinpearl Golf Hai Phong",
+      "page_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong",
+      "location": {
+        "destination": "Hai Phong",
+        "province": null,
+        "city": "Hai Phong City",
+        "district": "Thuy Nguyen Ward",
+        "island": "Vu Yen Island",
+        "full_address": "Vu Yen Island, Thuy Nguyen Ward, Hai Phong City, Vietnam"
+      },
+      "general_information": {
+        "summary": "Nestled on Vu Yen Island, just a 15-minute drive from the bustling city center, Vinpearl Golf Hai Phong delivers a unique golfing experience with 36 holes spread across two distinctive courses. The Marsh Course is renowned for its challenging natural marshy terrain, while the Lake Course boasts breathtaking landscapes intertwined with diverse water features, offering players a serene yet exciting golfing adventure.",
+        "designer": "IMG Worldwide",
+        "number_of_holes": 36,
+        "par": 72,
+        "course_length": "Lake Course: 7,318 yards; Marsh Course: 7,508 yards",
+        "total_area": null,
+        "terrain_and_landscape": "Natural marshy terrain (Marsh Course); Landscapes with diverse water features (Lake Course); Island golf course",
+        "distinctive_features": [
+          "Golf Island in the Heart of the Port City",
+          "36 holes spread across two distinctive courses: Marsh Course and Lake Course",
+          "Marsh Course is renowned for its challenging natural marshy terrain",
+          "Lake Course boasts landscapes intertwined with diverse water features"
+        ],
+        "awards_and_recognitions": []
+      },
+      "amenities": [
+        {
+          "name": "Restaurant",
+          "description": "With a capacity for 200 individual guests or 300 event attendees, the restaurant provides a diverse culinary experience. A VIP room is available for private meeting, accommodating up to 30 guests",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        },
+        {
+          "name": "Driving Range",
+          "description": "Featuring 16 practice lanes with a distance of 300 yards",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        },
+        {
+          "name": "Facilities",
+          "description": "A nighttime lighting system across 27 holes",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        },
+        {
+          "name": "Lockers",
+          "description": "Nearly 300 lockers and steam room service",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        }
+      ],
+      "experiences": [
+        {
+          "title": "F&B",
+          "description": "Enjoy a “culinary journey” in the Port City with a variety of local “must-try” dishes and diverse Asian-European cuisine, catering to all customer desires.",
+          "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1510667981_1699414714.jpg.webp?itok=iS0CGNzp",
+          "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        },
+        {
+          "title": "CADDIES",
+          "description": "A team of professional and knowledgeable caddies is ready to assist you",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200801_VPGNT_Lifestyle%20%2821%29_1700561386.jpg.webp?itok=-e27_sM6",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        },
+        {
+          "title": "GOLF EQUIPMENT RENTAL",
+          "description": "Premium golf shoe and club rental service, providing various options for customers",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700561396.jpg.webp?itok=wi4r6lOo",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        }
+      ],
+      "golf_course_maps": [
+        {
+          "course_type": "Marsh Course",
+          "map_name": "Marsh Course Map",
+          "map_url": "https://statics.vinpearl.com/H%E1%BB%91%201-B_1699354129.png",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        },
+        {
+          "course_type": "Lake Course",
+          "map_name": "Lake Course Map",
+          "map_url": "https://statics.vinpearl.com/H%E1%BB%91%201_1699348629.png",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-hai-phong"
+        }
+      ],
+      "source_urls": [
+        "https://vinpearl.com/en/vinpearl-golf-hai-phong",
+        "https://vinpearl.com/en/vinpearl-golf"
+      ]
+    },
+    {
+      "name": "Vinpearl Golf Nam Hoi An",
+      "page_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an",
+      "location": {
+        "destination": "Nam Hoi An",
+        "province": null,
+        "city": null,
+        "district": null,
+        "island": null,
+        "full_address": null
+      },
+      "general_information": {
+        "summary": "Situated within the most enchanting cultural heritage complex in Vietnam, Vinpearl Golf Nam Hoi An is a visual spectacle with its natural sandy terrain, ever-changing seasonal landscapes, and unique local flora. The course design, characterized by broad fairways and gently undulating greens, invites golfers into an intimate connection with nature, providing an enjoyable and surprising experience without undue pressure. Conveniently located 45 minutes by car from Da Nang International Airport and 17 kilometers South of Hoi An Old Town, Vinpearl Golf Nam Hoi An stands as a must-visit destination for golf enthusiasts and visitors on the journey of exploring the S-shaped land.",
+        "designer": "IMG Worldwide",
+        "number_of_holes": 18,
+        "par": 72,
+        "course_length": "7,038 yards",
+        "total_area": null,
+        "terrain_and_landscape": "Natural sandy terrain; Ever-changing seasonal landscapes; Unique local flora; Broad fairways and gently undulating greens",
+        "distinctive_features": [
+          "The Masterpiece Golf Course Amidst the Heritage Land",
+          "Natural sandy terrain, ever-changing seasonal landscapes, and unique local flora",
+          "Broad fairways and gently undulating greens",
+          "Located 45 minutes by car from Da Nang International Airport and 17 kilometers South of Hoi An Old Town"
+        ],
+        "awards_and_recognitions": []
+      },
+      "amenities": [
+        {
+          "name": "Restaurant",
+          "description": "Accommodating up to 120 guests, the restaurant offers diverse culinary options and event hosting.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        },
+        {
+          "name": "Driving Range",
+          "description": "Featuring 15 outdoor lanes, long driving, chipping & putting areas",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        },
+        {
+          "name": "Proshop",
+          "description": "Providing a collection of premium fashion items and golf accessories",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        },
+        {
+          "name": "Lockers",
+          "description": "Nearly 260 lockers, steam room, and jacuzzi services",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        }
+      ],
+      "experiences": [
+        {
+          "title": "F&B",
+          "description": "Indulge in Asian-European cuisine with Quang Nam’s signature dishes that are sure to impress even the most discerning diners",
+          "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1847407720_1699416979.jpg.webp?itok=Jhs33zf5",
+          "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        },
+        {
+          "title": "CADDIES",
+          "description": "A team of professional and knowledgeable caddies is ready to assist you",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200801_VPGNT_Lifestyle%20%2821%29_1700561583.jpg.webp?itok=IkBZCrjL",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        },
+        {
+          "title": "GOLF EQUIPMENT RENTAL",
+          "description": "Premium golf shoe and club rental service, providing diverse options for customers",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700561871.jpg.webp?itok=JLsOm2Yh",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        }
+      ],
+      "golf_course_maps": [
+        {
+          "course_type": "Golf Course",
+          "map_name": "Golf Course Map",
+          "map_url": "https://statics.vinpearl.com/anh-ho-01_1700706033.png",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an"
+        }
+      ],
+      "source_urls": [
+        "https://vinpearl.com/en/vinpearl-golf-nam-hoi-an",
+        "https://vinpearl.com/en/vinpearl-golf"
+      ]
+    },
+    {
+      "name": "Vinpearl Golf Nha Trang",
+      "page_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang",
+      "location": {
+        "destination": "Nha Trang",
+        "province": null,
+        "city": null,
+        "district": null,
+        "island": null,
+        "full_address": null
+      },
+      "general_information": {
+        "summary": "Nestled on an island renowned for its “year-round sunshine”, Vinpearl Golf Nha Trang showcases a unique terrain, surrounded by verdant hills, offering a panoramic view of the heavenly bay. Designed by IMG Worldwide, the golf course preserves the natural beauty with characteristic features of expansive fairways, meandering and undulating along the hillsides. It promises to be an ideal destination for challenging and inspiring swings.",
+        "designer": "IMG Worldwide",
+        "number_of_holes": 18,
+        "par": 71,
+        "course_length": "6,787 yards",
+        "total_area": null,
+        "terrain_and_landscape": "Surrounded by verdant hills; Panoramic view of the bay; Fairways meandering and undulating along the hillsides",
+        "distinctive_features": [
+          "A Masterpiece Golf Course on Paradise Island",
+          "Unique terrain surrounded by verdant hills with a panoramic view of the bay",
+          "Expansive fairways meandering and undulating along the hillsides"
+        ],
+        "awards_and_recognitions": []
+      },
+      "amenities": [
+        {
+          "name": "Restaurant",
+          "description": "Accommodating up to 100 guests, the restaurant serves a diverse range of Asian-European cuisine and exquisite local dishes prepared by experienced chefs",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        },
+        {
+          "name": "Driving Range",
+          "description": "Featuring 10 outdoor lanes",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        },
+        {
+          "name": "Facilities",
+          "description": "Proshop provides a collection of premium fashion items and golf accessories.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        },
+        {
+          "name": "Locker",
+          "description": "190 men's lockers, 60 women's lockers, and shower rooms",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        },
+        {
+          "name": "Light System",
+          "description": "A modern nighttime lighting system across 18 holes.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        }
+      ],
+      "experiences": [
+        {
+          "title": "F&B",
+          "description": "Indulge in the rich flavors of Asian-European cuisine and exquisite local dishes prepared by experienced chefs",
+          "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1964123770_1699599723.jpg.webp?itok=kaJlzE3K",
+          "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        },
+        {
+          "title": "CADDIES",
+          "description": "A team of professional and knowledgeable caddies is ready to assist you",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/DSC_6123_1700561796.jpg.webp?itok=HqPvNco4",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        },
+        {
+          "title": "GOLF EQUIPMENT RENTAL",
+          "description": "Premium golf shoe and club rental service, providing various options for customers",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700561811.jpg.webp?itok=i2xWKkXf",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        }
+      ],
+      "golf_course_maps": [
+        {
+          "course_type": "Golf Course",
+          "map_name": "Golf Course Map",
+          "map_url": "https://statics.vinpearl.com/B%E1%BA%A3n%20%C4%91%E1%BB%93%20Yardage%20Book%20NT%20H%E1%BB%91%201_1699267777.png",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-nha-trang"
+        }
+      ],
+      "source_urls": [
+        "https://vinpearl.com/en/vinpearl-golf-nha-trang",
+        "https://vinpearl.com/en/vinpearl-golf"
+      ]
+    },
+    {
+      "name": "Vinpearl Golf Phu Quoc",
+      "page_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc",
+      "location": {
+        "destination": "Phu Quoc",
+        "province": null,
+        "city": null,
+        "district": null,
+        "island": "Phu Quoc Island",
+        "full_address": null
+      },
+      "general_information": {
+        "summary": "Set amidst the vast lush primeval forest in the North of Phu Quoc Island, Vinpearl Golf Phu Quoc offers a unique golfing experience in the untouched beauty of pristine nature. Here, golfers can distinctly appreciate the charm of gently rolling and undulating fairways, seamlessly blending into the breathtaking scenery of the ancient forest. The golf course also offers golfers an amazing opportunity to engage with the fascinating world of natural flora and fauna while absorbing the pure vitality of this paradise island.",
+        "designer": "IMG Worldwide",
+        "number_of_holes": 18,
+        "par": 72,
+        "course_length": "7,038 yards",
+        "total_area": null,
+        "terrain_and_landscape": "Primeval/ancient forest setting; Gently rolling and undulating fairways",
+        "distinctive_features": [
+          "A Masterpiece Golf Course Amidst the Primeval Forest",
+          "Set amidst primeval forest in the North of Phu Quoc Island",
+          "Gently rolling and undulating fairways blending into ancient forest scenery"
+        ],
+        "awards_and_recognitions": []
+      },
+      "amenities": [
+        {
+          "name": "Restaurant",
+          "description": "With a capacity of 150 guests, the restaurant serves a diverse range of Asian-European cuisine and Phu Quoc Island’s signature local dishes",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        },
+        {
+          "name": "Driving Range",
+          "description": "Featuring 14 artificial turf lanes and 6 grass lanes",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        },
+        {
+          "name": "Proshop",
+          "description": "Providing a collection of premium fashion items and golf accessories",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        },
+        {
+          "name": "Lockers",
+          "description": "132 lockers, shower rooms, and shoe shining service provided",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        }
+      ],
+      "experiences": [
+        {
+          "title": "F&B",
+          "description": "The rich Asian-European cuisine with unique local dishes from Phu Quoc Island promises unforgettable experiences for you",
+          "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1502598560_1700562392.jpg.webp?itok=HWdSkIqL",
+          "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        },
+        {
+          "title": "CADDIES",
+          "description": "A team of professional and knowledgeable caddies is ready to assist you",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200801_VPGNT_Lifestyle%20%2821%29_1700562303.jpg.webp?itok=Gz9sA-IN",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        },
+        {
+          "title": "GOLF EQUIPMENT RENTAL",
+          "description": "Premium golf shoe and club rental service, providing diverse options for customers",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700562316.jpg.webp?itok=d17CAvYM",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        }
+      ],
+      "golf_course_maps": [
+        {
+          "course_type": "Golf Course",
+          "map_name": "Golf Course Map",
+          "map_url": "https://statics.vinpearl.com/B%E1%BA%A3n%20%C4%91%E1%BB%93%20Yardage%20Book%20PQ%20-%20H%E1%BB%91%201_1699268567.png",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+        }
+      ],
+      "source_urls": [
+        "https://vinpearl.com/en/vinpearl-golf-phu-quoc",
+        "https://vinpearl.com/en/vinpearl-golf"
+      ]
+    },
+    {
+      "name": "Vinpearl Golf Léman",
+      "page_url": "https://vinpearl.com/en/vinpearl-golf-leman",
+      "location": {
+        "destination": "Ho Chi Minh City",
+        "province": null,
+        "city": "Ho Chi Minh City",
+        "district": "Tan Thong Hoi Commune (formerly Cu Chi District)",
+        "island": null,
+        "full_address": "Tan Thong Hoi Commune (formerly Cu Chi District), Ho Chi Minh City"
+      },
+      "general_information": {
+        "summary": "Located in Tan Thong Hoi Commune (formerly Cu Chi District), Ho Chi Minh City – Vietnam’s vibrant hub of economy and entertainment – Vinpearl Golf Léman boasts a 36-hole championship course, strategically crafted in the “Riparian Habitat” style. In Phase 1, the North Course with 18 signature holes is officially open, featuring legendary template holes: The Dell, The Biarritz, The Redan, and The Volcano – each a true test of strategy and precision. Vinpearl Golf Léman stands as the ultimate destination for golfers seeking inspiring rounds of leisure play, competitive tournaments, and prestigious championships of national and international scale.",
+        "designer": null,
+        "number_of_holes": 36,
+        "par": null,
+        "course_length": null,
+        "total_area": null,
+        "terrain_and_landscape": "Riparian Habitat style; North Course with signature template holes",
+        "distinctive_features": [
+          "Vietnam's Premier Golf Hub For Leisure & Tournament",
+          "36-hole championship course crafted in the \"Riparian Habitat\" style",
+          "Phase 1 North Course with 18 signature holes officially open",
+          "Signature template holes: The Dell, The Biarritz, The Redan, and The Volcano",
+          "The Riparian Habitat's 36-Hole Masterpiece – Home of the Legendary Biarritz, Dell, Redan & Volcano."
+        ],
+        "awards_and_recognitions": []
+      },
+      "amenities": [
+        {
+          "name": "Locker",
+          "description": "Featuring nearly 300 lockers, with exclusive spaces reserved for VIP guests.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "Facilities",
+          "description": "Night-lighting system across 18 holes.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "Proshop",
+          "description": "Offering a diverse range of premium golf apparel and accessories.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "Restaurant",
+          "description": "A restaurant serving Asian and European cuisine, with a capacity of up to 300 guests.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "Ballroom",
+          "description": "With a capacity of nearly 1,000 guests, offering the perfect venue for gala celebrations.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "VIP Rooms",
+          "description": "Three exclusive rooms offering private spaces, each accommodating 10–12 guests.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "Meeting Rooms",
+          "description": "Meeting Rooms: Two rooms available, accommodating 9 and 11 guests respectively.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "Sauna Rooms",
+          "description": "Sauna, Steambath, Jacuzzi",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "name": "Equipment Rental",
+          "description": "Equipment Rental: Premium golf clubs and training shoes available, offering a wide range of choices for guests.",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        }
+      ],
+      "experiences": [
+        {
+          "title": "RESTAURANT",
+          "description": "The restaurant’s elegant and spacious design accommodates up to 210 guests, while its Asian and European cuisine spans daily menus, seasonal specialties, and bespoke banquet offerings.",
+          "image_url": "https://statics.vinpearl.com/styles/697x775/public/2025_09/nha%20hang_fix_1757665934.jpg.webp?itok=yUfKngrP",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "title": "MEETING ROOMS",
+          "description": "Meeting Rooms: The venue’s two meeting rooms accommodate 9 and 11 guests respectively, serving the needs of businesses, organizations, and private groups. VIP Rooms: The venue’s three exclusive VIP rooms, each designed for 10–12 guests, provide intimate settings ideal for private gatherings, with the option to enjoy smoking.",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2025_09/240502-PHONG%20HOP_1757665961.jpg.webp?itok=6QpS4J2C",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        },
+        {
+          "title": "BALLROOM",
+          "description": "With a capacity of up to 335 guests, the venue’s grand space is not only ideal for gala banquets at tournaments but also perfectly suited for a wide range of corporate, organizational, and group events.",
+          "image_url": "https://statics.vinpearl.com/styles/456x366/public/2025_09/Ballroom_1_1757666274.jpg.webp?itok=ju0DsGLc",
+          "detail_url": null,
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        }
+      ],
+      "golf_course_maps": [
+        {
+          "course_type": "North Course",
+          "map_name": "North Course Map",
+          "map_url": "https://statics.vinpearl.com/1_1757603721.jpg",
+          "source_url": "https://vinpearl.com/en/vinpearl-golf-leman"
+        }
+      ],
+      "source_urls": [
+        "https://vinpearl.com/en/vinpearl-golf-leman",
+        "https://vinpearl.com/en/vinpearl-golf"
+      ]
+    },
+    {
+      "name": "Cape Wickham Golf Links",
+      "page_url": "https://www.capewickham.com.au/",
+      "location": {
+        "destination": "Tasmania, Australia",
+        "province": null,
+        "city": null,
+        "district": null,
+        "island": null,
+        "full_address": null
+      },
+      "general_information": {
+        "summary": "Cape Wickham Golf Links (Tasmania, Australia) - the first golf course managed and operated by Vinpearl Golf outside Vietnam - marks a new milestone for a Vietnamese brand brimming with ambitions to conquer the world.",
+        "designer": null,
+        "number_of_holes": null,
+        "par": null,
+        "course_length": null,
+        "total_area": null,
+        "terrain_and_landscape": null,
+        "distinctive_features": [
+          "The first golf course managed and operated by Vinpearl Golf outside Vietnam"
+        ],
+        "awards_and_recognitions": []
+      },
+      "amenities": [],
+      "experiences": [],
+      "golf_course_maps": [],
+      "source_urls": [
+        "https://vinpearl.com/en/vinpearl-golf"
+      ]
+    }
+  ]
+}

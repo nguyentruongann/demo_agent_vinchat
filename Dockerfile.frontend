@@ -1,0 +1,34 @@
+# Railway production image for the React/Vite frontend
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY vite.config.js ./
+COPY src/frontend ./src/frontend
+# Some frontend pages import JSON directly from src/data_crawl.
+COPY src/data_crawl ./src/data_crawl
+
+# Railway exposes service variables to Docker builds only when declared as ARG.
+ARG VITE_API_BASE_URL
+ARG VITE_ENABLE_CHAT_FALLBACK=false
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_ENABLE_CHAT_FALLBACK=${VITE_ENABLE_CHAT_FALLBACK}
+
+# Fail loudly instead of producing a production bundle that calls localhost/same-origin.
+RUN test -n "$VITE_API_BASE_URL" || (echo "VITE_API_BASE_URL is required for the frontend build" && exit 1)
+RUN npm run build
+
+FROM node:22-alpine AS runtime
+
+WORKDIR /app
+RUN npm install --global serve@14.2.4
+
+COPY --from=builder /app/src/frontend/dist ./dist
+
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["sh", "-c", "exec serve -s dist -l tcp://0.0.0.0:${PORT:-3000}"]

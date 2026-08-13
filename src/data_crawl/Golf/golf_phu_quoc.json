@@ -1,0 +1,88 @@
+{
+  "source_url": "https://vinpearl.com/en/vinpearl-golf",
+  "language": "en",
+  "golf_course": {
+    "name": "Vinpearl Golf Phu Quoc",
+    "page_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc",
+    "location": {
+      "destination": "Phu Quoc",
+      "province": null,
+      "city": null,
+      "district": null,
+      "island": "Phu Quoc Island",
+      "full_address": null
+    },
+    "general_information": {
+      "summary": "Set amidst the vast lush primeval forest in the North of Phu Quoc Island, Vinpearl Golf Phu Quoc offers a unique golfing experience in the untouched beauty of pristine nature. Here, golfers can distinctly appreciate the charm of gently rolling and undulating fairways, seamlessly blending into the breathtaking scenery of the ancient forest. The golf course also offers golfers an amazing opportunity to engage with the fascinating world of natural flora and fauna while absorbing the pure vitality of this paradise island.",
+      "designer": "IMG Worldwide",
+      "number_of_holes": 18,
+      "par": 72,
+      "course_length": "7,038 yards",
+      "total_area": null,
+      "terrain_and_landscape": "Primeval/ancient forest setting; Gently rolling and undulating fairways",
+      "distinctive_features": [
+        "A Masterpiece Golf Course Amidst the Primeval Forest",
+        "Set amidst primeval forest in the North of Phu Quoc Island",
+        "Gently rolling and undulating fairways blending into ancient forest scenery"
+      ],
+      "awards_and_recognitions": []
+    },
+    "amenities": [
+      {
+        "name": "Restaurant",
+        "description": "With a capacity of 150 guests, the restaurant serves a diverse range of Asian-European cuisine and Phu Quoc Island’s signature local dishes",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      },
+      {
+        "name": "Driving Range",
+        "description": "Featuring 14 artificial turf lanes and 6 grass lanes",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      },
+      {
+        "name": "Proshop",
+        "description": "Providing a collection of premium fashion items and golf accessories",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      },
+      {
+        "name": "Lockers",
+        "description": "132 lockers, shower rooms, and shoe shining service provided",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      }
+    ],
+    "experiences": [
+      {
+        "title": "F&B",
+        "description": "The rich Asian-European cuisine with unique local dishes from Phu Quoc Island promises unforgettable experiences for you",
+        "image_url": "https://statics.vinpearl.com/styles/697x775/public/2023_11/shutterstock_1502598560_1700562392.jpg.webp?itok=HWdSkIqL",
+        "detail_url": "https://vinpearl.com/en/vinpearl-golf/cuisine",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      },
+      {
+        "title": "CADDIES",
+        "description": "A team of professional and knowledgeable caddies is ready to assist you",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200801_VPGNT_Lifestyle%20%2821%29_1700562303.jpg.webp?itok=Gz9sA-IN",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      },
+      {
+        "title": "GOLF EQUIPMENT RENTAL",
+        "description": "Premium golf shoe and club rental service, providing diverse options for customers",
+        "image_url": "https://statics.vinpearl.com/styles/456x366/public/2023_11/200815_VPGNHA_Lifestyle%20%2850%29_1700562316.jpg.webp?itok=d17CAvYM",
+        "detail_url": null,
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      }
+    ],
+    "golf_course_maps": [
+      {
+        "course_type": "Golf Course",
+        "map_name": "Golf Course Map",
+        "map_url": "https://statics.vinpearl.com/B%E1%BA%A3n%20%C4%91%E1%BB%93%20Yardage%20Book%20PQ%20-%20H%E1%BB%91%201_1699268567.png",
+        "source_url": "https://vinpearl.com/en/vinpearl-golf-phu-quoc"
+      }
+    ],
+    "source_urls": [
+      "https://vinpearl.com/en/vinpearl-golf-phu-quoc",
+      "https://vinpearl.com/en/vinpearl-golf"
+    ]
+  }
+}

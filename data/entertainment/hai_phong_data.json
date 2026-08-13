@@ -1,0 +1,141 @@
+{
+    "dataset_name": "Vu Yen Royal Island Destination Dataset",
+    "destination": {
+        "name": "Vu Yen Royal Island",
+        "city": "Hai Phong",
+        "country": "Vietnam"
+    },
+    "page_information": {
+        "page_title": "Vu Yen Royal Island | Golf, Safari & Entertainment in Hai Phong",
+        "source_file": "D:\\vinuni\\T013\\data_crawl\\hai_phong.html",
+        "source_url": "https://vinwonders.com/en/vu-yen-royal-island/",
+        "language": "en-US",
+        "meta_description": "Discover Vu Yen Royal Island with VinWonders Vu Yen, safari, golf courses, water parks, entertainment complexes and top attractions in Hai Phong.",
+        "og_title": "Vu Yen Royal Island | Golf, Safari & Entertainment in Hai Phong",
+        "og_description": "Discover Vu Yen Royal Island with VinWonders Vu Yen, safari, golf courses, water parks, entertainment complexes and top attractions in Hai Phong.",
+        "og_image": null
+    },
+    "sections": {
+        "welcome_to_vu_yen_royal_island": {
+            "title": "Welcome to Vu Yen Royal Island",
+            "items": [
+                {
+                    "id": 1,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/Untitled-design-2.png",
+                    "title": "Step into enchantopia",
+                    "description": "Embark on a magical journey with countless games and thousands of animals at VinWonders Vu Yen"
+                },
+                {
+                    "id": 2,
+                    "image_url": "https://static.vinwonders.com/production/2026/06/4h_1781597373.png",
+                    "title": "Mastering the sport of the privileged",
+                    "description": "Perfecting your swing in expansive natural surroundings, with every hole offering a new challenge."
+                },
+                {
+                    "id": 3,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/1.png",
+                    "title": "Experience aristocratic living",
+                    "description": "Savor the leisurely art of horseback riding, enjoying elite pursuits at Vinpearl Horse Academy."
+                },
+                {
+                    "id": 4,
+                    "image_url": "https://static.vinwonders.com/production/2026/06/3h_1781597416.png",
+                    "title": "World-class entertainment",
+                    "description": "Be amazed by fireworks and premium musical shows at the Vu Yen promenade"
+                },
+                {
+                    "id": 5,
+                    "image_url": "https://static.vinwonders.com/production/2026/06/5-n_1781597350.png",
+                    "title": "Luxurious shopping experience",
+                    "description": "Enjoy shopping with leading global brands at Vincom Mega Mall Royal Island."
+                }
+            ]
+        },
+        "trendy_experiences": {
+            "title": "11 Trendy Experiences at Vu Yen Royal Island",
+            "items": [
+                {
+                    "id": 1,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/thu-thach-chien-binh-vinwonders-vu-eyn.png",
+                    "title": "Southeast Asia’s first reverse roller coaster challenge",
+                    "location": "Warrior Domain",
+                    "description": "Push your limits with the ultimate warrior challenge - experience the one and only reverse roller coaster at VinWonders Vu Yen!"
+                },
+                {
+                    "id": 2,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/7.png",
+                    "title": "Check-in at Vietnam’s largest aviary",
+                    "location": "Wildlife Kingdom",
+                    "description": "Explore the haven of over 1,600 birds from all around of the world."
+                },
+                {
+                    "id": 3,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/8.png",
+                    "title": "Complete all 3 levels of the Jaguar's Path",
+                    "location": "Warrior Domain",
+                    "description": "Break your limits with treetop rope challenges and zipline rides through the wild."
+                },
+                {
+                    "id": 4,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/9.png",
+                    "title": "Feel the thrill of free fall on the Rainbow Storm!",
+                    "location": "Aloha Water World",
+                    "description": "Conquer a 40-meter-high waterslide and 7 extreme attractions at Aloha Water World."
+                },
+                {
+                    "id": 5,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/10.png",
+                    "title": "Enjoy the Royal Ball Show",
+                    "location": "VinWonders Vu Yen",
+                    "description": "Let the pulse of powerful drums and hypnotic fire effects ignite your excitement."
+                },
+                {
+                    "id": 6,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/11.png",
+                    "title": "Explore the lavish marina",
+                    "location": "Vu Yen Marina",
+                    "description": "Discover the lavish marina - a destination for elegant living amid the exclusive surroundings of Vu Yen Island."
+                },
+                {
+                    "id": 7,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/14.png",
+                    "title": "Explore the K-Park Korean Cultural Park",
+                    "location": "Vu Yen Walking Street",
+                    "description": "Wander through the first Korean cultural park in Hai Phong, a place that brings the essence of Korean architecture to life."
+                },
+                {
+                    "id": 8,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/3.png",
+                    "title": "Experience the fireworks show at Royal Square",
+                    "location": "Phố đi bộ Vũ Yên",
+                    "description": "Đắm chìm trong khoảnh khắc rực rỡ khi ngắm pháo hoa tầm cao bừng sáng giữa Quảng trường châu Âu."
+                },
+                {
+                    "id": 9,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/13.png",
+                    "title": "Wander down Vietnam’s longest riverside pedestrian boulevard.",
+                    "location": "Vu Yen Walking Street",
+                    "description": "Unwind in a refreshing green oasis overlooking the dazzling city of Hai Phong."
+                },
+                {
+                    "id": 10,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/15.png",
+                    "title": "Train with magnificent horses at Vinpearl Horse Academy",
+                    "location": "Vinpearl Horse Academy",
+                    "description": "Explore Vietnam’s first international-standard equestrian academy, home to prized horses from around the world."
+                },
+                {
+                    "id": 11,
+                    "image_url": "https://static.vinwonders.com/production/2025/08/16.png",
+                    "title": "Achieve a hole-in-one at Vinpearl Golf Hai Phong",
+                    "location": "Vinpearl Golf Hai Phong",
+                    "description": "Immerse yourself in pristine greenery and elevate every swing at Vinpearl Golf Hai Phong."
+                }
+            ]
+        }
+    },
+    "statistics": {
+        "welcome_item_count": 5,
+        "trendy_experience_count": 11
+    }
+}

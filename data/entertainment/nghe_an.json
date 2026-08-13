@@ -1,0 +1,59 @@
+{
+    "destination": {
+        "name": "VinWonders Cua Hoi",
+        "province": "Nghe An",
+        "country": "Vietnam"
+    },
+    "page_information": {
+        "page_title": "VinWonders Cua Hoi | Official Website",
+        "source_file": "D:\\vinuni\\T013\\data_crawl\\html\\nghe-an.html",
+        "source_url": "https://vinwonders.com/en/vinwonders-cua-hoi/",
+        "description": "VinWonders Cua Hoi features a sea-crossing cable car to Song Ngu Island, thrilling rides, a 17-slide water park, weekend fireworks and vibrant live music."
+    },
+    "sections": {
+        "reasons_you_must_visit": {
+            "title": "Reasons You Must Visit VinWonders Cua Hoi:",
+            "items": [
+                {
+                    "image_url": "https://static.vinwonders.com/production/2025/09/check-in-vinwonders-cua-hoi.jpg",
+                    "description": "Entertainment, Shopping & Dining: A paradise of international standards."
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/cap-treo-vuot-bien-vinwonders-cua-hoi.jpg",
+                    "description": "The first and only sea-crossing cable car in the North Central region of Vietnam"
+                },
+                {
+                    "image_url": "https://static.vinwonders.com/production/2025/03/VWCH_Chua-Song-Ngu-scaled.jpg",
+                    "description": "ECO-TOURISM AND SPIRITUAL ISLAND"
+                }
+            ]
+        },
+        "must_see_shows": {
+            "title": "MUST-SEE SHOWS",
+            "items": [
+                {
+                    "name": "The Little Fish",
+                    "time": "10:00 - 10:15",
+                    "location": "Song Ngu Station",
+                    "image_url": "https://static.vinwonders.com/production/2026/01/ca-chep.jpg"
+                },
+                {
+                    "name": "Vietnamese Heroic Spirit",
+                    "time": "10:30 - 10:45",
+                    "location": "Song Ngu Station",
+                    "image_url": "https://static.vinwonders.com/production/2025/09/Mua-hao-khi-Viet-Nam.jpg"
+                },
+                {
+                    "name": "Mascot perfomance - Lala Wonders",
+                    "time": "15:00 - 15:15",
+                    "location": "Light Square & Vanity Fair Park",
+                    "image_url": "https://static.vinwonders.com/production/2025/03/VWCH_LalaWonders-scaled.jpg"
+                }
+            ]
+        }
+    },
+    "statistics": {
+        "reason_count": 3,
+        "show_count": 3
+    }
+}
