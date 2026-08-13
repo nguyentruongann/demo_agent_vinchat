@@ -112,7 +112,7 @@ def ask(
 
     answer = str(state.get("answer") or "").strip()
     if not answer:
-        answer = "No answer was generated."
+        raise HTTPException(status_code=500, detail="Agent returned an empty answer")
 
     return {
         "answer": answer,

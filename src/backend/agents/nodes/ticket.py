@@ -15,7 +15,7 @@ def _language_group(language: str) -> str | None:
     return None
 
 
-def _missing_contact_answer(language: str) -> str:
+def _missing_contact_answer(language: str) -> str | None:
     group = _language_group(language)
     messages = {
         "vi": (
@@ -42,7 +42,7 @@ def _missing_contact_answer(language: str) -> str:
             "请先登录/注册，或通过“支持”页面提交请求。"
         ),
     }
-    return messages.get(group) or messages["en"]
+    return messages.get(group)
 
 
 def _ticket_template(language: str, ticket_id: str, human_required: bool) -> str | None:
@@ -99,9 +99,23 @@ def create_ticket(state: AgentState) -> AgentState:
         and (contact_user.display_name or "").strip()
         and ((contact_user.email or "").strip() or (contact_user.phone or "").strip())
     )
-    language = str(state.get("original_language") or "vi")
+    language = str(state.get("original_language") or "und")
     if not has_contact:
-        return {"ticket_id": None, "answer": _missing_contact_answer(language)}
+        answer = _missing_contact_answer(language)
+        if answer is None:
+            answer = LLMService().text(
+                system_prompt=(
+                    "Reply only in the target language from the current user turn. Explain briefly that "
+                    "this request needs human support, but a ticket cannot be created until the system "
+                    "has the user's name and at least one contact method (email or phone). Ask the user "
+                    "to sign in/register or use the Support page. Do not add any other facts."
+                ),
+                user_prompt=(
+                    f"TARGET_LANGUAGE: {state.get('original_language_name') or language} ({language})\n"
+                    f"CURRENT_MESSAGE: {state.get('user_message', '')}"
+                ),
+            )
+        return {"ticket_id": None, "answer": answer}
 
     ticket_id = TicketService().create(
         message=state["user_message"],
