@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from src.backend.config import get_settings
 from src.backend.models.auth import (
@@ -15,6 +16,7 @@ from src.backend.services.auth import (
     _extract_bearer,
     authenticate,
     create_user,
+    ensure_unique_contacts,
     get_current_user,
     issue_session,
     normalize_email,
@@ -136,6 +138,20 @@ def update_staff(user_id: str, payload: StaffUpdateRequest, current: AppUser = D
             user.is_active = payload.is_active
         if not user.email and not user.phone:
             raise HTTPException(status_code=422, detail="Tài khoản phải có email hoặc số điện thoại.")
-        db.commit()
-        db.refresh(user)
+
+        ensure_unique_contacts(
+            db,
+            email=user.email,
+            phone=user.phone,
+            exclude_user_id=user.id,
+        )
+        try:
+            db.commit()
+            db.refresh(user)
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Email hoặc số điện thoại đã được sử dụng.",
+            ) from exc
         return user_public(user)
