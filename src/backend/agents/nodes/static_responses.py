@@ -69,6 +69,46 @@ def out_of_scope_response(state: AgentState) -> AgentState:
     return {"answer": answer}
 
 
+def sensitive_content_response(state: AgentState) -> AgentState:
+    """Refuse semantically sensitive/harmful requests without answering them."""
+    language = _get_language(state)
+    group = _language_group(language)
+    templates = {
+        "vi": (
+            "Mình không thể hỗ trợ yêu cầu này vì nội dung thuộc nhóm nhạy cảm hoặc có thể gây hại. "
+            "Mình vẫn có thể hỗ trợ các nội dung an toàn liên quan đến Vinpearl/VinWonders như điểm đến, "
+            "khách sạn, vui chơi, chính sách, ưu đãi hoặc liên hệ hỗ trợ."
+        ),
+        "en": (
+            "I can't help with this request because it involves sensitive or potentially harmful content. "
+            "I can still help with safe Vinpearl/VinWonders topics such as destinations, hotels, attractions, "
+            "policies, promotions, or support guidance."
+        ),
+        "ko": (
+            "이 요청은 민감하거나 잠재적으로 유해한 내용이 포함되어 있어 도와드릴 수 없습니다. "
+            "대신 Vinpearl/VinWonders의 여행지, 호텔, 즐길 거리, 정책, 프로모션 또는 안전한 지원 안내를 도와드릴 수 있습니다."
+        ),
+        "ja": (
+            "このリクエストはセンシティブまたは有害となる可能性のある内容を含むため、お手伝いできません。"
+            "Vinpearl/VinWondersの旅行先、ホテル、アクティビティ、ポリシー、プロモーション、安全なサポート案内についてはお手伝いできます。"
+        ),
+        "zh": (
+            "由于该请求涉及敏感或可能造成伤害的内容，我无法提供帮助。"
+            "我仍可以协助处理 Vinpearl/VinWonders 的安全相关咨询，例如目的地、酒店、娱乐项目、政策、优惠或客服指引。"
+        ),
+    }
+    answer = templates.get(group)
+    if answer is None:
+        answer = _llm_fallback(
+            state,
+            "Politely refuse the request because it was classified as sensitive or potentially harmful. "
+            "Do not answer, summarize, translate, transform, or provide instructions for the sensitive content. "
+            "Offer only safe Vinpearl/VinWonders travel/service assistance.",
+            f"Internal safety category: {state.get('safety_category', 'other_sensitive')}",
+        )
+    return {"answer": answer, "ticket_id": None}
+
+
 def conversation_context_response(state: AgentState) -> AgentState:
     language = _get_language(state)
     group = _language_group(language)

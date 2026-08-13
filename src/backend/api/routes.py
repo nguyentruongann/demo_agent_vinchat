@@ -268,6 +268,10 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
             "support_triage_reason": state.get("support_triage_reason"),
             "support_triage_confidence": state.get("support_triage_confidence"),
             "recent_destinations": state.get("recent_destination_summary"),
+            "safety_action": state.get("safety_action"),
+            "safety_category": state.get("safety_category"),
+            "safety_reason": state.get("safety_reason"),
+            "safety_confidence": state.get("safety_confidence"),
         },
     )
 

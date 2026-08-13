@@ -25,6 +25,7 @@ EXPECTED_NODES = {
     "retrieve",
     "assess",
     "answer",
+    "language_guard",
     "ticket",
 }
 

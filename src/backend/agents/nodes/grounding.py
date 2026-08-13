@@ -32,10 +32,13 @@ def validate_grounding(state: AgentState) -> AgentState:
             "For multi-intent answers, validate each section independently. A missing branch may be "
             "reported as KB-not-found while found branches must remain grounded in context. "
             "If unsupported content exists, return a corrected answer removing only unsupported claims "
-            "and preserving grounded partial sections. Introduce no new facts. Preserve the user's language. "
+            "and preserving grounded partial sections. Introduce no new facts. corrected_answer MUST be "
+            "entirely in TARGET_RESPONSE_LANGUAGE. Do not fall back to English just because the context is English. "
             "Return JSON with exactly: grounded, reason, unsupported_claims, corrected_answer."
         ),
         user_prompt=f"""
+TARGET_RESPONSE_LANGUAGE: {state.get("original_language_name") or state.get("original_language", "en")} ({state.get("original_language", "en")})
+
 USER_QUESTION:
 {state.get("user_message", "")}
 

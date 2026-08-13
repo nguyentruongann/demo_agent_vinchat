@@ -49,9 +49,13 @@ def generate_answer(state: AgentState) -> AgentState:
             "For multi-intent questions, answer EACH requested intent separately. One missing intent "
             "must never cause you to suppress other intents that have grounded evidence. "
             "Preserve the order of the user's requested topics when practical. Missing URL metadata "
-            "must never cause supported content to be omitted. Reply in the user's original language."
+            "must never cause supported content to be omitted. The response language is mandatory: "
+            "write the ENTIRE natural-language answer in TARGET_RESPONSE_LANGUAGE. Do not switch to "
+            "English merely because RETRIEVED_CONTEXT or the retrieval query is English."
         ),
         user_prompt=f"""
+TARGET_RESPONSE_LANGUAGE: {state.get("original_language_name") or state.get("original_language", "en")} ({state.get("original_language", "en")})
+
 Current user question:
 {state["user_message"]}
 
@@ -82,6 +86,8 @@ Rules for this answer:
 - not_found => state only that the CURRENT KNOWLEDGE BASE lacks enough evidence for that intent.
 - Never turn not_found into a real-world non-existence claim.
 - Never use previous assistant answers as evidence.
+- Use TARGET_RESPONSE_LANGUAGE for every explanatory sentence, heading, caveat, and KB-not-found statement.
+- Keep proper nouns, IDs, URLs, emails, numbers, and official names as needed; those do not count as a language switch.
 - For self_serve support, give only grounded steps; do not pretend to perform account-specific actions.
 """,
     )
