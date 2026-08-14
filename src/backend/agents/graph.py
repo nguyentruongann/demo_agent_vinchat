@@ -59,13 +59,6 @@ def route_after_assessment(state: AgentState) -> str:
     return state.get("insufficiency_action", "ticket")
 
 
-def route_after_answer(state: AgentState) -> str:
-    """Fail closed when generation produced only an intro/empty body."""
-    if state.get("answer_substantive") is False:
-        return "no_data"
-    return "grounding"
-
-
 builder = StateGraph(AgentState)
 
 builder.add_node("load_memory", load_conversation_memory)
@@ -140,14 +133,7 @@ builder.add_edge("conversation_context", "language_guard")
 builder.add_edge("greeting", "language_guard")
 builder.add_edge("out_of_scope", "language_guard")
 builder.add_edge("sensitive", "language_guard")
-builder.add_conditional_edges(
-    "answer",
-    route_after_answer,
-    {
-        "grounding": "grounding",
-        "no_data": "no_data",
-    },
-)
+builder.add_edge("answer", "grounding")
 builder.add_edge("grounding", "language_guard")
 builder.add_edge("no_data", "language_guard")
 builder.add_edge("ticket", "language_guard")

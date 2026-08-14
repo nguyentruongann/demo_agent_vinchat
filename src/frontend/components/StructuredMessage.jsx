@@ -34,11 +34,12 @@ function StructuredMessage({ text, sources, isUser, onAction, showActions = true
     return []
   }, [sources, parsed.sources])
 
-  // Fallback: if parser found no structure or topics, render plain text lead or RichMessage
-  if (parsed.plainText && parsed.topics.length === 0 && !parsed.lead) {
+  // Fail-safe: if parsing produced no topic structure, always render the full raw
+  // answer. A detected lead must never suppress the rest of plainText.
+  if (parsed.plainText && parsed.topics.length === 0) {
     return (
       <div className="structured-msg structured-msg--plain">
-        <RichMessage text={text} isUser={false} />
+        <RichMessage text={parsed.plainText || text} isUser={false} />
         {mergedSources && mergedSources.length > 0 && <SourcePills sources={mergedSources} />}
         {showActions && <ActionRow actions={parsed.actions} onAction={onAction} />}
       </div>

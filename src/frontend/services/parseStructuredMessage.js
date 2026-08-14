@@ -45,6 +45,20 @@ function guessTopicIcon(title) {
   return '📌'
 }
 
+function getImplicitTopicTitle(text) {
+  const value = String(text || '')
+  if (/[ぁ-んァ-ン]/u.test(value)) return '主な情報'
+  if (/[가-힣]/u.test(value)) return '주요 정보'
+  if (/[\u4e00-\u9fff]/u.test(value)) return '主要信息'
+
+  const normalized = value.toLowerCase()
+  if (/[ăâđêôơưàáạảãèéẹẻẽìíịỉĩòóọỏõùúụủũỳýỵỷỹ]/iu.test(value) ||
+      /\b(tại|ở|có|thông tin|nhu cầu|bạn|khách sạn|dịch vụ|ẩm thực|vui chơi)\b/iu.test(normalized)) {
+    return 'Thông tin nổi bật'
+  }
+  return 'Highlights'
+}
+
 function stripMarkdownBold(str) {
   return str.replace(/\*\*(.+?)\*\*/g, '$1').trim()
 }
@@ -183,8 +197,11 @@ export function parseStructuredMessage(text) {
     }
 
     // ── Detect context strip (location / distance info) ──
-    if (!context && LOCATION_RE.test(trimmed)) {
-      const cleaned = cleanBulletText(stripMarkdownBold(trimmed))
+    // A bullet can itself describe a place (e.g. "- The Venice ... nằm bên sông").
+    // Do not consume such bullets as a context strip, otherwise the place silently
+    // disappears from the list. ContextStrip is reserved for standalone prose.
+    if (!context && !isBullet(trimmed) && LOCATION_RE.test(trimmed)) {
+      const cleaned = stripMarkdownBold(trimmed)
       if (cleaned.length < 150) {
         context = { icon: '📍', text: cleaned }
         continue
@@ -240,24 +257,31 @@ export function parseStructuredMessage(text) {
     }
 
     // ── Standalone bullet without a topic — create an implicit one ──
+    // Broad discovery answers often come back as an intro followed directly by
+    // bullets, without markdown headings. Previously only timed bullets were kept,
+    // so normal place/service bullets were dropped from the rendered response.
     if (isBullet(trimmed)) {
       const cleaned = cleanBulletText(stripMarkdownBold(trimmed))
       const time = parseTimeFromLine(cleaned)
-      if (time) {
-        // Create implicit timeline topic
-        if (!currentTopic) {
-          currentTopic = {
-            icon: '📋',
-            title: 'Lịch trình',
-            subtitle: '',
-            stops: [],
-            items: [],
-          }
+
+      if (!currentTopic) {
+        currentTopic = {
+          icon: time ? '📋' : '📌',
+          title: time ? 'Lịch trình' : getImplicitTopicTitle(text),
+          subtitle: '',
+          stops: [],
+          items: [],
         }
+      }
+
+      if (time) {
         const afterTime = cleaned.replace(TIME_RANGE_RE, '').replace(TIME_SINGLE_RE, '').trim()
         const name = afterTime.replace(/^[–—-]\s*/, '').trim()
         currentTopic.stops.push({ time, name, desc: '' })
+      } else if (cleaned) {
+        currentTopic.items.push(cleaned)
       }
+      continue
     }
   }
 

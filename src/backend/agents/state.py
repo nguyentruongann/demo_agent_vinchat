@@ -71,9 +71,6 @@ class AgentState(TypedDict, total=False):
     support_triage_confidence: float
 
     answer: str
-    # True only when answer generation produced a substantive body. A rare
-    # intro-only/empty generation is routed to the deterministic no-data node.
-    answer_substantive: bool
 
     # Post-generation grounding diagnostics.
     grounding_passed: bool
