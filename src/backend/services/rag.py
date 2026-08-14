@@ -101,6 +101,101 @@ class RAGService:
             )
         return output
 
+    def semantic_search_many(
+        self,
+        queries: list[str],
+        top_k: int | None = None,
+    ) -> list[list[dict[str, Any]]]:
+        """Run multiple semantic queries in one ONNX batch and one Chroma call.
+
+        This is used by the semantic fallback to preserve both the user's exact
+        wording and the LLM-rewritten standalone RAG query without paying the
+        overhead of two independent model invocations.
+        """
+        self._ensure_not_empty()
+        cleaned = [str(query or "").strip() for query in queries]
+        if not cleaned:
+            return []
+
+        embeddings = self.model.encode([f"query: {query}" for query in cleaned]).tolist()
+        result = self.collection.query(
+            query_embeddings=embeddings,
+            n_results=top_k or self.settings.top_k,
+            include=["documents", "metadatas", "distances"],
+        )
+
+        all_documents = result.get("documents", []) or []
+        all_metadatas = result.get("metadatas", []) or []
+        all_distances = result.get("distances", []) or []
+        outputs: list[list[dict[str, Any]]] = []
+
+        for query_index in range(len(cleaned)):
+            documents = all_documents[query_index] if query_index < len(all_documents) else []
+            metadatas = all_metadatas[query_index] if query_index < len(all_metadatas) else []
+            distances = all_distances[query_index] if query_index < len(all_distances) else []
+            output: list[dict[str, Any]] = []
+
+            for text, metadata, distance in zip(documents, metadatas, distances):
+                score = max(0.0, 1.0 - float(distance))
+                output.append(
+                    {
+                        "text": text,
+                        "metadata": metadata or {},
+                        "score": round(score, 4),
+                        "semantic_score": round(score, 4),
+                        "keyword_score": 0.0,
+                        "retrieval_mode": "semantic",
+                    }
+                )
+            outputs.append(output)
+
+        return outputs
+
+    def _exact_faq_matches(
+        self,
+        user_message: str,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Return exact FAQ-question matches from the lightweight lexical cache.
+
+        FAQ rows store the question in ``entity_name``. If the user asks that
+        exact normalized question, the matching FAQ is authoritative evidence and
+        should not be lost because an LLM rewrite generalized the wording.
+        """
+        target = normalize_text(user_message)
+        if not target:
+            return []
+
+        cache = self._load_corpus_cache()
+        matches: list[dict[str, Any]] = []
+
+        for index, metadata in enumerate(cache["metadatas"]):
+            entity_type = normalize_text(
+                str(metadata.get("entity_type") or metadata.get("category") or "")
+            )
+            if entity_type != "faq":
+                continue
+
+            entity_name = normalize_text(str(metadata.get("entity_name") or ""))
+            if entity_name != target:
+                continue
+
+            matches.append(
+                {
+                    "text": cache["documents"][index],
+                    "metadata": metadata,
+                    "score": 1.0,
+                    "semantic_score": 0.0,
+                    "keyword_score": 1.0,
+                    "retrieval_mode": "exact_faq",
+                    "query_source": "original_exact",
+                }
+            )
+            if len(matches) >= top_k:
+                break
+
+        return matches
+
     def _load_corpus_cache(self) -> dict[str, Any]:
         self._ensure_not_empty()
         count = self.collection.count()
@@ -583,17 +678,88 @@ class RAGService:
             if any(result.get("status") == "not_found" for result in intent_results.values()):
                 mode += "_partial"
         else:
-            # Without a resolved destination, keep the existing semantic fallback. For
-            # multi-intent wording we still expose the detected intents in diagnostics.
-            documents = self.semantic_search(query=query, top_k=k)
-            mode = "semantic_fallback"
+            # No destination was resolved. Preserve the user's original wording as
+            # retrieval evidence instead of relying only on the LLM-rewritten query.
+            # This specifically protects exact FAQ questions from rewrite drift while
+            # keeping the rewritten query for multilingual/follow-up understanding.
+            original_query = str(user_message or "").strip()
+            rewritten_query = str(query or "").strip()
+
+            exact_faq = self._exact_faq_matches(original_query, top_k=k)
+
+            semantic_queries: list[tuple[str, str]] = []
+            seen_queries: set[str] = set()
+
+            # If an exact FAQ is already found, re-embedding the same original wording
+            # adds no value. Keep the rewritten semantic branch only as supplemental
+            # evidence, so this common FAQ case is not slower than the old path.
+            if original_query and not exact_faq:
+                normalized_original = normalize_text(original_query)
+                if normalized_original:
+                    semantic_queries.append(("original", original_query))
+                    seen_queries.add(normalized_original)
+
+            normalized_rewritten = normalize_text(rewritten_query)
+            if rewritten_query and normalized_rewritten not in seen_queries:
+                semantic_queries.append(("rewritten", rewritten_query))
+                seen_queries.add(normalized_rewritten)
+
+            semantic_groups = self.semantic_search_many(
+                [item[1] for item in semantic_queries],
+                top_k=k,
+            ) if semantic_queries else []
+
+            merged_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+
+            def add_result(item: dict[str, Any], query_source: str) -> None:
+                candidate = dict(item)
+                candidate["query_source"] = query_source
+                metadata = candidate.get("metadata", {}) or {}
+                key = (
+                    str(metadata.get("entity_type") or ""),
+                    str(
+                        metadata.get("entity_id")
+                        or metadata.get("entity_name")
+                        or candidate.get("text", "")[:120]
+                    ),
+                )
+                existing = merged_by_key.get(key)
+                if existing is None or float(candidate.get("score", 0.0) or 0.0) > float(
+                    existing.get("score", 0.0) or 0.0
+                ):
+                    merged_by_key[key] = candidate
+
+            for item in exact_faq:
+                add_result(item, "original_exact")
+
+            for (query_source, _semantic_query), group in zip(semantic_queries, semantic_groups):
+                for item in group:
+                    add_result(item, query_source)
+
+            documents = sorted(
+                merged_by_key.values(),
+                key=lambda item: float(item.get("score", 0.0) or 0.0),
+                reverse=True,
+            )[:k]
+
+            if exact_faq:
+                mode = "semantic_fallback_exact_faq"
+            elif len(semantic_queries) > 1:
+                mode = "semantic_dual_query"
+            else:
+                mode = "semantic_fallback"
+
             if intents:
+                best_score = max(
+                    (float(item.get("score", 0.0) or 0.0) for item in documents),
+                    default=0.0,
+                )
                 for intent in intents:
                     intent_results[intent] = {
-                        "status": "unknown",
-                        "document_count": 0,
-                        "candidate_count": 0,
-                        "best_score": 0.0,
+                        "status": "found" if documents else "not_found",
+                        "document_count": len(documents),
+                        "candidate_count": len(merged_by_key),
+                        "best_score": round(best_score, 4),
                         "query": query,
                         "missing_destination_ids": [],
                     }
