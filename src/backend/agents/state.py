@@ -19,6 +19,18 @@ class AgentState(TypedDict, total=False):
     recent_destinations: list[dict[str, str]]
     recent_destination_summary: str
 
+    # Semantic reference resolution. These fields describe the destination focus
+    # of the CURRENT user request before retrieval runs. They are deliberately
+    # separate from ``detected_*`` below, which are retrieval diagnostics.
+    explicit_destinations: list[dict[str, Any]]
+    resolved_destinations: list[dict[str, Any]]
+    resolved_destination_ids: list[str]
+    resolved_destination_names: list[str]
+    context_uses_memory: bool
+    context_resolution_reason: str
+    context_resolution_confidence: float
+    context_resolution_source: str
+
     original_language: str
     original_language_name: str
     rag_query: str
