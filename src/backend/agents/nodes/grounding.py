@@ -1,5 +1,6 @@
 from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
+from src.backend.agents.nodes.static_responses import no_data_response
 from src.backend.services.llm import LLMService
 
 
@@ -68,14 +69,25 @@ Return exactly this JSON shape:
     if not isinstance(unsupported, list):
         unsupported = [str(unsupported)]
 
+    fallback_to_no_data = False
     if grounded:
         final_answer = draft
     else:
         corrected = str(result.get("corrected_answer") or "").strip()
-        final_answer = corrected or (
-            "The current knowledge base does not contain enough grounded information "
-            "to answer this request safely."
+        # If the validator cannot produce a grounded correction, fail closed using
+        # the deterministic localized no-data response. Do not leave
+        # enough_information=True, otherwise API source construction may expose
+        # semantically related but non-supporting citations.
+        corrected_is_vacuous = (
+            not corrected
+            or corrected.strip().strip('"\'').strip() == "NO_GROUNDED_ANSWER"
+            or (len(corrected) <= 320 and corrected.endswith((":", "：")))
         )
+        if corrected_is_vacuous:
+            final_answer = str(no_data_response(state).get("answer") or "").strip()
+            fallback_to_no_data = True
+        else:
+            final_answer = corrected
 
     print("\n===== GROUNDING VALIDATION =====")
     print(f"Grounded: {grounded}")
@@ -86,9 +98,18 @@ Return exactly this JSON shape:
             print(f"- {claim}")
     print("================================\n")
 
-    return {
+    output = {
         "answer": final_answer,
         "grounding_passed": grounded,
         "grounding_reason": reason,
         "unsupported_claims": [str(item) for item in unsupported],
     }
+    if fallback_to_no_data:
+        output.update(
+            {
+                "enough_information": False,
+                "insufficiency_action": "no_data",
+                "answer_substantive": False,
+            }
+        )
+    return output
