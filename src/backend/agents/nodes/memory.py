@@ -25,13 +25,19 @@ def load_conversation_memory(state: AgentState) -> AgentState:
 
 
 def save_conversation_memory(state: AgentState) -> AgentState:
+    # Never persist a blocked/sensitive turn as a RAG turn. Otherwise the raw
+    # adversarial message could later be mined as trusted destination memory.
+    persisted_route = state.get("route", "unknown")
+    if state.get("safety_action") == "block" or state.get("scope_action") == "block":
+        persisted_route = "out_of_scope"
+
     MemoryService().append_turn(
         session_id=state.get("session_id"),
         user_id=state.get("user_id"),
         user_message=state.get("user_message", ""),
         assistant_answer=state.get("answer", ""),
         language=state.get("original_language", "unknown"),
-        route=state.get("route", "unknown"),
+        route=persisted_route,
         rag_query=state.get("rag_query"),
         ticket_id=state.get("ticket_id"),
         detected_destinations=state.get("detected_destinations", []),

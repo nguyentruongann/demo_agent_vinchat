@@ -1,4 +1,5 @@
 from src.backend.agents.state import AgentState
+from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.llm import LLMService
 
 
@@ -40,7 +41,7 @@ def validate_grounding(state: AgentState) -> AgentState:
 TARGET_RESPONSE_LANGUAGE: {state.get("original_language_name") or state.get("original_language", "en")} ({state.get("original_language", "en")})
 
 USER_QUESTION:
-{state.get("user_message", "")}
+{effective_user_message(state)}
 
 INTENT_RETRIEVAL_STATUS:
 {intent_results}

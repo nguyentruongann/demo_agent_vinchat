@@ -37,7 +37,6 @@ def enforce_response_language(state: AgentState) -> AgentState:
         ),
         user_prompt=(
             f"TARGET_LANGUAGE: {target}\n"
-            f"CURRENT_USER_MESSAGE:\n{state.get('user_message', '')}\n\n"
             f"DRAFT_ASSISTANT_REPLY:\n{draft}"
         ),
     )

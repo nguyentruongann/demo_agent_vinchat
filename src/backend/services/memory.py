@@ -371,6 +371,12 @@ class MemoryService:
                 ]
 
             if not structured:
+                # Only mine raw text as a legacy fallback for turns that were
+                # actually accepted into RAG. Out-of-scope/sensitive turns may
+                # contain prompt-injection destination names and must not poison
+                # future reference resolution.
+                if str(turn.get("route") or "") != "rag":
+                    continue
                 try:
                     from src.backend.services.query_parser import detect_destinations
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.backend.agents.state import AgentState
+from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.llm import LLMService
 
 
@@ -27,7 +28,7 @@ def _llm_fallback(state: AgentState, instruction: str, details: str = "") -> str
             "Reply only in the explicitly detected language. Keep the response brief. "
             + instruction
         ),
-        user_prompt=f"Detected language: {language}\nCurrent message: {state.get('user_message', '')}\n{details}",
+        user_prompt=f"Detected language: {language}\nCurrent message: {effective_user_message(state)}\n{details}",
     )
 
 
