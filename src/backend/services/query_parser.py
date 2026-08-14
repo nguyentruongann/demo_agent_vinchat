@@ -60,14 +60,14 @@ INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 INTENT_ENTITY_TYPES: dict[str, set[str]] = {
+    # Keep branch evidence semantically strict. Generic destination/highlight/complex
+    # documents are useful for attraction discovery, but should not make a hotel or
+    # service branch look "found" when there is no actual hotel/service record.
     "hotel": {
-        "property", "room", "amenity", "dining_service",
-        "destination", "destination_highlight", "complex",
+        "property", "room",
     },
     "service": {
-        "property", "room", "amenity", "dining_service",
-        "destination_highlight", "golf_feature", "mice_venue", "mice_room",
-        "attraction", "complex",
+        "amenity", "dining_service", "golf_feature", "mice_venue", "mice_room",
     },
     "dining": {"dining_service", "property", "amenity"},
     "promotion": {
