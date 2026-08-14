@@ -1,6 +1,5 @@
 import { Filter, RotateCcw } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
-import { DESTINATIONS } from '../data/mockData'
 import '../styles/components/FilterSidebar.css'
 
 function FilterSidebar({
@@ -11,9 +10,10 @@ function FilterSidebar({
   maxPrice,
   setMaxPrice,
   resetFilters,
+  destinations = [],
 }) {
   const { t } = useLanguage()
-  const propertyTypes = ['all', 'Resort', 'Villa', 'Hotel']
+  const propertyTypes = ['all', 'resort', 'hotel']
 
   return (
     <aside className="filter-sidebar">
@@ -43,7 +43,7 @@ function FilterSidebar({
           onChange={(event) => setSelectedDest(event.target.value)}
         >
           <option value="all">{t.allDestinations}</option>
-          {DESTINATIONS.map((destination) => (
+          {destinations.map((destination) => (
             <option key={destination.id} value={destination.id}>
               {destination.name}
             </option>
@@ -68,7 +68,7 @@ function FilterSidebar({
                 checked={selectedType === type}
                 onChange={() => setSelectedType(type)}
               />
-              <span>{type === 'all' ? t.allTypes : type}</span>
+              <span>{type === 'all' ? t.allTypes : t[type]}</span>
             </label>
           ))}
         </div>
@@ -80,22 +80,22 @@ function FilterSidebar({
             {t.priceRange}
           </label>
           <span className="filter-sidebar__price-value">
-            {(maxPrice / 1000000).toFixed(1)}M VND
+            ${maxPrice} USD
           </span>
         </div>
         <input
           className="filter-sidebar__range"
           id="price-filter"
           type="range"
-          min="3000000"
-          max="25000000"
-          step="500000"
+          min="50"
+          max="500"
+          step="10"
           value={maxPrice}
           onChange={(event) => setMaxPrice(Number(event.target.value))}
         />
         <div className="filter-sidebar__range-labels">
-          <span>3M VND</span>
-          <span>25M VND</span>
+          <span>$50</span>
+          <span>$500</span>
         </div>
       </div>
     </aside>

@@ -150,7 +150,7 @@
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 20px 16px;
   text-align: center;
   transition: transform 0.3s ease, background 0.3s ease;
@@ -260,7 +260,7 @@
 .about-hotel-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 20px;
+  border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
   display: flex;
@@ -375,7 +375,7 @@
 }
 
 .about-package-card {
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 36px 30px;
   color: #ffffff;
   display: flex;
@@ -394,7 +394,7 @@
 .about-package-card__icon-wrap {
   width: 56px;
   height: 56px;
-  border-radius: 16px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(6px);
   display: flex;
@@ -461,7 +461,7 @@
 .about-mice-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 32px;
   display: flex;
   flex-direction: column;
@@ -486,7 +486,7 @@
   height: 42px;
   padding: 8px;
   background: #f1f5f9;
-  border-radius: 12px;
+  border-radius: 6px;
   color: #0b2e3d;
   flex: 0 0 auto;
 }
@@ -535,7 +535,7 @@
 .about-company-box {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 40px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
@@ -555,7 +555,7 @@
   color: #0b2e3d;
   background: #f1f5f9;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: 6px;
   flex: 0 0 auto;
 }
 
@@ -611,7 +611,7 @@
 /* AI CTA Banner */
 .about-ai-cta {
   background: linear-gradient(135deg, #0b2e3d 0%, #0f3e53 100%);
-  border-radius: 24px;
+  border-radius: 8px;
   padding: 50px 30px;
   color: #ffffff;
   text-align: center;

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Building2,
@@ -13,10 +14,12 @@ import {
   HeartPulse,
   Briefcase,
   Search,
+  RefreshCcw,
 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
 import AboutHotelsGrid from '../components/AboutHotelsGrid'
-import aboutData from '../../data_crawl/About/vinpearl_about.json'
+import aboutDataFallback from '../../data_crawl/About/vinpearl_about.json'
+import { fetchAboutInfo } from '../services/api'
 import '../styles/pages/About.css'
 
 const VI_TRANSLATIONS = {
@@ -40,22 +43,81 @@ const VI_TRANSLATIONS = {
 }
 
 export default function About() {
-  const { language } = useLanguage()
-  const isVi = language === 'VI'
+  const { language, t } = useLanguage()
+  const isVi = language === 'vi'
 
-  const headlineText = isVi ? VI_TRANSLATIONS.headline : aboutData.headline
-  const introText = isVi ? VI_TRANSLATIONS.introduction : aboutData.introduction
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const loadData = async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const res = await fetchAboutInfo()
+      setData(res)
+    } catch (err) {
+      console.error('Failed to fetch about info:', err)
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // Derived data with fallback
+  const org = data?.org || {
+    headline: aboutDataFallback.headline,
+    introduction: aboutDataFallback.introduction,
+    address: aboutDataFallback.company_info.address,
+    hotline: aboutDataFallback.company_info.hotline,
+    account_holder: aboutDataFallback.company_info.account_holder,
+    bank_account: aboutDataFallback.company_info.bank_account,
+    bank: aboutDataFallback.company_info.bank,
+    business_registration: aboutDataFallback.company_info.business_registration,
+    issued_by: aboutDataFallback.company_info.issued_by,
+  }
+
+  const packages = data?.highlights?.packages || aboutDataFallback.signature_product_packages
+  const mice = data?.highlights?.mice || aboutDataFallback.mice
+  const meetingEvents = data?.highlights?.meeting_events || aboutDataFallback.meeting_and_events
+
+  const headlineText = isVi ? VI_TRANSLATIONS.headline : org.headline
+  const introText = isVi ? VI_TRANSLATIONS.introduction : org.introduction
+
+  if (loading) {
+    return (
+      <div className="about-page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: '#c9a45c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <RefreshCcw className="animate-spin" size={20} />
+          <span>Đang tải thông tin...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="about-page">
+      {error && (
+        <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+          <span>Không thể tải dữ liệu mới nhất. Đang hiển thị bản lưu tạm.</span>
+          <button onClick={loadData} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', border: '1px solid #991b1b', borderRadius: '4px', background: 'transparent', color: '#991b1b', cursor: 'pointer' }}>
+            <RefreshCcw size={14} /> Thử lại
+          </button>
+        </div>
+      )}
+
       {/* Top Header Breadcrumb */}
       <section className="about-breadcrumb-bar">
         <div className="about-container">
           <nav className="about-breadcrumb">
-            <Link to="/">{isVi ? 'Trang chủ' : 'Home'}</Link>
+            <Link to="/">{t.aboutHome}</Link>
             <ChevronRight className="about-breadcrumb__sep" />
             <span className="about-breadcrumb__current">
-              {isVi ? 'Giới thiệu về Vinpearl' : 'About Vinpearl'}
+              {t.aboutVinpearl}
             </span>
           </nav>
         </div>
@@ -66,7 +128,7 @@ export default function About() {
         <div className="about-hero__bg">
           <img
             src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1920&q=80"
-            alt="Vinpearl Hero"
+            alt={t.aboutHeroAlt}
           />
           <div className="about-hero__overlay" />
         </div>
@@ -74,7 +136,7 @@ export default function About() {
         <div className="about-container about-hero__content">
           <div className="about-hero__badge">
             <Award className="about-hero__badge-icon" />
-            <span>{isVi ? 'Thương hiệu du lịch hàng đầu Việt Nam từ 2003' : 'Vietnam Premier Hospitality Pioneer Since 2003'}</span>
+            <span>{t.aboutPioneer}</span>
           </div>
 
           <h1 className="about-hero__title">{headlineText}</h1>
@@ -84,25 +146,25 @@ export default function About() {
             <div className="about-stat-card">
               <div className="about-stat-card__number">2003</div>
               <div className="about-stat-card__label">
-                {isVi ? 'Năm thành lập' : 'Founding Year'}
+                {t.foundingYear}
               </div>
             </div>
             <div className="about-stat-card">
               <div className="about-stat-card__number">3</div>
               <div className="about-stat-card__label">
-                {isVi ? 'Phức hợp du lịch độc đáo' : 'Destination Complexes'}
+                {t.destinationComplexes}
               </div>
             </div>
             <div className="about-stat-card">
               <div className="about-stat-card__number">9+</div>
               <div className="about-stat-card__label">
-                {isVi ? 'Resort & Khách sạn 5 sao' : 'Luxury Hotels & Resorts'}
+                {t.luxuryHotelsResorts}
               </div>
             </div>
             <div className="about-stat-card">
               <div className="about-stat-card__number">5★</div>
               <div className="about-stat-card__label">
-                {isVi ? 'Dịch vụ tiêu chuẩn quốc tế' : 'World-Class Hospitality'}
+                {t.worldClassHospitality}
               </div>
             </div>
           </div>
@@ -118,18 +180,14 @@ export default function About() {
         <section className="about-section about-packages-section">
           <div className="about-section__header">
             <span className="about-section__eyebrow">
-              {isVi ? 'Trải nghiệm đỉnh cao' : 'Signature Offerings'}
+              {t.signatureOfferings}
             </span>
-            <h2>{isVi ? 'Gói Sản phẩm & Dịch vụ Đặc sắc' : 'Signature Product Packages'}</h2>
-            <p>
-              {isVi
-                ? 'Những gói trải nghiệm nghỉ dưỡng được thiết kế riêng đáp ứng mọi nhu cầu của du khách.'
-                : 'Curated experience packages tailored to elevate your luxury getaway.'}
-            </p>
+            <h2>{t.signatureProductPackages}</h2>
+            <p>{t.signaturePackagesDescription}</p>
           </div>
 
           <div className="about-packages-grid">
-            {aboutData.signature_product_packages.map((pkg, idx) => {
+            {packages.map((pkg, idx) => {
               const desc =
                 isVi && VI_TRANSLATIONS.packages[pkg.name]
                   ? VI_TRANSLATIONS.packages[pkg.name]
@@ -155,12 +213,12 @@ export default function About() {
                   <p>{desc}</p>
                   <Link
                     to={`/chat?prompt=${encodeURIComponent(
-                      `${isVi ? 'Tư vấn gói' : 'Inquire package'}: ${pkg.name}`,
+                      `${t.inquirePackage}: ${pkg.name}`,
                     )}`}
                     className="about-package-card__btn"
                   >
                     <Sparkles className="about-package-card__btn-icon" />
-                    <span>{isVi ? 'Tư vấn với AI' : 'Inquire with AI'}</span>
+                    <span>{t.inquireWithAi}</span>
                   </Link>
                 </div>
               )
@@ -172,19 +230,19 @@ export default function About() {
         <section className="about-section about-mice-section">
           <div className="about-section__header">
             <span className="about-section__eyebrow">
-              {isVi ? 'Hội họp & Sự kiện' : 'Meetings & Celebrations'}
+              {t.meetingsCelebrations}
             </span>
-            <h2>{isVi ? 'Trung tâm Hội nghị & MICE Đẳng cấp' : 'MICE & Event Venues'}</h2>
+            <h2>{t.miceEventVenues}</h2>
           </div>
 
           <div className="about-mice-grid">
             {/* Almaz Card */}
-            {aboutData.mice.map((item) => (
+            {mice.map((item) => (
               <div key={item.name} className="about-mice-card">
                 <div className="about-mice-card__header">
                   <Briefcase className="about-mice-card__icon" />
                   <div>
-                    <span className="about-mice-card__tag">MICE & Entertainment</span>
+                    <span className="about-mice-card__tag">{t.miceEntertainment}</span>
                     <h3>{item.name}</h3>
                   </div>
                 </div>
@@ -194,19 +252,19 @@ export default function About() {
                     : item.description}
                 </p>
                 <Link to="/support" className="about-mice-card__action">
-                  <span>{isVi ? 'Liên hệ đặt sự kiện' : 'Book MICE Event'}</span>
+                  <span>{t.bookMiceEvent}</span>
                   <ChevronRight size={16} />
                 </Link>
               </div>
             ))}
 
             {/* Convention Centers Card */}
-            {aboutData.meeting_and_events.map((item) => (
+            {meetingEvents.map((item) => (
               <div key={item.name} className="about-mice-card">
                 <div className="about-mice-card__header">
                   <Building2 className="about-mice-card__icon" />
                   <div>
-                    <span className="about-mice-card__tag">Convention & Gala</span>
+                    <span className="about-mice-card__tag">{t.conventionGala}</span>
                     <h3>{item.name}</h3>
                   </div>
                 </div>
@@ -216,7 +274,7 @@ export default function About() {
                     : item.description}
                 </p>
                 <Link to="/support" className="about-mice-card__action">
-                  <span>{isVi ? 'Yêu cầu báo giá hội nghị' : 'Request Event Quote'}</span>
+                  <span>{t.requestEventQuote}</span>
                   <ChevronRight size={16} />
                 </Link>
               </div>
@@ -230,8 +288,8 @@ export default function About() {
             <div className="about-company-box__title-row">
               <ShieldCheck className="about-company-box__shield" />
               <div>
-                <h2>{isVi ? 'Thông tin Doanh nghiệp & Pháp lý' : 'Corporate & Legal Information'}</h2>
-                <p>{aboutData.company_info.account_holder}</p>
+                <h2>{t.corporateLegalInfo}</h2>
+                <p>{org.account_holder}</p>
               </div>
             </div>
 
@@ -239,38 +297,42 @@ export default function About() {
               <div className="about-company-item">
                 <MapPin className="about-company-item__icon" />
                 <div>
-                  <strong>{isVi ? 'Địa chỉ trụ sở' : 'Registered Address'}</strong>
-                  <p>{aboutData.company_info.address}</p>
+                  <strong>{t.registeredAddress}</strong>
+                  <p>{org.address}</p>
                 </div>
               </div>
 
               <div className="about-company-item">
                 <Phone className="about-company-item__icon" />
                 <div>
-                  <strong>{isVi ? 'Tổng đài chăm sóc khách hàng' : 'Hotline'}</strong>
-                  <p>{aboutData.company_info.hotline}</p>
+                  <strong>{t.hotline}</strong>
+                  <p>{org.hotline}</p>
                 </div>
               </div>
 
-              <div className="about-company-item">
-                <CreditCard className="about-company-item__icon" />
-                <div>
-                  <strong>{isVi ? 'Thông tin chuyển khoản' : 'Bank Account Details'}</strong>
-                  <p>
-                    {isVi ? 'Số TK' : 'Account'}: <strong>{aboutData.company_info.bank_account}</strong>
-                  </p>
-                  <p>{aboutData.company_info.bank}</p>
+              {org.bank_account && org.account_holder && org.bank && (
+                <div className="about-company-item">
+                  <CreditCard className="about-company-item__icon" />
+                  <div>
+                    <strong>{t.bankAccountDetails}</strong>
+                    <p>
+                      {t.account}: <strong>{org.bank_account}</strong>
+                    </p>
+                    <p>{org.bank}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="about-company-item">
                 <Building2 className="about-company-item__icon" />
                 <div>
-                  <strong>{isVi ? 'Đăng ký kinh doanh' : 'Business Registration'}</strong>
-                  <p>{aboutData.company_info.business_registration}</p>
-                  <p>
-                    {isVi ? 'Nơi cấp' : 'Issued by'}: {aboutData.company_info.issued_by}
-                  </p>
+                  <strong>{t.businessRegistration}</strong>
+                  <p>{org.business_registration}</p>
+                  {org.issued_by && (
+                    <p>
+                      {t.issuedBy}: {org.issued_by}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -283,24 +345,16 @@ export default function About() {
             <div className="about-ai-cta__sparkle">
               <Sparkles size={28} />
             </div>
-            <h2>
-              {isVi
-                ? 'Bạn cần tư vấn chi tiết về Vinpearl?'
-                : 'Need Custom Vinpearl Recommendations?'}
-            </h2>
-            <p>
-              {isVi
-                ? 'Hỏi trợ lý VinTravel AI Concierge để nhận tư vấn lịch trình 3N2Đ, bảng giá phòng và ưu đãi mới nhất.'
-                : 'Ask VinTravel AI Concierge for personalized 3D2N itineraries, suite availability, and special rates.'}
-            </p>
+            <h2>{t.customRecommendations}</h2>
+            <p>{t.customRecommendationsDesc}</p>
             <div className="about-ai-cta__actions">
               <Link to="/chat" className="about-ai-cta__primary">
                 <Sparkles size={18} />
-                <span>{isVi ? 'Trò chuyện với AI' : 'Chat with AI Concierge'}</span>
+                <span>{t.chatWithAi}</span>
               </Link>
               <Link to="/search" className="about-ai-cta__secondary">
                 <Search size={18} />
-                <span>{isVi ? 'Xem tất cả Resort' : 'Browse All Resorts'}</span>
+                <span>{t.browseAllResorts}</span>
               </Link>
             </div>
           </div>

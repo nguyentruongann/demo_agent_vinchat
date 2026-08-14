@@ -5,11 +5,19 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
 
-  root: path.resolve(__dirname, 'src/frontend'),
+  // Keep lowercase `src/frontend` so deployment works consistently on
+  // case-sensitive Linux filesystems (Railway/Docker).
+  root: path.resolve(import.meta.dirname, 'src/frontend'),
 
-  envDir: path.resolve(__dirname),
+  envDir: path.resolve(import.meta.dirname),
 
   server: {
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })

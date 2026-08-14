@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ArrowUpRight,
   CalendarDays,
@@ -11,28 +12,12 @@ import {
   Tag,
 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
-import { fetchPromotions } from '../services/api'
+import { fetchDestinations, fetchPromotions } from '../services/api'
 import '../styles/pages/Promotions.css'
-
-const DESTINATIONS = [
-  { id: 'all', en: 'All destinations', vi: 'Tất cả điểm đến' },
-  { id: 'nha-trang', en: 'Nha Trang', vi: 'Nha Trang' },
-  { id: 'phu-quoc', en: 'Phu Quoc', vi: 'Phú Quốc' },
-  { id: 'hoi-an', en: 'Hoi An', vi: 'Hội An' },
-  { id: 'ha-noi', en: 'Hanoi', vi: 'Hà Nội' },
-  { id: 'hai-phong', en: 'Hai Phong', vi: 'Hải Phòng' },
-]
-
-const STATUS_OPTIONS = [
-  { id: 'all', en: 'All statuses', vi: 'Tất cả trạng thái' },
-  { id: 'active', en: 'Active', vi: 'Đang áp dụng' },
-  { id: 'upcoming', en: 'Upcoming', vi: 'Sắp diễn ra' },
-  { id: 'expired', en: 'Expired', vi: 'Đã kết thúc' },
-]
 
 const INITIAL_PROMOTION_COUNT = 6
 
-function PromotionSelect({ icon: Icon, value, options, isVi, label, onChange }) {
+function PromotionSelect({ icon: Icon, value, options, label, onChange }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const selected = options.find((option) => option.id === value) || options[0]
@@ -59,7 +44,7 @@ function PromotionSelect({ icon: Icon, value, options, isVi, label, onChange }) 
         }}
       >
         <Icon className="promotions-select__leading-icon" aria-hidden="true" />
-        <span>{isVi ? selected.vi : selected.en}</span>
+        <span>{selected.label}</span>
         <ChevronDown className="promotions-select__chevron" aria-hidden="true" />
       </button>
       {open && (
@@ -76,7 +61,7 @@ function PromotionSelect({ icon: Icon, value, options, isVi, label, onChange }) 
                 setOpen(false)
               }}
             >
-              <span>{isVi ? option.vi : option.en}</span>
+              <span>{option.label}</span>
               {option.id === value && <Check aria-hidden="true" />}
             </button>
           ))}
@@ -90,19 +75,20 @@ function formatDate(value, language) {
   if (!value) return null
   const date = new Date(`${value}T00:00:00`)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat(language === 'VI' ? 'vi-VN' : 'en-GB', {
+  const locales = { en: 'en-GB', vi: 'vi-VN', ko: 'ko-KR', ja: 'ja-JP', zh: 'zh-CN' }
+  return new Intl.DateTimeFormat(locales[language] || 'en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   }).format(date)
 }
 
-function getDestinations(promotion, language) {
+function getDestinations(promotion, translate) {
   if (promotion.is_nationwide) {
-    return language === 'VI' ? 'Toàn quốc' : 'Nationwide'
+    return translate('promotions.nationwide')
   }
   if (!Array.isArray(promotion.destinations) || promotion.destinations.length === 0) {
-    return language === 'VI' ? 'Nhiều điểm đến' : 'Multiple destinations'
+    return translate('promotions.multipleDestinations')
   }
   return promotion.destinations
     .map((item) => (typeof item === 'string' ? item : item.name || item.id))
@@ -111,9 +97,11 @@ function getDestinations(promotion, language) {
 }
 
 function Promotions() {
-  const { language } = useLanguage()
-  const isVi = language === 'VI'
+  const { language, t, translate } = useLanguage()
   const [promotions, setPromotions] = useState([])
+  const [destinationOptions, setDestinationOptions] = useState([
+    { id: 'all', label: t.allDestinations },
+  ])
   const [destination, setDestination] = useState('all')
   const [status, setStatus] = useState('active')
   const [searchInput, setSearchInput] = useState('')
@@ -122,15 +110,52 @@ function Promotions() {
   const [error, setError] = useState('')
   const [retryKey, setRetryKey] = useState(0)
   const [showAll, setShowAll] = useState(false)
+  const loadedLanguageRef = useRef(null)
 
   useEffect(() => {
     let active = true
-    setLoading(true)
+    fetchDestinations()
+      .then((items) => {
+        if (!active) return
+        setDestinationOptions([
+          { id: 'all', label: t.allDestinations },
+          ...items.map((item) => ({ id: item.id, label: item.name })),
+        ])
+      })
+      .catch(() => {
+        if (active) setDestinationOptions([{ id: 'all', label: t.allDestinations }])
+      })
+    return () => {
+      active = false
+    }
+  }, [language, t.allDestinations])
+
+  const statusOptions = [
+    { id: 'all', label: t.allStatuses },
+    { id: 'active', label: t.statusActive },
+    { id: 'upcoming', label: t.statusUpcoming },
+    { id: 'expired', label: t.statusExpired },
+  ]
+
+  useEffect(() => {
+    let active = true
+    let refreshTimer
+    if (loadedLanguageRef.current !== language || promotions.length === 0) {
+      setLoading(true)
+    }
     setError('')
 
     fetchPromotions({ destination, status, search })
-      .then(({ items }) => {
-        if (active) setPromotions(items)
+      .then(({ items, translationFallback }) => {
+        if (!active) return
+        setPromotions(items)
+        loadedLanguageRef.current = language
+        if (translationFallback && language !== 'en') {
+          refreshTimer = window.setTimeout(
+            () => setRetryKey((value) => value + 1),
+            5000,
+          )
+        }
       })
       .catch((requestError) => {
         if (!active) return
@@ -143,8 +168,9 @@ function Promotions() {
 
     return () => {
       active = false
+      window.clearTimeout(refreshTimer)
     }
-  }, [destination, status, search, retryKey])
+  }, [destination, status, search, retryKey, language])
 
   useEffect(() => {
     setShowAll(false)
@@ -154,44 +180,10 @@ function Promotions() {
     ? promotions
     : promotions.slice(0, INITIAL_PROMOTION_COUNT)
 
-  const copy = useMemo(
-    () =>
-      isVi
-        ? {
-            eyebrow: 'Ưu đãi tuyển chọn',
-            title: 'Đặc quyền cho hành trình đáng nhớ',
-            description: 'Khám phá ưu đãi nghỉ dưỡng và trải nghiệm tại các điểm đến Vinpearl.',
-            search: 'Tìm theo tên hoặc nội dung ưu đãi',
-            submit: 'Tìm kiếm',
-            loading: 'Đang tải ưu đãi...',
-            emptyTitle: 'Chưa có ưu đãi phù hợp',
-            emptyText: 'Hãy thử đổi điểm đến, trạng thái hoặc từ khóa tìm kiếm.',
-            errorTitle: 'Không thể tải ưu đãi',
-            errorText: 'API Promotions chưa sẵn sàng hoặc backend chưa kết nối database.',
-            retry: 'Thử lại',
-            view: 'Xem ưu đãi',
-            viewMore: 'Xem thêm ưu đãi',
-            validity: 'Hạn áp dụng',
-            noSummary: 'Thông tin chi tiết sẽ được cập nhật trong thời gian sớm nhất.',
-          }
-        : {
-            eyebrow: 'Curated offers',
-            title: 'Privileges for remarkable journeys',
-            description: 'Discover resort and experience offers across Vinpearl destinations.',
-            search: 'Search promotion title or content',
-            submit: 'Search',
-            loading: 'Loading promotions...',
-            emptyTitle: 'No matching promotions',
-            emptyText: 'Try another destination, status, or search term.',
-            errorTitle: 'Unable to load promotions',
-            errorText: 'The Promotions API is unavailable or the backend is not connected to the database.',
-            retry: 'Try again',
-            view: 'View offer',
-            viewMore: 'View more offers',
-            validity: 'Valid period',
-            noSummary: 'More details will be available soon.',
-          },
-    [isVi],
+  const copy = Object.fromEntries(
+    ['eyebrow', 'title', 'description', 'search', 'submit', 'loading', 'emptyTitle',
+      'emptyText', 'errorTitle', 'errorText', 'retry', 'view', 'viewMore', 'validity']
+      .map((key) => [key, translate(`promotions.${key}`)]),
   )
 
   function handleSearch(event) {
@@ -213,7 +205,7 @@ function Promotions() {
       </section>
 
       <div className="promotions-page__container">
-        <section className="promotions-page__filters" aria-label="Promotion filters">
+        <section className="promotions-page__filters" aria-label={t.promotionFilters}>
           <form className="promotions-page__search" onSubmit={handleSearch}>
             <Search aria-hidden="true" />
             <input
@@ -228,18 +220,16 @@ function Promotions() {
           <PromotionSelect
             icon={MapPin}
             value={destination}
-            options={DESTINATIONS}
-            isVi={isVi}
-            label={isVi ? 'Lọc theo điểm đến' : 'Filter by destination'}
+            options={destinationOptions}
+            label={t.filterByDestination}
             onChange={setDestination}
           />
 
           <PromotionSelect
             icon={Tag}
             value={status}
-            options={STATUS_OPTIONS}
-            isVi={isVi}
-            label={isVi ? 'Lọc theo trạng thái' : 'Filter by status'}
+            options={statusOptions}
+            label={t.filterByStatus}
             onChange={setStatus}
           />
         </section>
@@ -289,7 +279,7 @@ function Promotions() {
                   <div className="promotion-card__body">
                     <div className="promotion-card__location">
                       <MapPin aria-hidden="true" />
-                      <span>{getDestinations(promotion, language)}</span>
+                      <span>{getDestinations(promotion, translate)}</span>
                     </div>
                     <h2>{promotion.title}</h2>
                     {(fromDate || toDate) && (
@@ -298,15 +288,9 @@ function Promotions() {
                         <span>{copy.validity}: {fromDate || '—'} – {toDate || '—'}</span>
                       </div>
                     )}
-                    {promotion.booking_url ? (
-                      <a href={promotion.booking_url} target="_blank" rel="noreferrer">
-                        {copy.view}<ArrowUpRight aria-hidden="true" />
-                      </a>
-                    ) : (
-                      <span className="promotion-card__action promotion-card__action--disabled" aria-disabled="true">
-                        {copy.view}<ArrowUpRight aria-hidden="true" />
-                      </span>
-                    )}
+                    <Link to={`/promotions/${promotion.id}`} className="promotion-card__action">
+                      {copy.view}<ArrowUpRight aria-hidden="true" />
+                    </Link>
                   </div>
                 </article>
               )

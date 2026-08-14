@@ -128,7 +128,7 @@ function Ticket() {
                   id="ticket-name"
                   type="text"
                   required
-                  placeholder="e.g. Victoria Tran"
+                  placeholder={t.nameExample}
                   value={customerName}
                   onChange={(event) => setCustomerName(event.target.value)}
                 />
@@ -152,7 +152,7 @@ function Ticket() {
                 <div className="ticket-page__field">
                   <label className="ticket-page__label" htmlFor="ticket-phone">
                     <Phone className="ticket-page__label-icon" />
-                    <span>{t.phoneZalo} (cần email hoặc SĐT)</span>
+                    <span>{t.phoneZalo} ({t.contactRequiredHint})</span>
                   </label>
                   <input
                     id="ticket-phone"
@@ -175,10 +175,11 @@ function Ticket() {
                     value={prefLang}
                     onChange={(event) => setPrefLang(event.target.value)}
                   >
-                    <option value="EN">{t.english}</option>
-                    <option value="VI">{t.vietnamese}</option>
-                    <option value="KO">{t.korean}</option>
-                    <option value="ZH">{t.chinese}</option>
+                    <option value="en">{t.english}</option>
+                    <option value="vi">{t.vietnamese}</option>
+                    <option value="ko">{t.korean}</option>
+                    <option value="ja">{t.japanese}</option>
+                    <option value="zh">{t.chinese}</option>
                   </select>
                 </div>
 
@@ -190,7 +191,7 @@ function Ticket() {
                   <input
                     id="ticket-subject"
                     type="text"
-                    placeholder="e.g. Special Dietary Request"
+                    placeholder={t.subjectExample}
                     value={subject}
                     onChange={(event) => setSubject(event.target.value)}
                   />
@@ -205,7 +206,7 @@ function Ticket() {
                   id="ticket-content"
                   required
                   rows="4"
-                  placeholder="Describe your inquiry, booking reference, or special request..."
+                  placeholder={t.inquiryPlaceholder}
                   value={content}
                   onChange={(event) => setContent(event.target.value)}
                 />

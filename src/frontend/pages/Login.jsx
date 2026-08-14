@@ -26,7 +26,7 @@ function Login() {
       else if (user.role === 'admin' || user.role === 'staff') navigate('/staff/tickets', { replace: true })
       else navigate('/', { replace: true })
     } catch (err) {
-      setError(err.message || 'Đăng nhập không thành công.')
+      setError(err.message || t.loginFailed)
     } finally {
       setSubmitting(false)
     }
@@ -42,13 +42,13 @@ function Login() {
         <div className="login-page__heading">
           <div className="login-page__mark"><Sparkles className="login-page__mark-icon" /></div>
           <h1>{t.loginTitle}</h1>
-          <p>Đăng nhập bằng email hoặc số điện thoại.</p>
+          <p>{t.loginHelp}</p>
         </div>
         <form className="login-page__form" onSubmit={handleSubmit}>
           <div className="login-page__field">
             <label className="login-page__label" htmlFor="login-identifier">
               <KeyRound className="login-page__label-icon" />
-              <span>Email / Số điện thoại</span>
+              <span>{t.emailOrPhone}</span>
             </label>
             <input
               className="login-page__input"
@@ -56,7 +56,7 @@ function Login() {
               type="text"
               required
               autoComplete="username"
-              placeholder="guest@example.com hoặc 0901234567"
+              placeholder={t.emailOrPhonePlaceholder}
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
             />
@@ -79,7 +79,7 @@ function Login() {
           {error && <p className="login-page__error" role="alert">{error}</p>}
           <button className="login-page__submit" type="submit" disabled={submitting}>
             <LogIn className="login-page__submit-icon" />
-            <span>{submitting ? 'Đang đăng nhập...' : t.signIn}</span>
+            <span>{submitting ? t.signingIn : t.signIn}</span>
           </button>
         </form>
         <p className="login-page__register">{t.noAccount}{' '}<Link to="/register">{t.registerHere}</Link></p>

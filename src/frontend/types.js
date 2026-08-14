@@ -1,5 +1,5 @@
 /**
- * @typedef {'EN' | 'VI' | 'KO' | 'ZH'} Language
+ * @typedef {'en' | 'vi' | 'ko' | 'ja' | 'zh'} Language
  */
 
 /**

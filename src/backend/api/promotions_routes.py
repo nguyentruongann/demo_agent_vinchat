@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import or_, select
 
 from src.backend.services.db import open_session
@@ -11,7 +11,12 @@ from src.data_postgre.db.core import (
     Destination,
     Media,
     Promotion,
+    PromotionBenefit,
+    PromotionBlock,
+    PromotionCode,
     PromotionDestination,
+    PromotionSection,
+    PromotionTerm,
     Source,
 )
 
@@ -199,3 +204,178 @@ def list_promotions(
             )
 
         return {"items": items, "total": len(rows)}
+
+
+@router.get("/{promotion_id}")
+def promotion_detail(
+    promotion_id: str,
+    lang: str = Query(default="en"),
+) -> dict[str, Any]:
+    """Return the structured promotion payload consumed by FE ver_02.
+
+    The current P-013 backend does not yet have the translation repository from
+    the FE team's branch, so ``lang`` is accepted for API compatibility while
+    stored promotion content is returned as-is. Destination names use Vietnamese
+    when requested and available.
+    """
+    language = (lang or "en").lower()
+
+    with open_session() as session:
+        promotion = session.execute(
+            select(Promotion).where(
+                or_(Promotion.id == promotion_id, Promotion.slug == promotion_id)
+            )
+        ).scalar_one_or_none()
+        if promotion is None or not promotion.is_active:
+            raise HTTPException(status_code=404, detail="Promotion not found")
+
+        destination_rows = session.execute(
+            select(
+                Destination.id,
+                Destination.name_vi,
+                Destination.name_en,
+            )
+            .join(
+                PromotionDestination,
+                PromotionDestination.destination_id == Destination.id,
+            )
+            .where(PromotionDestination.promotion_id == promotion.id)
+            .order_by(Destination.sort_order.asc().nullslast(), Destination.name_en.asc())
+        ).all()
+        destinations = [
+            {
+                "id": destination_id,
+                "name": (
+                    name_vi
+                    if language == "vi" and name_vi
+                    else name_en or name_vi or destination_id
+                ),
+                "name_vi": name_vi,
+                "name_en": name_en,
+            }
+            for destination_id, name_vi, name_en in destination_rows
+        ]
+
+        media_row = session.execute(
+            select(Media.url)
+            .where(
+                Media.entity_type == "promotion",
+                Media.entity_id == promotion.id,
+                Media.url.is_not(None),
+            )
+            .order_by(Media.sort_order.asc().nullslast())
+        ).first()
+        image_url = media_row[0] if media_row else None
+
+        source_url = None
+        if promotion.source_id:
+            source_row = session.execute(
+                select(Source.canonical_url, Source.url).where(Source.id == promotion.source_id)
+            ).first()
+            if source_row:
+                source_url = source_row[0] or source_row[1]
+
+        benefits = session.execute(
+            select(PromotionBenefit)
+            .where(PromotionBenefit.promotion_id == promotion.id)
+            .order_by(PromotionBenefit.sort_order.asc().nullslast(), PromotionBenefit.id.asc())
+        ).scalars().all()
+        codes = session.execute(
+            select(PromotionCode)
+            .where(PromotionCode.promotion_id == promotion.id)
+            .order_by(PromotionCode.id.asc())
+        ).scalars().all()
+        sections = session.execute(
+            select(PromotionSection)
+            .where(PromotionSection.promotion_id == promotion.id)
+            .order_by(PromotionSection.ord.asc())
+        ).scalars().all()
+        blocks = session.execute(
+            select(PromotionBlock)
+            .where(PromotionBlock.promotion_id == promotion.id)
+            .order_by(PromotionBlock.ord.asc())
+        ).scalars().all()
+        terms = session.execute(
+            select(PromotionTerm)
+            .where(PromotionTerm.promotion_id == promotion.id)
+            .order_by(PromotionTerm.kind.asc(), PromotionTerm.ord.asc())
+        ).scalars().all()
+
+        term_groups: dict[str, list[dict[str, str]]] = {
+            "term": [],
+            "combination": [],
+            "contact": [],
+            "step": [],
+        }
+        for item in terms:
+            term_groups.setdefault(item.kind, []).append(
+                {"id": item.id, "text": item.text_content}
+            )
+
+        return {
+            "id": promotion.id,
+            "slug": promotion.slug,
+            "title": promotion.title,
+            "summary": promotion.summary,
+            "content": promotion.full_text,
+            "discount_text": promotion.discount_text,
+            "is_nationwide": bool(promotion.is_nationwide),
+            "destinations": destinations,
+            "status": _promotion_status(promotion, date.today()),
+            "validity_from": _date_text(promotion.validity_from),
+            "validity_to": _date_text(promotion.validity_to),
+            "booking_from": _date_text(promotion.booking_from),
+            "booking_to": _date_text(promotion.booking_to),
+            "stay_from": _date_text(promotion.stay_from),
+            "stay_to": _date_text(promotion.stay_to),
+            "booking_url": promotion.booking_url or source_url,
+            "terms_url": promotion.terms_url,
+            "app_url": promotion.app_url,
+            "image_url": image_url,
+            "content_language": promotion.content_language,
+            "benefits": [
+                {
+                    "id": item.id,
+                    "benefit_type": item.benefit_type,
+                    "value": float(item.value) if item.value is not None else None,
+                    "unit": item.unit,
+                    "is_maximum": item.is_maximum,
+                    "description": item.description,
+                    "source_text": item.source_text,
+                }
+                for item in benefits
+            ],
+            "codes": [
+                {
+                    "id": item.id,
+                    "code": item.code,
+                    "description": item.description,
+                    "validity": item.validity,
+                    "conditions": item.conditions or [],
+                }
+                for item in codes
+                if not item.is_suspect
+            ],
+            "sections": [
+                {
+                    "id": item.id,
+                    "heading": item.heading,
+                    "level": item.level,
+                    "content": item.content,
+                }
+                for item in sections
+            ],
+            "blocks": [
+                {
+                    "id": item.id,
+                    "block_type": item.block_type,
+                    "caption": item.caption,
+                    "payload": item.payload or {},
+                }
+                for item in blocks
+            ],
+            "terms": term_groups.get("term", []),
+            "combination_rules": term_groups.get("combination", []),
+            "contacts": term_groups.get("contact", []),
+            "steps": term_groups.get("step", []),
+        }

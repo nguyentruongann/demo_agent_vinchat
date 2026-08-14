@@ -179,7 +179,8 @@
   justify-content: center;
   gap: 8px;
   border: 0;
-  border-radius: 0;
+  border-radius: 6px;
+  text-decoration: none;
   color: #ffffff;
   background: linear-gradient(90deg, #d97706, #b45309);
   box-shadow: none;
@@ -203,6 +204,7 @@
 .hotel-detail-page__book-button:hover {
   transform: translateY(-2px);
   background: linear-gradient(90deg, #b45309, #92400e);
+  text-decoration: none;
 }
 
 .hotel-detail-page__ai-icon {
@@ -317,6 +319,24 @@
   gap: 24px;
 }
 
+.hotel-detail-page__price-notice {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #fed7aa;
+  border-left: 3px solid #b45309;
+  padding: 14px 16px;
+  color: #7c2d12;
+  background: #fff7ed;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hotel-detail-page__price-notice strong {
+  color: #9a3412;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .hotel-detail-page__room {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -406,6 +426,24 @@
   font-family: inherit;
   font-size: 24px;
   font-weight: 900;
+}
+
+.hotel-detail-page__price-unavailable {
+  display: grid;
+  gap: 4px;
+}
+
+.hotel-detail-page__room-price--unavailable {
+  color: #475569;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hotel-detail-page__price-unavailable small {
+  max-width: 360px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .hotel-detail-page__room-unit {

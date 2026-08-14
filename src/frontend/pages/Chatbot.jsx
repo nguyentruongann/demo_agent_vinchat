@@ -11,18 +11,24 @@ import {
 } from 'lucide-react'
 import ChatHistorySidebar from '../components/ChatHistorySidebar'
 import HotelCard from '../components/HotelCard'
-import MarkdownContent from '../components/MarkdownContent'
+import RichMessage from '../components/RichMessage'
+import StructuredMessage from '../components/StructuredMessage'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import {
+  clearStoredMessages,
   fetchChatSessionMessages,
   fetchChatSessions,
   getChatSessionId,
+  loadStoredMessages,
+  saveStoredMessages,
   sendChatMessage,
   setChatSessionId,
   startNewChatSession,
 } from '../services/api'
 import '../styles/pages/Chatbot.css'
+
+const CHAT_DRAFT_KEY = 'vinpearl_chat_draft_v2'
 
 function displayTime(value) {
   const date = value ? new Date(value) : new Date()
@@ -44,6 +50,60 @@ function historyMessageToUi(message) {
   }
 }
 
+function loadStoredDraft() {
+  try {
+    return sessionStorage.getItem(CHAT_DRAFT_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function saveStoredDraft(value) {
+  try {
+    sessionStorage.setItem(CHAT_DRAFT_KEY, value)
+  } catch {
+    // Ignore storage failures; chat still works without draft persistence.
+  }
+}
+
+function clearStoredDraft() {
+  try {
+    sessionStorage.removeItem(CHAT_DRAFT_KEY)
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function historyButtonLabel(language) {
+  return {
+    en: 'History',
+    vi: 'Lịch sử',
+    ko: '기록',
+    ja: '履歴',
+    zh: '记录',
+  }[language] || 'History'
+}
+
+function newChatLabel(language) {
+  return {
+    en: 'New chat',
+    vi: 'Chat mới',
+    ko: '새 채팅',
+    ja: '新しいチャット',
+    zh: '新对话',
+  }[language] || 'New chat'
+}
+
+function closeHistoryLabel(language) {
+  return {
+    en: 'Close chat history',
+    vi: 'Đóng lịch sử chat',
+    ko: '채팅 기록 닫기',
+    ja: 'チャット履歴を閉じる',
+    zh: '关闭聊天记录',
+  }[language] || 'Close chat history'
+}
+
 function Chatbot() {
   const { language, t } = useLanguage()
   const { user, loading: authLoading } = useAuth()
@@ -53,7 +113,7 @@ function Chatbot() {
   const messagesContainerRef = useRef(null)
   const previousUserIdRef = useRef(undefined)
 
-  function initialAssistantMessage(id = 'msg-welcome', text = t.chatbotWelcome) {
+  function createSystemMessage(id, text = t.chatbotWelcome) {
     return {
       id,
       sender: 'assistant',
@@ -63,54 +123,49 @@ function Chatbot() {
     }
   }
 
-  const [messages, setMessages] = useState(() => [
-    {
-      id: 'msg-welcome',
-      sender: 'assistant',
-      text: t.chatbotWelcome,
-      timestamp: displayTime(),
-      language,
-    },
-  ])
-  const [input, setInput] = useState('')
+  const [messages, setMessages] = useState(() => {
+    const storedMessages = loadStoredMessages()
+    if (Array.isArray(storedMessages) && storedMessages.length > 0) {
+      return storedMessages
+    }
+    return [
+      {
+        id: 'msg-welcome',
+        sender: 'assistant',
+        text: t.chatbotWelcome,
+        timestamp: displayTime(),
+        language,
+      },
+    ]
+  })
+  const [input, setInput] = useState(() => loadStoredDraft())
   const [loading, setLoading] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(() => getChatSessionId())
+  const [conversationReady, setConversationReady] = useState(false)
 
   const suggestedPrompts = [
     {
       icon: '🏝',
       title: t.chatSuggestPhuQuoc,
-      prompt:
-        language === 'VI'
-          ? 'Gợi ý gói nghỉ dưỡng 3 ngày 2 đêm tại VinTravel Grand Phú Quốc cho 2 người'
-          : 'Suggest a 3D2N luxury stay in VinTravel Grand Phu Quoc for 2 adults',
+      prompt: t.chatPromptPhuQuoc,
     },
     {
       icon: '🎢',
       title: t.chatSuggestNhaTrang,
-      prompt:
-        language === 'VI'
-          ? 'Tư vấn biệt thự biển Nha Trang kèm vé vui chơi VinWonders'
-          : 'Recommend Nha Trang Ocean Villa with unlimited VinWonders park passes',
+      prompt: t.chatPromptNhaTrang,
     },
     {
       icon: '👶',
       title: t.chatSuggestFamily,
-      prompt:
-        language === 'VI'
-          ? 'Chính sách trẻ em và phụ thu giường phụ tại các resort VinTravel?'
-          : 'What are the children policies and extra bed surcharges at VinTravel resorts?',
+      prompt: t.chatPromptFamily,
     },
     {
       icon: '⛳',
       title: t.chatSuggestHoiAn,
-      prompt:
-        language === 'VI'
-          ? 'Tư vấn khu nghỉ dưỡng Hội An kết hợp chơi golf 18 lỗ'
-          : 'Provide details on VinTravel Heritage Resort Hoi An 18-hole golf package',
+      prompt: t.chatPromptHoiAn,
     },
   ]
 
@@ -124,25 +179,47 @@ function Chatbot() {
     })
   }, [messages, loading])
 
+  // Guest chats may be restored from sessionStorage. Authenticated chats are
+  // restored from PostgreSQL instead, which prevents account A's visible chat
+  // content from leaking into account B on a shared browser.
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) saveStoredMessages(messages)
+  }, [authLoading, messages, user])
+
+  useEffect(() => {
+    saveStoredDraft(input)
+  }, [input])
+
   useEffect(() => {
     if (authLoading) return undefined
 
     let cancelled = false
+    setConversationReady(false)
 
     async function syncConversationForAuthState() {
       const previousUserId = previousUserIdRef.current
-      previousUserIdRef.current = user?.id || null
+      const nextUserId = user?.id || null
+      previousUserIdRef.current = nextUserId
 
       if (!user) {
         setSessions([])
         setHistoryOpen(false)
-        const currentId = getChatSessionId()
-        setActiveSessionId(currentId)
 
-        // On logout, immediately remove the previous account's visible messages.
         if (previousUserId) {
-          setMessages([initialAssistantMessage('msg-logout')])
+          // Logging out must never leave the previous account's session ID or
+          // messages active for the next person using this browser.
+          clearStoredMessages()
+          clearStoredDraft()
+          const freshSessionId = startNewChatSession()
+          setActiveSessionId(freshSessionId)
+          setMessages([createSystemMessage('msg-logout')])
+          setInput('')
+        } else {
+          setActiveSessionId(getChatSessionId())
         }
+
+        if (!cancelled) setConversationReady(true)
         return
       }
 
@@ -152,24 +229,40 @@ function Chatbot() {
         if (cancelled) return
         setSessions(rows)
 
-        const currentId = getChatSessionId()
-        setActiveSessionId(currentId)
-        const currentSessionExists = rows.some((item) => item.id === currentId)
+        const currentSessionId = getChatSessionId()
+        const currentSessionExists = rows.some((item) => item.id === currentSessionId)
 
-        // Reload the active authenticated conversation after a browser refresh.
         if (currentSessionExists) {
-          const payload = await fetchChatSessionMessages(currentId)
+          const payload = await fetchChatSessionMessages(currentSessionId)
           if (cancelled) return
           const restored = (payload.messages || []).map(historyMessageToUi)
-          setMessages(restored.length ? restored : [initialAssistantMessage('msg-empty-history')])
-        } else if (previousUserId !== user.id) {
-          // Login/register starts a fresh chat; older sessions remain in the sidebar.
-          setMessages([initialAssistantMessage('msg-login')])
+          setActiveSessionId(currentSessionId)
+          setMessages(
+            restored.length
+              ? restored
+              : [createSystemMessage('msg-empty-history')],
+          )
+          clearStoredMessages()
+        } else if (previousUserId === null) {
+          // The user has just logged in during this SPA session. Keep a guest
+          // conversation visible; the next message will let the backend claim
+          // that anonymous session for this authenticated user.
+          setActiveSessionId(currentSessionId)
+        } else {
+          // First authenticated load with an unknown/stale session, or a direct
+          // account switch: rotate IDs to avoid a 403 against another user's chat.
+          clearStoredMessages()
+          const freshSessionId = startNewChatSession()
+          setActiveSessionId(freshSessionId)
+          setMessages([createSystemMessage('msg-login')])
         }
       } catch (error) {
         if (!cancelled) console.error('Could not load chat history:', error)
       } finally {
-        if (!cancelled) setHistoryLoading(false)
+        if (!cancelled) {
+          setHistoryLoading(false)
+          setConversationReady(true)
+        }
       }
     }
 
@@ -180,12 +273,21 @@ function Chatbot() {
   }, [authLoading, user?.id])
 
   useEffect(() => {
-    if (authLoading) return
-    if (initialPrompt && handledPromptRef.current !== initialPrompt) {
+    if (!conversationReady) return
+
+    const promptAlreadyInHistory = messages.some(
+      (message) => message.sender === 'user' && message.text === initialPrompt,
+    )
+
+    if (
+      initialPrompt
+      && handledPromptRef.current !== initialPrompt
+      && !promptAlreadyInHistory
+    ) {
       handledPromptRef.current = initialPrompt
       handleSendPrompt(initialPrompt)
     }
-  }, [authLoading, initialPrompt])
+  }, [conversationReady, initialPrompt, messages])
 
   async function refreshSessions() {
     if (!user) return
@@ -206,7 +308,12 @@ function Chatbot() {
       const restored = (payload.messages || []).map(historyMessageToUi)
       setChatSessionId(sessionId)
       setActiveSessionId(sessionId)
-      setMessages(restored.length ? restored : [initialAssistantMessage('msg-empty-history')])
+      setMessages(
+        restored.length
+          ? restored
+          : [createSystemMessage('msg-empty-history')],
+      )
+      clearStoredMessages()
       setHistoryOpen(false)
     } catch (error) {
       console.error('Could not load selected chat session:', error)
@@ -216,7 +323,7 @@ function Chatbot() {
   }
 
   async function handleSendPrompt(promptText) {
-    if (!promptText.trim() || loading) return
+    if (!promptText.trim() || loading || !conversationReady) return
 
     const userMessage = {
       id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -228,6 +335,7 @@ function Chatbot() {
 
     setMessages((current) => [...current, userMessage])
     setInput('')
+    clearStoredDraft()
     setLoading(true)
 
     try {
@@ -244,10 +352,7 @@ function Chatbot() {
         {
           id: `error-${Date.now()}`,
           sender: 'assistant',
-          text:
-            language === 'VI'
-              ? 'Không thể kết nối tới trợ lý lúc này. Vui lòng kiểm tra backend và thử lại.'
-              : 'The assistant is unavailable right now. Please check the backend and try again.',
+          text: t.assistantUnavailable,
           timestamp: displayTime(),
           language,
           isError: true,
@@ -269,9 +374,9 @@ function Chatbot() {
     const sessionId = startNewChatSession()
     setActiveSessionId(sessionId)
     setHistoryOpen(false)
-    setMessages([
-      initialAssistantMessage('msg-reset', t.chatbotReset),
-    ])
+    clearStoredDraft()
+    setInput('')
+    setMessages([createSystemMessage('msg-reset', t.chatbotReset)])
   }
 
   return (
@@ -280,12 +385,16 @@ function Chatbot() {
         <button
           className="chatbot-page__history-backdrop"
           type="button"
-          aria-label={language === 'VI' ? 'Đóng lịch sử chat' : 'Close chat history'}
+          aria-label={closeHistoryLabel(language)}
           onClick={() => setHistoryOpen(false)}
         />
       )}
 
-      <div className={`chatbot-page__shell ${user ? 'chatbot-page__shell--with-history' : 'chatbot-page__shell--solo'}`}>
+      <div
+        className={`chatbot-page__shell ${
+          user ? 'chatbot-page__shell--with-history' : 'chatbot-page__shell--solo'
+        }`}
+      >
         {user && (
           <ChatHistorySidebar
             sessions={sessions}
@@ -307,8 +416,7 @@ function Chatbot() {
               </div>
               <div>
                 <div className="chatbot-page__title-row">
-                  <h1 className="chatbot-page__title">VinTravel AI Concierge</h1>
-                  <span className="chatbot-page__live-badge">{t.liveAiBadge}</span>
+                  <h1 className="chatbot-page__title">VinTravel AI</h1>
                 </div>
                 <p className="chatbot-page__subtitle">{t.chatbotSubtitle}</p>
               </div>
@@ -322,7 +430,7 @@ function Chatbot() {
                   onClick={() => setHistoryOpen(true)}
                 >
                   <History className="chatbot-page__action-icon" />
-                  <span>{language === 'VI' ? 'Lịch sử' : 'History'}</span>
+                  <span>{historyButtonLabel(language)}</span>
                 </button>
               )}
               <button
@@ -332,7 +440,7 @@ function Chatbot() {
                 onClick={startFreshConversation}
               >
                 <RotateCcw className="chatbot-page__action-icon" />
-                <span>{user ? (language === 'VI' ? 'Chat mới' : 'New chat') : t.clearChat}</span>
+                <span>{user ? newChatLabel(language) : t.clearChat}</span>
               </button>
               <Link className="chatbot-page__support-link" to="/support">
                 <Headphones className="chatbot-page__action-icon" />
@@ -341,12 +449,13 @@ function Chatbot() {
             </div>
           </section>
 
-          <section className="chatbot-page__suggestions" aria-label="Suggested prompts">
+          <section className="chatbot-page__suggestions" aria-label={t.suggestedPrompts}>
             {suggestedPrompts.map((prompt) => (
               <button
                 className="chatbot-page__suggestion"
                 key={prompt.title}
                 type="button"
+                disabled={!conversationReady}
                 onClick={() => handleSendPrompt(prompt.prompt)}
               >
                 <span className="chatbot-page__suggestion-icon">{prompt.icon}</span>
@@ -358,7 +467,7 @@ function Chatbot() {
           <section
             ref={messagesContainerRef}
             className="chatbot-page__messages"
-            aria-label="Chat messages"
+            aria-label={t.chatMessages}
           >
             {messages.map((message) => (
               <article
@@ -391,58 +500,19 @@ function Chatbot() {
                           : 'chatbot-page__bubble--assistant'
                     }`}
                   >
-                    {message.sender === 'assistant' ? (
-                      <MarkdownContent>{message.text}</MarkdownContent>
+                    {message.sender === 'user' || message.isError ? (
+                      <RichMessage text={message.text} isUser={message.sender === 'user'} />
                     ) : (
-                      <span className="chatbot-page__plain-text">{message.text}</span>
+                      <StructuredMessage text={message.text} sources={message.sources} />
                     )}
                     <span className="chatbot-page__timestamp">{message.timestamp}</span>
                   </div>
 
                   {message.ticketId && (
                     <div className="chatbot-page__ticket" role="status">
-                      <strong>{language === 'VI' ? 'Mã hỗ trợ' : 'Support ticket'}:</strong>{' '}
+                      <strong>{t.supportTicket}:</strong>{' '}
                       <span>{message.ticketId}</span>
                     </div>
-                  )}
-
-                  {message.sources && message.sources.length > 0 && (
-                    <details className="chatbot-page__sources">
-                      <summary>
-                        {language === 'VI'
-                          ? `${message.sources.length} nguồn tham khảo`
-                          : `${message.sources.length} sources`}
-                      </summary>
-                      <ol>
-                        {message.sources.map((source, index) => (
-                          <li key={`${message.id}-${source.source_file}-${source.path}-${index}`}>
-                            <div className="chatbot-page__source-title-row">
-                              <span className="chatbot-page__source-title">{source.source_file}</span>
-                              {source.category && (
-                                <span className="chatbot-page__source-category">{source.category}</span>
-                              )}
-                            </div>
-                            {source.path && /^https?:\/\//i.test(source.path) ? (
-                              <a
-                                className="chatbot-page__source-link"
-                                href={source.path}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                              >
-                                {language === 'VI' ? 'Mở nguồn tham khảo ↗' : 'Open source ↗'}
-                              </a>
-                            ) : source.path ? (
-                              <code>{source.path}</code>
-                            ) : null}
-                            {typeof source.score === 'number' && (
-                              <small>
-                                {language === 'VI' ? 'Độ liên quan' : 'Relevance'}: {source.score.toFixed(4)}
-                              </small>
-                            )}
-                          </li>
-                        ))}
-                      </ol>
-                    </details>
                   )}
 
                   {message.relatedHotels && message.relatedHotels.length > 0 && (
@@ -475,13 +545,13 @@ function Chatbot() {
               type="text"
               placeholder={t.chatbotPlaceholder}
               value={input}
-              disabled={loading}
+              disabled={loading || !conversationReady}
               onChange={(event) => setInput(event.target.value)}
             />
             <button
               className="chatbot-page__send"
               type="submit"
-              disabled={loading || !input.trim()}
+              disabled={loading || !conversationReady || !input.trim()}
             >
               <Send className="chatbot-page__send-icon" />
             </button>
