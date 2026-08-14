@@ -16,6 +16,7 @@ def retrieve_context(state: AgentState) -> AgentState:
     documents, diagnostics = rag.hybrid_search(
         query=state["rag_query"],
         user_message=effective_user_message(state),
+        resolved_destinations=state.get("resolved_destinations"),
     )
     return {
         "retrieved_documents": documents,

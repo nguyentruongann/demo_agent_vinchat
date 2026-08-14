@@ -10,6 +10,7 @@ from src.backend.config import get_settings
 from src.backend.services.onnx_embeddings import OnnxE5Embedder, OnnxEmbeddingConfig
 from src.backend.services.query_parser import (
     build_intent_query,
+    load_destination_catalog,
     normalize_text,
     parse_retrieval_query,
 )
@@ -556,6 +557,7 @@ class RAGService:
         query: str,
         user_message: str = "",
         top_k: int | None = None,
+        resolved_destinations: list[dict[str, Any]] | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Run destination-aware retrieval with native multi-intent support.
 
@@ -566,7 +568,27 @@ class RAGService:
         """
         k = top_k or self.settings.top_k
         parsed = parse_retrieval_query(user_message=user_message, rag_query=query)
-        destinations = list(parsed.get("destinations") or [])
+
+        # When the semantic context resolver has run, its closed/validated
+        # destination set is authoritative. This prevents a later text parser from
+        # re-guessing destinations from an LLM rewrite and losing conversation
+        # references (or adding locations that were merely mentioned elsewhere).
+        if resolved_destinations is not None:
+            catalog = load_destination_catalog()
+            destinations: list[dict[str, Any]] = []
+            seen_destination_ids: set[str] = set()
+            for raw in resolved_destinations:
+                destination_id = str(raw.get("id") or "").strip()
+                if not destination_id or destination_id in seen_destination_ids:
+                    continue
+                canonical = catalog.get(destination_id)
+                if not canonical:
+                    continue
+                destinations.append(dict(canonical))
+                seen_destination_ids.add(destination_id)
+        else:
+            destinations = list(parsed.get("destinations") or [])
+
         intents = list(parsed.get("intents") or [])
         primary_intent = parsed.get("intent")
 

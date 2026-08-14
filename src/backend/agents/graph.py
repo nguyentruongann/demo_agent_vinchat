@@ -2,6 +2,7 @@ from langgraph.graph import END, START, StateGraph
 
 from src.backend.agents.nodes.answer import generate_answer
 from src.backend.agents.nodes.classify import classify_input
+from src.backend.agents.nodes.context_resolver import resolve_conversation_context
 from src.backend.agents.nodes.language import detect_language_and_translate
 from src.backend.agents.nodes.guardrail import enforce_input_guardrail
 from src.backend.agents.nodes.language_guard import enforce_response_language
@@ -63,6 +64,7 @@ builder = StateGraph(AgentState)
 
 builder.add_node("load_memory", load_conversation_memory)
 builder.add_node("language", detect_language_and_translate)
+builder.add_node("resolve_context", resolve_conversation_context)
 builder.add_node("guardrail", enforce_input_guardrail)
 builder.add_node("classify", classify_input)
 builder.add_node("sensitive", sensitive_content_response)
@@ -95,9 +97,10 @@ builder.add_conditional_edges(
     route_after_safety,
     {
         "sensitive": "sensitive",
-        "classify": "classify",
+        "classify": "resolve_context",
     },
 )
+builder.add_edge("resolve_context", "classify")
 
 builder.add_conditional_edges(
     "classify",

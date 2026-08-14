@@ -186,9 +186,14 @@ class MemoryService:
                     or (pending_user.language if pending_user is not None else None)
                     or "unknown",
                     "route": row.route or metadata.get("route") or "unknown",
-                    "rag_query": None,
+                    "rag_query": metadata.get("rag_query"),
                     "ticket_id": metadata.get("ticket_id"),
                     "detected_destinations": metadata.get("detected_destinations") or [],
+                    "resolved_destinations": metadata.get("resolved_destinations") or [],
+                    "context_uses_memory": bool(metadata.get("context_uses_memory", False)),
+                    "context_resolution_reason": metadata.get("context_resolution_reason"),
+                    "context_resolution_confidence": metadata.get("context_resolution_confidence"),
+                    "context_resolution_source": metadata.get("context_resolution_source"),
                     "detected_intent": metadata.get("detected_intent"),
                     "detected_intents": metadata.get("detected_intents") or [],
                     "request_mode": metadata.get("request_mode"),
@@ -380,10 +385,15 @@ class MemoryService:
                 try:
                     from src.backend.services.query_parser import detect_destinations
 
+                    # Conversation focus must come from what the USER asked
+                    # about (or from the retrieval query resolved for that user
+                    # request), never from places merely listed by the assistant.
+                    # Mining assistant_answer polluted memory for broad replies
+                    # such as "where are the golf courses?", where many locations
+                    # can be mentioned without becoming the user's new focus.
                     searchable = " ".join(
                         [
                             str(turn.get("user_message") or ""),
-                            str(turn.get("assistant_answer") or ""),
                             str(turn.get("rag_query") or ""),
                         ]
                     )
@@ -435,6 +445,11 @@ class MemoryService:
         rag_query: str | None = None,
         ticket_id: str | None = None,
         detected_destinations: list[dict[str, Any]] | None = None,
+        resolved_destinations: list[dict[str, Any]] | None = None,
+        context_uses_memory: bool = False,
+        context_resolution_reason: str | None = None,
+        context_resolution_confidence: float | None = None,
+        context_resolution_source: str | None = None,
         detected_intent: str | None = None,
         detected_intents: list[str] | None = None,
         request_mode: str | None = None,
@@ -446,22 +461,29 @@ class MemoryService:
         parsed_user_id = self._parse_user_id(user_id)
         now = datetime.now(timezone.utc)
 
-        compact_destinations: list[dict[str, str]] = []
-        for item in detected_destinations or []:
-            destination_id = str(item.get("id") or "").strip()
-            if not destination_id:
-                continue
-            compact_destinations.append(
-                {
-                    "id": destination_id,
-                    "name": str(
-                        item.get("name")
-                        or item.get("name_vi")
-                        or item.get("name_en")
-                        or destination_id
-                    ),
-                }
-            )
+        def _compact_destination_list(items: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+            compact: list[dict[str, str]] = []
+            seen_ids: set[str] = set()
+            for item in items or []:
+                destination_id = str(item.get("id") or "").strip()
+                if not destination_id or destination_id in seen_ids:
+                    continue
+                seen_ids.add(destination_id)
+                compact.append(
+                    {
+                        "id": destination_id,
+                        "name": str(
+                            item.get("name")
+                            or item.get("name_vi")
+                            or item.get("name_en")
+                            or destination_id
+                        ),
+                    }
+                )
+            return compact
+
+        compact_destinations = _compact_destination_list(detected_destinations)
+        compact_resolved_destinations = _compact_destination_list(resolved_destinations)
 
         with open_session() as db:
             if parsed_user_id is not None and db.get(AppUser, parsed_user_id) is None:
@@ -532,7 +554,13 @@ class MemoryService:
                         "assistant_seq": assistant_seq,
                         "route": route,
                         "ticket_id": ticket_id,
+                        "rag_query": rag_query,
                         "detected_destinations": compact_destinations,
+                        "resolved_destinations": compact_resolved_destinations,
+                        "context_uses_memory": bool(context_uses_memory),
+                        "context_resolution_reason": context_resolution_reason,
+                        "context_resolution_confidence": context_resolution_confidence,
+                        "context_resolution_source": context_resolution_source,
                         "detected_intent": detected_intent,
                         "detected_intents": list(detected_intents or []),
                         "request_mode": request_mode,

@@ -16,6 +16,17 @@ def load_conversation_memory(state: AgentState) -> AgentState:
         user_id=state.get("user_id"),
     )
     recent_destinations = memory.extract_recent_destinations(turns)
+
+    # Keep this log concise but explicit: it makes reference-resolution bugs
+    # visible before retrieval. Most importantly, assistant-only destination
+    # mentions should never suddenly appear in Recent focus.
+    print("\n===== CONVERSATION MEMORY =====")
+    print(f"Session: {state.get('session_id')}")
+    print(f"Loaded turns: {len(turns)}")
+    print(f"Recent focus: {[item.get('id') for item in recent_destinations]}")
+    print(f"Focus summary: {memory.format_destination_summary(recent_destinations)}")
+    print("===============================\n")
+
     return {
         "conversation_turns": turns,
         "conversation_history": memory.format_for_prompt(turns),
@@ -41,6 +52,11 @@ def save_conversation_memory(state: AgentState) -> AgentState:
         rag_query=state.get("rag_query"),
         ticket_id=state.get("ticket_id"),
         detected_destinations=state.get("detected_destinations", []),
+        resolved_destinations=state.get("resolved_destinations", []),
+        context_uses_memory=bool(state.get("context_uses_memory", False)),
+        context_resolution_reason=state.get("context_resolution_reason"),
+        context_resolution_confidence=state.get("context_resolution_confidence"),
+        context_resolution_source=state.get("context_resolution_source"),
         detected_intent=state.get("detected_intent"),
         detected_intents=state.get("detected_intents", []),
         request_mode=state.get("request_mode"),
