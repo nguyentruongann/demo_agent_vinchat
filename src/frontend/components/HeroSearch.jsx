@@ -1,24 +1,27 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Award,
+  Building2,
   Calendar,
+  Clock3,
+  Compass,
   MapPin,
   Search,
   Sparkles,
   Users,
 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
-import { DESTINATIONS } from '../data/mockData'
 import '../styles/components/HeroSearch.css'
 
-function HeroSearch() {
+function HeroSearch({ children, destinations = [] }) {
   const { t } = useLanguage()
   const navigate = useNavigate()
   const [destination, setDestination] = useState('all')
   const [checkIn, setCheckIn] = useState('2026-08-10')
   const [checkOut, setCheckOut] = useState('2026-08-13')
   const [guests, setGuests] = useState('2 Adults')
-  const [maxPrice, setMaxPrice] = useState('20000000')
+  const [maxPrice] = useState('400')
 
   function handleSearch(event) {
     event.preventDefault()
@@ -32,35 +35,54 @@ function HeroSearch() {
 
   function handleAskAi() {
     const destName =
-      DESTINATIONS.find((item) => item.id === destination)?.name || 'Vietnam'
-    const budget = (Number(maxPrice) / 1000000).toFixed(0)
-    const prompt = `${t.planItinerary}: ${destName}, ${guests}, ${budget}M VND`
+      destinations.find((item) => item.id === destination)?.name || t.vietnam
+    const budget = t.maximumPerNight.replace('{{price}}', `$${maxPrice}`)
+    const prompt = `${t.planItinerary}: ${destName}, ${guests}, ${budget}`
 
     navigate(`/chat?prompt=${encodeURIComponent(prompt)}`)
   }
 
   return (
-    <section className="hero-search">
-      <div className="hero-search__background" />
-      <div className="hero-search__overlay" />
-      <div className="hero-search__watermark">
-        BEYOND
-        <br />
-        HORIZON
-      </div>
+    <>
+      <section className="hero-search">
+        <video
+          className="hero-search__background"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden="true"
+        >
+          <source
+            src="https://statics.vinpearl.com/Banner%20WEB%20.mp4"
+            type="video/mp4"
+          />
+        </video>
+        <div className="hero-search__overlay" />
 
-      <div className="hero-search__content">
-        <div className="hero-search__badge">
-          <Sparkles className="hero-search__badge-icon" />
-          <span>{t.heroBadge}</span>
+        <div className="hero-search__content">
+          <div className="hero-search__intro">
+
+            <h1 className="hero-search__title">
+              {t.heroTitleBefore} <span>{t.heroTitleAccent}</span>{' '}
+              {t.heroTitleAfter}
+            </h1>
+            <p className="hero-search__subtitle">{t.heroSubtitleCustom}</p>
+
+            <div className="hero-search__hero-actions">
+              <a className="hero-search__discover" href="#featured-destinations">
+                <Compass aria-hidden="true" />
+                <span>{t.exploreRetreats}</span>
+              </a>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <h1 className="hero-search__title">
-          {t.heroTitleBefore} <span>{t.heroTitleAccent}</span> {t.heroTitleAfter}
-        </h1>
-        <p className="hero-search__subtitle">{t.heroSubtitleCustom}</p>
-
-        <div className="hero-search__search-panel">
+      <section className="hero-search__booking-area">
+        {children}
+        <div className="hero-search__search-panel reveal-on-scroll" id="hero-booking-search">
           <form className="hero-search__form" onSubmit={handleSearch}>
             <div className="hero-search__field">
               <label className="hero-search__label" htmlFor="hero-destination">
@@ -74,7 +96,7 @@ function HeroSearch() {
                 onChange={(event) => setDestination(event.target.value)}
               >
                 <option value="all">{t.allDestinations}</option>
-                {DESTINATIONS.map((item) => (
+                {destinations.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
                   </option>
@@ -134,38 +156,35 @@ function HeroSearch() {
               <span>{t.btnSearch}</span>
             </button>
           </form>
+        </div>
+      </section>
 
-          <div className="hero-search__ai-row">
-            <span>{t.heroAiHelp}</span>
-            <button
-              className="hero-search__ai-button"
-              type="button"
-              onClick={handleAskAi}
-            >
-              <Sparkles className="hero-search__ai-icon" />
-              <span>{t.btnAskAi}</span>
-            </button>
+      <section className="hero-search__metrics" aria-label={t.vinpearlHighlights}>
+        <div className="hero-search__metrics-inner reveal-on-scroll">
+          <div className="hero-search__metric">
+            <Building2 className="hero-search__metric-icon" aria-hidden="true" />
+            <div>
+              <span className="hero-search__metric-value">12</span>
+              <span className="hero-search__metric-label">{t.resortsVillas}</span>
+            </div>
+          </div>
+          <div className="hero-search__metric">
+            <Award className="hero-search__metric-icon" aria-hidden="true" />
+            <div>
+              <span className="hero-search__metric-value">{t.fiveStar}</span>
+              <span className="hero-search__metric-label">{t.luxuryRating}</span>
+            </div>
+          </div>
+          <div className="hero-search__metric">
+            <Clock3 className="hero-search__metric-icon" aria-hidden="true" />
+            <div>
+              <span className="hero-search__metric-value">24h</span>
+              <span className="hero-search__metric-label">{t.aiSupport}</span>
+            </div>
           </div>
         </div>
-
-        <div className="hero-search__metrics">
-          <div className="hero-search__metric">
-            <span className="hero-search__metric-value">12</span>
-            <span className="hero-search__metric-label">{t.resortsVillas}</span>
-          </div>
-          <div className="hero-search__metric">
-            <span className="hero-search__metric-value hero-search__metric-value--gold">
-              5-Star
-            </span>
-            <span className="hero-search__metric-label">{t.luxuryRating}</span>
-          </div>
-          <div className="hero-search__metric">
-            <span className="hero-search__metric-value">24h</span>
-            <span className="hero-search__metric-label">{t.aiSupport}</span>
-          </div>
-        </div>
-      </div>
-    </section>
+      </section>
+    </>
   )
 }
 

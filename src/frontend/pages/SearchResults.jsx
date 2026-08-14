@@ -4,12 +4,11 @@ import { Building2, SearchX, Sparkles } from 'lucide-react'
 import FilterSidebar from '../components/FilterSidebar'
 import HotelCard from '../components/HotelCard'
 import { useLanguage } from '../context/LanguageContext'
-import { DESTINATIONS } from '../data/mockData'
-import { fetchHotels } from '../services/api'
+import { fetchDestinations, fetchHotels } from '../services/api'
 import '../styles/pages/SearchResults.css'
 
 function SearchResults() {
-  const { t } = useLanguage()
+  const { language, t } = useLanguage()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [destFilter, setDestFilter] = useState(
@@ -17,10 +16,16 @@ function SearchResults() {
   )
   const [typeFilter, setTypeFilter] = useState(searchParams.get('type') || 'all')
   const [maxPrice, setMaxPrice] = useState(
-    searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : 25000000,
+    searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : 400,
   )
+  const [destinations, setDestinations] = useState([])
   const [hotels, setHotels] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchDestinations().then(setDestinations).catch(() => setError(t.destinationsLoadError))
+  }, [language, t.destinationsLoadError])
 
   useEffect(() => {
     let isMounted = true
@@ -32,24 +37,27 @@ function SearchResults() {
       maxPrice,
     }).then((data) => {
       if (isMounted) {
-        setHotels(data)
+        setHotels(data.items || [])
+        setError('')
         setLoading(false)
       }
+    }).catch(() => {
+      if (isMounted) { setHotels([]); setError(t.hotelsDataLoadError); setLoading(false) }
     })
 
     return () => {
       isMounted = false
     }
-  }, [destFilter, typeFilter, maxPrice])
+  }, [destFilter, typeFilter, maxPrice, t.hotelsDataLoadError])
 
   function handleReset() {
     setDestFilter('all')
     setTypeFilter('all')
-    setMaxPrice(25000000)
+    setMaxPrice(400)
     setSearchParams({})
   }
 
-  const selectedDestObj = DESTINATIONS.find((item) => item.id === destFilter)
+  const selectedDestObj = destinations.find((item) => item.id === destFilter)
 
   return (
     <main className="search-results-page">
@@ -74,6 +82,7 @@ function SearchResults() {
         <section className="search-results-page__layout">
           <aside className="search-results-page__sidebar">
             <FilterSidebar
+              destinations={destinations}
               selectedDest={destFilter}
               setSelectedDest={setDestFilter}
               selectedType={typeFilter}
@@ -85,6 +94,7 @@ function SearchResults() {
           </aside>
 
           <div className="search-results-page__content">
+            {error && <p role="alert">{error}</p>}
             {loading ? (
               <div className="search-results-page__grid">
                 {[1, 2, 3, 4].map((item) => (
@@ -109,7 +119,7 @@ function SearchResults() {
                   type="button"
                   onClick={() =>
                     navigate(
-                      '/chat?prompt=Can%20you%20help%20me%20find%20a%20resort%20within%20my%20custom%20budget%3F',
+                      `/chat?prompt=${encodeURIComponent(t.customBudgetPrompt)}`,
                     )
                   }
                 >

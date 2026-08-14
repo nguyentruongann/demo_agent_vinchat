@@ -26,16 +26,22 @@ def _heuristic_fallback(
 
     personal_markers = (
         "toi ", "cua toi", "cho toi", "giao dich cua", "booking cua",
+        "minh ", "cua minh", "cho minh", "giup minh",
         "my ", "me ", "i was", "i have", "i did",
     )
     operational_markers = (
-        "kiem tra giao dich", "check my transaction", "kiem tra booking", "check my booking",
+        "kiem tra giao dich", "kiem tra giup giao dich", "kiem tra giup minh",
+        "check my transaction", "check this transaction", "kiem tra booking", "check my booking",
         "hoan tien cho toi", "refund my", "huy booking", "cancel my booking",
         "doi booking", "change my booking", "xac minh", "verify my",
         "toi de quen do", "i lost", "khong nhan duoc xac nhan", "did not receive confirmation",
     )
     transaction_problem_markers = (
         "bi tru tien 2 lan", "bi tru tien hai lan", "charged twice", "double charged",
+        "chuyen khoan 2 lan", "chuyen khoan hai lan", "transfer twice", "transferred twice",
+        "thanh toan 2 lan", "thanh toan hai lan", "paid twice", "duplicate payment",
+        "chuyen khoan nham", "chuyen nham", "wrong transfer", "mistaken transfer",
+        "thanh toan nham", "wrong payment",
         "tien da bi tru", "money was charged",
     )
     has_personal = any(marker in f"{text} " for marker in personal_markers)
@@ -214,6 +220,29 @@ def _strong_fast_path(
         "help with booking", "giup booking",
     )
     if any(marker in text for marker in ambiguous_support_markers):
+        return None
+
+    # Payment/transaction wording is often informational (for example, asking
+    # which payment methods are accepted), so do not escalate on the topic alone.
+    # However, when payment context is combined with a personal-case/problem
+    # signal, let the semantic classifier decide instead of fast-pathing the turn
+    # as information. This covers unforeseen wording such as "I accidentally sent
+    # the transfer twice, please help" without turning every payment FAQ into a
+    # ticket.
+    payment_case_context = (
+        "chuyen khoan", "thanh toan", "giao dich", "bi tru tien",
+        "bank transfer", "payment", "transaction", "charged",
+    )
+    personal_case_signal = (
+        "minh ", "toi ", "cua minh", "cua toi", "my ",
+        "giup minh", "giup toi", "help me", "kiem tra", "check",
+        "nham", "lo ", "2 lan", "hai lan", "twice", "duplicate",
+        "wrong", "mistake", "refund", "hoan tien",
+    )
+    if (
+        any(marker in text for marker in payment_case_context)
+        and any(marker in text for marker in personal_case_signal)
+    ):
         return None
 
     # At this point the request has already been routed to RAG and contains no

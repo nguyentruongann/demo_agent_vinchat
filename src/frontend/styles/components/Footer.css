@@ -3,7 +3,7 @@
   padding: 64px 0 0;
   color: #cbd5e1;
   background: #10162f; /* Dark blue matching the image */
-  font-family: "Inter", sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 .footer__container {
@@ -89,7 +89,7 @@
   margin: 0;
   color: #ffffff;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: normal;
 }
 
 .footer__list {
@@ -129,7 +129,7 @@
   margin: 0;
   color: #fca311;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: normal;
 }
 
 .footer__store-badge {

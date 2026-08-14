@@ -1,123 +1,117 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bot, Send, Sparkles, X } from 'lucide-react'
+import { Bot, Loader2, Send, Sparkles, X } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import { clearStoredMessages, loadStoredMessages, saveStoredMessages, sendChatMessage } from '../services/api'
+import RichMessage from './RichMessage'
+import StructuredMessage from './StructuredMessage'
 import '../styles/components/ChatWidget.css'
 
 function ChatWidget() {
-  const { t } = useLanguage()
+  const { language, t } = useLanguage()
+  const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const [quickInput, setQuickInput] = useState('')
+  const [messages, setMessages] = useState(() => {
+    const storedMessages = loadStoredMessages()
+    return Array.isArray(storedMessages) && storedMessages.length > 0
+      ? storedMessages
+      : []
+  })
+  const [loading, setLoading] = useState(false)
+  const messagesEndRef = useRef(null)
+  const previousUserIdRef = useRef(undefined)
 
-  // Dragging state
-  const [position, setPosition] = useState(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const isDraggingRef = useRef(false)
-  const dragStartRef = useRef({ x: 0, y: 0 })
-  const initialPosRef = useRef({ x: 0, y: 0 })
-  const hasMovedRef = useRef(false)
-  const widgetRef = useRef(null)
+  useEffect(() => {
+    if (isOpen && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, loading, isOpen])
 
-  const handleDragStart = (e) => {
-    // Ignore right clicks
-    if (e.type === 'mousedown' && e.button !== 0) return
+  useEffect(() => {
+    if (authLoading || user) return
+    if (messages.length > 0) {
+      saveStoredMessages(messages)
+    }
+  }, [authLoading, messages, user])
 
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+  useEffect(() => {
+    if (authLoading) return
 
-    if (!widgetRef.current) return
+    const previousUserId = previousUserIdRef.current
+    const nextUserId = user?.id || null
+    previousUserIdRef.current = nextUserId
 
-    const rect = widgetRef.current.getBoundingClientRect()
-
-    isDraggingRef.current = true
-    hasMovedRef.current = false
-    dragStartRef.current = { x: clientX, y: clientY }
-    initialPosRef.current = { x: rect.left, y: rect.top }
-
-    const onMove = (moveEvent) => {
-      if (!isDraggingRef.current) return
-
-      const curX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX
-      const curY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY
-
-      const deltaX = curX - dragStartRef.current.x
-      const deltaY = curY - dragStartRef.current.y
-
-      if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
-        hasMovedRef.current = true
-        setIsDragging(true)
+    // Authenticated chat content belongs in PostgreSQL, not shared browser
+    // sessionStorage. Also clear visible widget state when identity changes so
+    // another account on the same browser never inherits the previous user's UI.
+    if (user) {
+      clearStoredMessages()
+      if (previousUserId === undefined || (previousUserId && previousUserId !== user.id)) {
+        setMessages([])
       }
-
-      if (!hasMovedRef.current) return
-
-      let newX = initialPosRef.current.x + deltaX
-      let newY = initialPosRef.current.y + deltaY
-
-      const currentRect = widgetRef.current.getBoundingClientRect()
-      const maxX = window.innerWidth - currentRect.width - 10
-      const maxY = window.innerHeight - currentRect.height - 10
-      newX = Math.max(10, Math.min(newX, maxX))
-      newY = Math.max(10, Math.min(newY, maxY))
-
-      setPosition({ x: newX, y: newY })
+      return
     }
 
-    const onEnd = () => {
-      isDraggingRef.current = false
-      setIsDragging(false)
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onEnd)
-      window.removeEventListener('touchmove', onMove)
-      window.removeEventListener('touchend', onEnd)
+    if (previousUserId) {
+      clearStoredMessages()
+      setMessages([])
     }
-
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onEnd)
-    window.addEventListener('touchmove', onMove)
-    window.addEventListener('touchend', onEnd)
-  }
-
-  function openChat(prompt) {
-    setIsOpen(false)
-    navigate(`/chat?prompt=${encodeURIComponent(prompt)}`)
-  }
+  }, [authLoading, user?.id])
 
   function handleTriggerClick() {
-    if (hasMovedRef.current) return
     setIsOpen(true)
+  }
+
+  async function handleSend(promptText) {
+    const prompt = (promptText || quickInput).trim()
+    if (!prompt || loading) return
+
+    setQuickInput('')
+
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: prompt,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }
+
+    setMessages((prev) => [...prev, userMsg])
+    setLoading(true)
+
+    try {
+      const response = await sendChatMessage(prompt, language)
+      setMessages((prev) => [...prev, response])
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          sender: 'assistant',
+          text: t.chatError,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ])
+    } finally {
+      setLoading(false)
+    }
   }
 
   function handleQuickSend(event) {
     event.preventDefault()
-
-    const prompt = quickInput.trim()
-    if (!prompt) return
-
-    setQuickInput('')
-    openChat(prompt)
+    handleSend()
   }
 
-  const dynamicStyle = position
-    ? { left: `${position.x}px`, top: `${position.y}px`, right: 'auto', bottom: 'auto' }
-    : {}
-
   return (
-    <div
-      ref={widgetRef}
-      className={`chat-widget ${position ? 'chat-widget--custom-pos' : ''} ${
-        isDragging ? 'chat-widget--dragging' : ''
-      }`}
-      style={dynamicStyle}
-    >
+    <div className="chat-widget">
       {!isOpen && (
         <button
           className="chat-widget__trigger"
           type="button"
-          onMouseDown={handleDragStart}
-          onTouchStart={handleDragStart}
           onClick={handleTriggerClick}
-          title="Kéo để di chuyển"
+          title={t.navAiChat}
         >
           <Sparkles className="chat-widget__trigger-icon" />
           <span className="chat-widget__trigger-label">{t.navAiChat}</span>
@@ -130,12 +124,7 @@ function ChatWidget() {
 
       {isOpen && (
         <section className="chat-widget__panel" aria-label={t.navAiChat}>
-          <header
-            className="chat-widget__header chat-widget__header--draggable"
-            onMouseDown={handleDragStart}
-            onTouchStart={handleDragStart}
-            title="Kéo để di chuyển"
-          >
+          <header className="chat-widget__header">
             <div className="chat-widget__identity">
               <div className="chat-widget__avatar">
                 <Bot className="chat-widget__avatar-icon" />
@@ -152,9 +141,7 @@ function ChatWidget() {
             <button
               className="chat-widget__close"
               type="button"
-              aria-label="Close"
-              onMouseDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
+              aria-label={t.close}
               onClick={() => setIsOpen(false)}
             >
               <X className="chat-widget__close-icon" />
@@ -162,35 +149,66 @@ function ChatWidget() {
           </header>
 
           <div className="chat-widget__body">
-            <div className="chat-widget__welcome">
-              {t.chatWidgetWelcome}
-              <div className="chat-widget__topics">
-                {t.chatWidgetTopics}
-              </div>
-            </div>
+            {messages.length === 0 ? (
+              <>
+                <div className="chat-widget__welcome">
+                  {t.chatWidgetWelcome}
+                  <div className="chat-widget__topics">{t.chatWidgetTopics}</div>
+                </div>
 
-            <div className="chat-widget__chips">
-              <button
-                className="chat-widget__chip"
-                type="button"
-                onClick={() =>
-                  openChat(
-                    'Recommend a 3-day luxury stay in Phu Quoc for 2 adults',
-                  )
-                }
-              >
-                {t.chatWidgetChipPhuQuoc}
-              </button>
-              <button
-                className="chat-widget__chip"
-                type="button"
-                onClick={() =>
-                  openChat('What are the child policies and extra bed fees?')
-                }
-              >
-                {t.chatWidgetChipFamily}
-              </button>
-            </div>
+                <div className="chat-widget__chips">
+                  <button
+                    className="chat-widget__chip"
+                    type="button"
+                    onClick={() =>
+                      handleSend(t.chatPromptPhuQuoc)
+                    }
+                  >
+                    {t.chatWidgetChipPhuQuoc}
+                  </button>
+                  <button
+                    className="chat-widget__chip"
+                    type="button"
+                    onClick={() =>
+                      handleSend(t.chatPromptFamily)
+                    }
+                  >
+                    {t.chatWidgetChipFamily}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="chat-widget__thread">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`chat-widget__msg chat-widget__msg--${msg.sender}`}
+                  >
+                    <div className="chat-widget__msg-bubble">
+                      {msg.sender === 'user' ? (
+                        <RichMessage text={msg.text} isUser />
+                      ) : (
+                        <StructuredMessage
+                          text={msg.text}
+                          sources={msg.sources}
+                          showActions={false}
+                        />
+                      )}
+                      <span className="chat-widget__msg-time">{msg.timestamp}</span>
+                    </div>
+                  </div>
+                ))}
+                {loading && (
+                  <div className="chat-widget__msg chat-widget__msg--assistant">
+                    <div className="chat-widget__msg-bubble chat-widget__msg-bubble--loading">
+                      <Loader2 className="chat-widget__spinner" />
+                      <span>{t.aiTyping}</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
           </div>
 
           <form className="chat-widget__form" onSubmit={handleQuickSend}>
@@ -200,8 +218,9 @@ function ChatWidget() {
               placeholder={t.chatWidgetPlaceholder}
               value={quickInput}
               onChange={(event) => setQuickInput(event.target.value)}
+              disabled={loading}
             />
-            <button className="chat-widget__send" type="submit">
+            <button className="chat-widget__send" type="submit" disabled={loading}>
               <Send className="chat-widget__send-icon" />
             </button>
           </form>
@@ -223,4 +242,3 @@ function ChatWidget() {
 }
 
 export default ChatWidget
-

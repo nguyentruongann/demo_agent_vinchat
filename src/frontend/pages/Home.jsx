@@ -1,179 +1,81 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Sparkles } from 'lucide-react'
+import { ArrowRight, CalendarDays, Sparkles } from 'lucide-react'
 import DestinationCard from '../components/DestinationCard'
 import HeroSearch from '../components/HeroSearch'
 import HotelCard from '../components/HotelCard'
 import { useLanguage } from '../context/LanguageContext'
-import { COMBOS, DESTINATIONS, HOTELS } from '../data/mockData'
+import { fetchDestinations, fetchHotels, fetchPromotions } from '../services/api'
 import '../styles/pages/Home.css'
-
-const VI_COMBO_COPY = {
-  'combo-1': {
-    title: 'Gói 3N2Đ: Vé bay + biệt thự biển + golf chuẩn quốc tế',
-    tag: 'Bán chạy',
-    duration: '3 ngày / 2 đêm',
-    includes: [
-      'Vé máy bay khứ hồi',
-      'Biệt thự biển riêng',
-      '1 vòng golf 18 lỗ',
-      'Buffet sáng hằng ngày',
-      'Đưa đón sân bay nhanh',
-    ],
-  },
-  'combo-2': {
-    title: 'Kỳ nghỉ gia đình: 3N2Đ trọn gói + VinWonders không giới hạn',
-    tag: 'Gia đình yêu thích',
-    duration: '3 ngày / 2 đêm',
-    includes: [
-      'Biệt thự biển 2 phòng ngủ',
-      'Ẩm thực trọn gói 3 bữa/ngày',
-      'Vé VinWonders không giới hạn',
-      'Vé cáp treo',
-    ],
-  },
-  'combo-3': {
-    title: 'Nghỉ dưỡng di sản & wellness: 2N1Đ villa + Akoya Spa',
-    tag: 'Ưu đãi wellness',
-    duration: '2 ngày / 1 đêm',
-    includes: [
-      'Garden Villa Suite',
-      'Massage Akoya 60 phút',
-      'Bữa tối organic tại nông trại',
-      'Xe đưa đón phố cổ',
-    ],
-  },
-}
 
 function Home() {
   const { language, t } = useLanguage()
-  const featuredHotels = HOTELS.filter((hotel) => hotel.featured)
+  const [destinations, setDestinations] = useState([])
+  const [hotels, setHotels] = useState([])
+  const [offers, setOffers] = useState([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    Promise.all([
+      fetchDestinations(),
+      fetchHotels({ pageSize: 6 }),
+      fetchPromotions({ status: 'active', pageSize: 3 }),
+    ])
+      .then(([destinationItems, hotelPayload, promotionPayload]) => {
+        if (!active) return
+        setDestinations(destinationItems)
+        setHotels(hotelPayload.items || [])
+        setOffers(promotionPayload.items || [])
+        setError('')
+      })
+      .catch(() => active && setError(t.serverDataError))
+    return () => { active = false }
+  }, [language, t.serverDataError])
+
+  useEffect(() => {
+    const elements = document.querySelectorAll('.reveal-on-scroll')
+    if (!('IntersectionObserver' in window)) {
+      elements.forEach((element) => element.classList.add('is-revealed'))
+      return undefined
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => entry.target.classList.toggle('is-revealed', entry.isIntersecting))
+    }, { rootMargin: '0px 0px -30px 0px', threshold: 0.1 })
+    elements.forEach((element) => observer.observe(element))
+    return () => observer.disconnect()
+  }, [destinations, hotels, offers])
 
   return (
     <main className="home-page">
-      <HeroSearch />
-
-      <section className="home-page__section">
-        <div className="home-page__section-heading home-page__section-heading--center">
-          <span className="home-page__eyebrow">{t.portfoliosEyebrow}</span>
-          <h2>{t.destTitle}</h2>
-          <p>{t.destSubtitle}</p>
+      <HeroSearch destinations={destinations}>
+        <div className="hero-search__booking-heading reveal-on-scroll">
+          <span className="home-page__eyebrow">{t.portfoliosEyebrow}</span><h2>{t.destTitle}</h2><p>{t.destSubtitle}</p>
         </div>
-
+      </HeroSearch>
+      {error && <p className="home-page__data-error" role="alert">{error}</p>}
+      <section className="home-page__section" id="featured-destinations">
         <div className="home-page__destinations-grid">
-          {DESTINATIONS.map((destination) => (
-            <DestinationCard key={destination.id} destination={destination} />
-          ))}
+          {destinations.map((destination, index) => <div key={destination.id} className={`reveal-on-scroll reveal-delay-${(index % 4) + 1}`}><DestinationCard destination={destination} /></div>)}
         </div>
       </section>
-
       <section className="home-page__section home-page__ai-section">
-        <div className="home-page__ai-banner">
-          <div className="home-page__ai-glow" />
-          <div className="home-page__ai-content">
-            <div className="home-page__ai-badge">
-              <Sparkles className="home-page__ai-badge-icon" />
-              <span>{t.aiConciergeBadge}</span>
-            </div>
-
-            <h3>{t.aiBannerTitle}</h3>
-            <p>"{t.aiBannerDesc}"</p>
-
-            <div className="home-page__ai-actions">
-              <Link className="home-page__ai-primary" to="/chat">
-                <Sparkles className="home-page__button-icon" />
-                <span>{t.startAiChat}</span>
-              </Link>
-              <Link className="home-page__ai-secondary" to="/support">
-                {t.navSupport}
-              </Link>
-            </div>
-          </div>
-        </div>
+        <div className="home-page__ai-banner reveal-on-scroll"><div className="home-page__ai-glow" /><div className="home-page__ai-content">
+          <div className="home-page__ai-badge"><Sparkles /><span>{t.aiConciergeBadge}</span></div><h3>{t.aiBannerTitle}</h3><p>{t.aiBannerDesc}</p>
+          <div className="home-page__ai-actions"><Link className="home-page__ai-primary" to="/chat"><Sparkles /><span>{t.startAiChat}</span></Link><Link className="home-page__ai-secondary" to="/support">{t.navSupport}</Link></div>
+        </div></div>
       </section>
-
       <section className="home-page__section">
-        <div className="home-page__split-heading">
-          <div>
-            <span className="home-page__eyebrow">{t.luxuryHospitality}</span>
-            <h2>{t.featuredHotels}</h2>
-          </div>
-
-          <Link className="home-page__view-all" to="/search">
-            <span>{t.viewAllResorts}</span>
-            <ArrowRight className="home-page__view-all-icon" />
-          </Link>
-        </div>
-
-        <div className="home-page__hotels-grid">
-          {featuredHotels.map((hotel) => (
-            <HotelCard key={hotel.id} hotel={hotel} />
-          ))}
-        </div>
+        <div className="home-page__split-heading reveal-on-scroll"><div><span className="home-page__eyebrow">{t.luxuryHospitality}</span><h2>{t.featuredHotels}</h2></div><Link className="home-page__view-all" to="/search"><span>{t.viewAllResorts}</span><ArrowRight /></Link></div>
+        <div className="home-page__hotels-grid">{hotels.map((hotel, index) => <div key={hotel.id} className={`reveal-on-scroll reveal-delay-${(index % 3) + 1}`}><HotelCard hotel={hotel} /></div>)}</div>
       </section>
-
-      <section className="home-page__offers-section">
-        <div className="home-page__section home-page__offers-inner">
-          <div className="home-page__section-heading home-page__section-heading--center">
-            <span className="home-page__eyebrow">{t.travelPackagesEyebrow}</span>
-            <h2>{t.offersTitle}</h2>
-          </div>
-
-          <div className="home-page__combos-grid">
-            {COMBOS.map((combo) => {
-              const localizedCombo =
-                language === 'VI' ? VI_COMBO_COPY[combo.id] : null
-              const title = localizedCombo?.title || combo.title
-              const tag = localizedCombo?.tag || combo.tag
-              const duration = localizedCombo?.duration || combo.duration
-              const includes = localizedCombo?.includes || combo.includes
-
-              return (
-                <article className="home-page__combo-card" key={combo.id}>
-                  <div className="home-page__combo-media">
-                    <img src={combo.image} alt={title} />
-                    <span className="home-page__combo-tag">{tag}</span>
-                    <span className="home-page__combo-duration">{duration}</span>
-                  </div>
-
-                  <div className="home-page__combo-body">
-                    <div>
-                      <h4>{title}</h4>
-                      <ul className="home-page__combo-includes">
-                        {includes.map((item) => (
-                          <li key={item}>
-                            <Check className="home-page__combo-check" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="home-page__combo-footer">
-                      <div>
-                        <span className="home-page__combo-original">
-                          {new Intl.NumberFormat('vi-VN').format(combo.originalPrice)} VND
-                        </span>
-                        <span className="home-page__combo-price">
-                          {new Intl.NumberFormat('vi-VN').format(combo.offerPrice)} VND
-                        </span>
-                      </div>
-
-                      <Link
-                        className="home-page__combo-link"
-                        to={`/chat?prompt=${encodeURIComponent(
-                          `${t.bookWithAi}: ${title}`,
-                        )}`}
-                      >
-                        {t.bookWithAi}
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        </div>
-      </section>
+      <section className="home-page__offers-section"><div className="home-page__section home-page__offers-inner">
+        <div className="home-page__section-heading home-page__section-heading--center reveal-on-scroll"><span className="home-page__eyebrow">{t.travelPackagesEyebrow}</span><h2>{t.offersTitle}</h2></div>
+        <div className="home-page__combos-grid">{offers.map((offer, index) => <article className={`home-page__combo-card reveal-on-scroll reveal-delay-${(index % 3) + 1}`} key={offer.id}>
+          {offer.image_url && <div className="home-page__combo-media"><img src={offer.image_url} alt={offer.title} /><span className="home-page__combo-tag">{offer.discount_text || t.navOffers}</span></div>}
+          <div className="home-page__combo-body"><div><h4>{offer.title}</h4><p>{offer.summary}</p></div><div className="home-page__combo-footer">{offer.validity_to && <span><CalendarDays size={16} /> {offer.validity_to}</span>}<Link className="home-page__combo-link" to="/promotions">{t.viewDetails}</Link></div></div>
+        </article>)}</div>
+      </div></section>
     </main>
   )
 }

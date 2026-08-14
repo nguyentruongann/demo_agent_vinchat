@@ -33,7 +33,7 @@ function Footer() {
             <div className="footer__section">
               <div className="footer__contact-item">
                 <MapPin className="footer__contact-icon" />
-                <span>Đảo Hòn Tre, Phường Vĩnh Nguyên, Tỉnh Khánh Hòa, Việt Nam</span>
+                <span>{t.footerAddressOfficial}</span>
               </div>
               <div className="footer__contact-item">
                 <Mail className="footer__contact-icon" />
@@ -41,22 +41,22 @@ function Footer() {
               </div>
               <div className="footer__contact-item">
                 <Phone className="footer__contact-icon" />
-                <a href="tel:1900232389">1900 23 23 89 (nhánh 3)</a>
+                <a href="tel:1900232389">1900 23 23 89 ({t.phoneExtension})</a>
               </div>
             </div>
 
             <div className="footer__info-block">
-              <p>Chủ tài khoản:</p>
-              <p>Công ty cổ phần Vinpearl</p>
-              <p>Tài khoản ngân hàng số: 9124412488166 (VND)</p>
+              <p>{t.accountHolder}:</p>
+              <p>{t.vinpearlCompany}</p>
+              <p>{t.bankAccountNumber}: 9124412488166 (VND)</p>
               <p>Ngân hàng thương mại cổ phần Kỹ Thương Việt Nam (Techcombank) - Hội sở</p>
             </div>
 
             <div className="footer__info-block">
-              <p>Số ĐKKD:</p>
-              <p>4200456848. ĐK lần đầu 26/7/2006.</p>
-              <p>ĐK thay đổi tại từng thời điểm</p>
-              <p>Nơi cấp: Sở Kế hoạch và Đầu tư tỉnh Khánh Hòa</p>
+              <p>{t.businessRegistrationNumber}:</p>
+              <p>4200456848. {t.registrationFirstIssued}</p>
+              <p>{t.registrationUpdated}</p>
+              <p>{t.issuingAuthority}</p>
             </div>
 
            
@@ -100,7 +100,7 @@ function Footer() {
             </div>
 
             <div className="footer__section">
-              <h4 className="footer__heading">Tag</h4>
+              <h4 className="footer__heading">{t.tags}</h4>
               <ul className="footer__list">
                 <li><Link className="footer__link" to="/search?destination=phu-quoc">{t.vpTagPhuQuoc}</Link></li>
                 <li><Link className="footer__link" to="/search?destination=nha-trang">{t.vpTagNhaTrang}</Link></li>
@@ -131,7 +131,7 @@ function Footer() {
       <div className="footer__bottom">
         <div className="footer__bar">
           <div className="footer__copyright">
-            Copyright © 2026 Vinpearl.com. All rights reserved
+            {t.copyright}
           </div>
           <div className="footer__socials">
             <a href="https://facebook.com" className="footer__social-link">

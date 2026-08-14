@@ -6,9 +6,30 @@ import { useLanguage } from '../context/LanguageContext'
 import '../styles/pages/Regulations.css'
 
 const PREFERRED_DOC_TITLE = 'General Terms'
+const PREFERRED_DOC_ID = regulationsData.documents?.find(
+  (doc) => doc.title === PREFERRED_DOC_TITLE,
+)?.id
+const translatedRegulationModules = import.meta.glob(
+  '../../data_crawl/Regulations/translations/*.json',
+  { eager: true },
+)
+const translatedRegulations = Object.values(translatedRegulationModules).reduce(
+  (translations, mod) => {
+    const doc = mod.default
+    const language = String(doc?.language || '').toLowerCase()
+
+    if (language && doc?.id) {
+      translations[language] ||= {}
+      translations[language][doc.id] = doc
+    }
+
+    return translations
+  },
+  {},
+)
 
 const titleMap = {
-  VI: {
+  vi: {
     'General Terms': 'Điều khoản chung',
     'General regulations': 'Quy định chung',
     'Payment regulations': 'Quy định thanh toán',
@@ -18,7 +39,7 @@ const titleMap = {
     'Regulations to prevent money laundering and ensure transparency':
       'Quy chế phòng chống rửa tiền và đảm bảo minh bạch',
   },
-  EN: {
+  en: {
     'General Terms': 'General Terms',
     'General regulations': 'General Regulations',
     'Payment regulations': 'Payment Regulations',
@@ -30,9 +51,9 @@ const titleMap = {
   },
 }
 
-function getDocTitle(doc, language = 'EN') {
-  if (!doc) return String(language).toUpperCase() === 'VI' ? 'Quy định' : 'Regulations'
-  const langKey = String(language).toUpperCase() === 'VI' ? 'VI' : 'EN'
+function getDocTitle(doc, language = 'en') {
+  if (!doc) return language === 'vi' ? 'Quy định' : 'Regulations'
+  const langKey = language === 'vi' ? 'vi' : 'en'
   return titleMap[langKey]?.[doc.title] || doc.title
 }
 
@@ -114,7 +135,7 @@ function buildContentBlocks(content = []) {
 }
 
 const textTranslationMap = {
-  VI: {
+  vi: {
     'General content': 'Nội dung chung',
     'ARTICLE 1. DEFINITIONS': 'ĐIỀU 1. ĐỊNH NGHĨA',
     'ARTICLE 2. GENERAL PROVISIONS': 'ĐIỀU 2. ĐIỀU KHOẢN CHUNG',
@@ -133,9 +154,9 @@ const textTranslationMap = {
   },
 }
 
-function translateText(text, language = 'EN') {
-  if (language === 'VI') {
-    return textTranslationMap.VI[text?.trim()] || text
+function translateText(text, language = 'en') {
+  if (language === 'vi') {
+    return textTranslationMap.vi[text?.trim()] || text
   }
   return text
 }
@@ -169,7 +190,7 @@ function InlineText({ text }) {
 }
 
 const checkInCellMap = {
-  VI: {
+  vi: {
     'Check-in time': 'Thời gian nhận phòng',
     'Check-out time': 'Thời gian trả phòng',
     'Early check-in fee before 6:00 am': 'Phí nhận phòng sớm trước 6:00 giờ sáng',
@@ -188,15 +209,15 @@ const checkInCellMap = {
   },
 }
 
-function translateCheckInCell(cell, language = 'EN') {
-  if (language === 'VI') {
-    return checkInCellMap.VI[cell?.trim()] || cell
+function translateCheckInCell(cell, language = 'en') {
+  if (language === 'vi') {
+    return checkInCellMap.vi[cell?.trim()] || cell
   }
   return cell
 }
 
 const tableHeaderMap = {
-  VI: {
+  vi: {
     Category: 'Hạng mục',
     Regulations: 'Quy định',
     Notes: 'Ghi chú',
@@ -214,7 +235,7 @@ const tableHeaderMap = {
     'Email đặt phòng': 'Email đặt phòng',
     'SĐT đặt phòng': 'SĐT đặt phòng',
   },
-  EN: {
+  en: {
     Category: 'Category',
     Regulations: 'Regulations',
     Notes: 'Notes',
@@ -239,7 +260,7 @@ const tableHeaderMap = {
   },
 }
 
-function translateTableHeader(cell, language = 'EN') {
+function translateTableHeader(cell, language = 'en') {
   return tableHeaderMap[language]?.[cell] || cell
 }
 
@@ -327,7 +348,7 @@ function ContentTable({ rows, language, t }) {
       }
     })
 
-    if (language === 'VI') {
+    if (language === 'vi') {
       noteText =
         'Tùy thuộc vào tình trạng phòng sẵn có và xác nhận đồng ý của Vinpearl. Các khoản phí sẽ phải thanh toán ngay tại thời điểm Vinpearl xác nhận.'
     } else if (!noteText) {
@@ -475,12 +496,12 @@ function ContentTable({ rows, language, t }) {
     <div className="regulations-table-wrapper">
       {detectedAccountTable && (
         <h4 className="regulations-appendix-heading">
-          {language === 'VI' ? 'Phụ lục 02: Danh sách tài khoản thanh toán' : 'Appendix 02: Payment accounts'}
+          {t.regulationsPaymentAppendix}
         </h4>
       )}
       {detectedBookingContactTable && (
         <h4 className="regulations-appendix-heading">
-          {language === 'VI' ? 'Phụ lục 01: Danh sách liên lạc đặt phòng' : 'Appendix 01: Contact list for booking'}
+          {t.regulationsBookingAppendix}
         </h4>
       )}
       <div className="regulations-table-shell">
@@ -531,12 +552,23 @@ function ContentTable({ rows, language, t }) {
 }
 
 function Regulations() {
-  const { t } = useLanguage()
-  const language = 'EN'
+  const { language: currentLanguage, t } = useLanguage()
+  const language = String(currentLanguage).toLowerCase()
+  const labels = {
+    home: t.regulationsHome,
+    pageTitle: t.termsOfService,
+    categories: t.regulationsCategoryLabel,
+    document: t.regulationsDocumentLabel,
+  }
   const [searchParams, setSearchParams] = useSearchParams()
-  const documents = useMemo(() => regulationsData.documents || [], [])
+  const documents = useMemo(() => {
+    const sourceDocuments = regulationsData.documents || []
+    const translations = translatedRegulations[String(currentLanguage).toLowerCase()] || {}
+
+    return sourceDocuments.map((doc) => translations[doc.id] || doc)
+  }, [currentLanguage])
   const preferredDocument = useMemo(
-    () => documents.find((doc) => doc.title === PREFERRED_DOC_TITLE) || documents[0],
+    () => documents.find((doc) => doc.id === PREFERRED_DOC_ID) || documents[0],
     [documents]
   )
 
@@ -568,14 +600,14 @@ function Regulations() {
       <div className="regulations-top-bar">
         <div className="regulations-top-bar__inner">
           <nav className="regulations-breadcrumb" aria-label="Breadcrumb">
-            <Link to="/">{language === 'VI' ? 'Home' : 'Home'}</Link>
+            <Link to="/">{labels.home}</Link>
             <span className="regulations-breadcrumb__sep">&gt;</span>
             <span className="regulations-breadcrumb__current">
-              {language === 'VI' ? 'ĐIỀU KHOẢN CHUNG' : 'TERMS OF SERVICE'}
+              {labels.pageTitle.toUpperCase()}
             </span>
           </nav>
           <h1 className="regulations-top-bar__title">
-            {language === 'VI' ? 'ĐIỀU KHOẢN CHUNG' : 'TERMS OF SERVICE'}
+            {labels.pageTitle.toUpperCase()}
           </h1>
         </div>
       </div>
@@ -584,7 +616,7 @@ function Regulations() {
         <aside className="regulations-sidebar" aria-label="Danh mục quy định">
           <div className="regulations-sidebar__header">
             <FileText className="regulations-sidebar__icon" />
-            <span>{language === 'VI' ? 'Danh mục' : 'Categories'}</span>
+            <span>{labels.categories}</span>
           </div>
           <div className="regulations-tabs">
             {documents.map((doc, index) => (
@@ -606,7 +638,7 @@ function Regulations() {
             <div className="regulations-doc__header">
               <Search className="regulations-doc__icon" />
               <div>
-                <p>{language === 'VI' ? `Tài liệu ${activeIndex + 1}` : `Document ${activeIndex + 1}`}</p>
+                <p>{`${labels.document} ${activeIndex + 1}`}</p>
                 <h2>{getDocTitle(activeDoc, language)}</h2>
               </div>
             </div>

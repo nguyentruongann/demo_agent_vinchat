@@ -8,6 +8,7 @@ import Home from '../pages/Home'
 import HotelDetail from '../pages/HotelDetail'
 import Login from '../pages/Login'
 import Promotions from '../pages/Promotions'
+import PromotionDetail from '../pages/PromotionDetail'
 import Register from '../pages/Register'
 import SearchResults from '../pages/SearchResults'
 import Ticket from '../pages/Ticket'
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path="/hotels/:hotelId" element={<AppLayout><HotelDetail /></AppLayout>} />
       <Route path="/regulations" element={<AppLayout><Regulations /></AppLayout>} />
       <Route path="/promotions" element={<AppLayout><Promotions /></AppLayout>} />
+      <Route path="/promotions/:promotionId" element={<AppLayout><PromotionDetail /></AppLayout>} />
       <Route path="/chat" element={<AppLayout><Chatbot /></AppLayout>} />
       <Route path="/chatbot" element={<AppLayout><Chatbot /></AppLayout>} />
       <Route path="/support" element={<AppLayout><Ticket /></AppLayout>} />

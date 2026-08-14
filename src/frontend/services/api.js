@@ -1,7 +1,18 @@
-import { HOTELS } from '../data/mockData';
-
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const CHAT_SESSION_KEY = 'vinpearl_chat_session_v3';
+const CHAT_SESSION_KEY = 'vinpearl_chat_session_v2';
+
+function currentLanguage() {
+  const value = localStorage.getItem('site_language');
+  return ['en', 'vi', 'ko', 'ja', 'zh'].includes(value) ? value : 'en';
+}
+
+async function apiFetch(path, options = {}) {
+  const url = new URL(`${API_BASE_URL}${path}`, globalThis.location.origin);
+  if ((options.method || 'GET').toUpperCase() === 'GET') {
+    url.searchParams.set('lang', currentLanguage());
+  }
+  return fetch(url.toString(), options);
+}
 
 function createSessionId() {
   if (globalThis.crypto?.randomUUID) {
@@ -11,18 +22,42 @@ function createSessionId() {
   return `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function readStoredSessionId() {
+function currentPageBootId() {
+  // performance.timeOrigin changes after a real page reload, but remains stable
+  // across normal SPA navigation and Vite HMR. That gives one conversation
+  // session per loaded chat page without persisting forever in localStorage.
+  return String(Math.round(globalThis.performance?.timeOrigin || Date.now()));
+}
+
+const CHAT_MESSAGES_KEY = 'vinpearl_chat_messages_v2';
+
+function readStoredSession() {
   try {
-    return sessionStorage.getItem(CHAT_SESSION_KEY) || null;
+    const raw = sessionStorage.getItem(CHAT_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-export function setChatSessionId(sessionId) {
+function writeStoredSession(sessionId) {
   if (!sessionId) return null;
-  sessionStorage.setItem(CHAT_SESSION_KEY, sessionId);
+  try {
+    sessionStorage.setItem(
+      CHAT_SESSION_KEY,
+      JSON.stringify({
+        sessionId,
+        pageBootId: currentPageBootId(),
+      }),
+    );
+  } catch {
+    // sessionStorage may be unavailable in restricted browser contexts.
+  }
   return sessionId;
+}
+
+export function setChatSessionId(sessionId) {
+  return writeStoredSession(sessionId);
 }
 
 export function clearChatSessionId() {
@@ -34,64 +69,80 @@ export function clearChatSessionId() {
 }
 
 export function getChatSessionId() {
-  return readStoredSessionId() || setChatSessionId(createSessionId());
+  const stored = readStoredSession();
+  if (stored?.sessionId) {
+    return stored.sessionId;
+  }
+  return writeStoredSession(createSessionId());
 }
 
 export function startNewChatSession() {
-  return setChatSessionId(createSessionId());
+  clearStoredMessages();
+  return writeStoredSession(createSessionId());
 }
 
-// Backward-compatible name used by older UI code. A new conversation no longer
-// deletes the previous server-side history; it only rotates the active session ID.
+export function loadStoredMessages() {
+  try {
+    const raw = sessionStorage.getItem(CHAT_MESSAGES_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredMessages(messages) {
+  try {
+    sessionStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(messages));
+  } catch (e) {
+    console.warn('Could not save chat messages to sessionStorage:', e);
+  }
+}
+
+export function clearStoredMessages() {
+  try {
+    sessionStorage.removeItem(CHAT_MESSAGES_KEY);
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Backward-compatible name used by existing UI code. Starting a new chat must
+// preserve the previous authenticated conversation in PostgreSQL so it remains
+// available in Chat History; only the active client-side session ID is rotated.
 export async function resetChatSession() {
   return startNewChatSession();
 }
 
-export async function fetchHotels(filters) {
-  try {
-    const params = new URLSearchParams();
-    if (filters?.destination && filters.destination !== 'all') {
-      params.append('destination', filters.destination);
-    }
-    if (filters?.type && filters.type !== 'all') {
-      params.append('type', filters.type);
-    }
-    if (filters?.maxPrice) {
-      params.append('maxPrice', filters.maxPrice.toString());
-    }
+export async function fetchAboutInfo() {
+  const res = await apiFetch('/api/v1/about');
+  if (!res.ok) throw new Error(`About API returned status ${res.status}`);
+  return res.json();
+}
 
-    const res = await fetch(`/api/hotels?${params.toString()}`);
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.warn('API call failed, fallback to local data:', e);
-  }
+export async function fetchDestinations() {
+  const res = await apiFetch('/api/v1/catalog/destinations');
+  if (!res.ok) throw new Error(`Destinations API returned status ${res.status}`);
+  return res.json();
+}
 
-  // Fallback client filter
-  let result = [...HOTELS];
-  if (filters?.destination && filters.destination !== 'all') {
-    result = result.filter(h => h.destination === filters.destination);
-  }
-  if (filters?.type && filters.type !== 'all') {
-    result = result.filter(h => h.type.toLowerCase() === filters.type.toLowerCase());
-  }
-  if (filters?.maxPrice) {
-    result = result.filter(h => h.price <= filters.maxPrice);
-  }
-  return result;
+export async function fetchHotels(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.destination && filters.destination !== 'all') params.set('destination', filters.destination);
+  if (filters.type && filters.type !== 'all') params.set('kind', filters.type.toLowerCase());
+  if (filters.minGuests) params.set('min_guests', String(filters.minGuests));
+  if (filters.maxPrice) params.set('max_price', String(filters.maxPrice));
+  params.set('page', String(filters.page || 1));
+  params.set('page_size', String(filters.pageSize || 24));
+  const res = await apiFetch(`/api/v1/catalog/properties?${params.toString()}`);
+  if (!res.ok) throw new Error(`Properties API returned status ${res.status}`);
+  return res.json();
 }
 
 export async function fetchHotelById(id) {
-  try {
-    const res = await fetch(`/api/hotels/${id}`);
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.warn('API call failed, fallback to local data:', e);
-  }
-  return HOTELS.find(h => h.id === id);
+  const res = await apiFetch(`/api/v1/catalog/properties/${encodeURIComponent(id)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Property API returned status ${res.status}`);
+  return res.json();
 }
 
 /**
@@ -110,10 +161,10 @@ export async function fetchPromotions(filters = {}) {
   if (filters.search) {
     params.set('search', filters.search);
   }
-  params.set('page_size', String(filters.pageSize || 100));
+  params.set('page_size', String(filters.pageSize || 12));
 
   const query = params.toString();
-  const res = await fetch(`${API_BASE_URL}/api/v1/promotions${query ? `?${query}` : ''}`);
+  const res = await apiFetch(`/api/v1/promotions${query ? `?${query}` : ''}`);
   if (!res.ok) {
     throw new Error(`Promotions API returned status ${res.status}`);
   }
@@ -126,10 +177,18 @@ export async function fetchPromotions(filters = {}) {
   return {
     items: Array.isArray(payload.items) ? payload.items : [],
     total: Number(payload.total ?? payload.items?.length ?? 0),
+    translationFallback: Boolean(payload.translation_fallback),
   };
 }
 
-export async function sendChatMessage(prompt, language = 'EN') {
+export async function fetchPromotionById(id) {
+  const res = await apiFetch(`/api/v1/promotions/${encodeURIComponent(id)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Promotion Detail API returned status ${res.status}`);
+  return res.json();
+}
+
+export async function sendChatMessage(prompt, language = 'en') {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/chat`, {
       method: 'POST',
@@ -239,6 +298,7 @@ export async function fetchTickets() {
 
 function generateFallbackResponse(prompt, language) {
   const lower = prompt.toLowerCase();
+  const isVietnamese = String(language).toLowerCase() === 'vi';
   let text = '';
   let relatedHotels = [];
 
@@ -262,42 +322,42 @@ function generateFallbackResponse(prompt, language) {
 
   if (isRegulationsQuery) {
     if (lower.includes('nhận phòng') || lower.includes('check-in') || lower.includes('check in') || lower.includes('trả phòng') || lower.includes('check-out')) {
-      text = language === 'VI'
+      text = isVietnamese
         ? "Theo Quy định nhận và trả phòng của Vinpearl:\n• Thời gian nhận phòng (Check-in): 14:00 (Vinpearl Luxury Nha Trang) / 15:00 (các khách sạn khác).\n• Thời gian trả phòng (Check-out): Không quá 12:00 giờ trưa.\n• Phí nhận phòng sớm / trả phòng muộn: Tính 50% - 100% giá phòng tùy theo mốc thời gian cụ thể."
         : "According to Vinpearl Check-in & Check-out Regulations:\n• Check-in time: 14:00 (Vinpearl Luxury Nha Trang) / 15:00 (Other hotels).\n• Check-out time: No later than 12:00 noon.\n• Early check-in / late check-out fees: 50% - 100% of room rate depending on the timeframe.";
     } else if (lower.includes('tài khoản') || lower.includes('account') || lower.includes('swift') || lower.includes('ngân hàng') || lower.includes('bank')) {
-      text = language === 'VI'
+      text = isVietnamese
         ? "Thông tin tài khoản thanh toán Vinpearl (Phụ lục 02):\n• Vinpearl Resort & Spa Hạ Long: Vietcombank Quảng Ninh - STK: 0141005558899 (VND)\n• Vinpearl Resort Nha Trang: Techcombank - STK: 19127850127299 (VND)\n• Vinpearl Resort & Spa Phú Quốc: Vietcombank Hoàng Mai - STK: 0931005550015 (VND)"
         : "Vinpearl Payment Accounts Info (Appendix 02):\n• Vinpearl Resort & Spa Ha Long: Vietcombank Quang Ninh - Acc: 0141005558899 (VND)\n• Vinpearl Resort Nha Trang: Techcombank - Acc: 19127850127299 (VND)\n• Vinpearl Resort & Spa Phu Quoc: Vietcombank Hoang Mai - Acc: 0931005550015 (VND)";
     } else if (lower.includes('sđt') || lower.includes('liên hệ') || lower.includes('phone') || lower.includes('email') || lower.includes('contact')) {
-      text = language === 'VI'
+      text = isVietnamese
         ? "Danh sách liên lạc đặt phòng các cơ sở Vinpearl (Phụ lục 01):\n• Nha Trang: res.VPLRNT@vinpearl.com | SĐT: 84-258 359 8900\n• Phú Quốc: res.VPRSPQ@vinpearl.com | SĐT: 84-297 355 0550\n• Hạ Long: res.VPRSHL@vinpearl.com | SĐT: 84-203 385 7858\n• Đà Nẵng - Hội An: res.VPRGNHA@vinpearl.com | SĐT: 84-235 367 6888"
         : "Vinpearl Booking Contact Info (Appendix 01):\n• Nha Trang: res.VPLRNT@vinpearl.com | Phone: 84-258 359 8900\n• Phu Quoc: res.VPRSPQ@vinpearl.com | Phone: 84-297 355 0550\n• Ha Long: res.VPRSHL@vinpearl.com | Phone: 84-203 385 7858\n• Da Nang - Hoi An: res.VPRGNHA@vinpearl.com | Phone: 84-235 367 6888";
     } else {
-      text = language === 'VI'
+      text = isVietnamese
         ? "Tổng hợp quy định Vinpearl:\nHệ thống quy định Vinpearl bao gồm 7 tài liệu chính về Điều khoản chung, Quy định nhận trả phòng, Quy định thanh toán, Chính sách bảo mật và Quy chế giải quyết tranh chấp."
         : "Vinpearl Regulations Summary:\nVinpearl regulations portfolio includes 7 official documents covering General Terms, Check-in/Check-out rules, Payment regulations, Privacy policy, and Dispute resolution procedures.";
     }
   } else if (lower.includes('budget') || lower.includes('10m') || lower.includes('price')) {
-    text = language === 'VI'
+    text = isVietnamese
       ? "Với ngân sách khoảng 10 triệu VNĐ, tôi đề xuất gói nghỉ dưỡng 3 ngày 2 đêm tại VinTravel Grand Resort Phú Quốc hoặc Biệt thự biển Nha Trang bao gồm ăn sáng và vé vui chơi:"
       : "For a budget around 10M VND, I recommend a 3D2N stay at VinTravel Grand Resort Phú Quốc or our Luxury Ocean Villas in Nha Trang including breakfast and park tickets:";
-    relatedHotels = [HOTELS[0]];
+    relatedHotels = [];
   } else if (lower.includes('nha trang') || lower.includes('3 days') || lower.includes('3 ngày')) {
-    text = language === 'VI'
+    text = isVietnamese
       ? "Lịch trình 3 ngày 2 đêm gợi ý tại Nha Trang:\n• Ngày 1: Đón cáp treo qua đảo, nhận Biệt thự biển & ăn tối hải sản.\n• Ngày 2: Vui chơi thỏa thích tại Công viên VinWonders & trị liệu Spa Akoya.\n• Ngày 3: Thưởng thức buffet sáng, tắm biển riêng & tiễn sân bay."
       : "Here is a recommended 3D2N Nha Trang itinerary:\n• Day 1: Cable car arrival, Ocean Villa check-in & seafood dining.\n• Day 2: Unlimited fun at VinWonders Theme Park & Akoya Spa treatments.\n• Day 3: Oceanfront breakfast buffet, private beach relaxing & airport transfer.";
-    relatedHotels = [HOTELS[1]];
+    relatedHotels = [];
   } else if (lower.includes('children') || lower.includes('kids') || lower.includes('trẻ em') || lower.includes('family')) {
-    text = language === 'VI'
+    text = isVietnamese
       ? "Chính sách gia đình tại các khu nghỉ dưỡng VinTravel vô cùng ưu đãi: Trẻ em dưới 4 tuổi được miễn phí hoàn toàn. Có CLB Trẻ em (Kid's Club) miễn phí và hồ bơi nông an toàn."
       : "Our family policies are designed for pure peace of mind: Children under 4 stay free of charge. Resorts feature dedicated Kid's Clubs, shallow splash pools, and professional babysitting.";
-    relatedHotels = [HOTELS[0]];
+    relatedHotels = [];
   } else {
-    text = language === 'VI'
+    text = isVietnamese
       ? `Cảm ơn bạn đã hỏi! Tôi đã tìm kiếm trong hệ thống khu nghỉ dưỡng VinTravel. Khu nghỉ dưỡng VinTravel Grand Phú Quốc và Biệt thự Hòn Tre Nha Trang hoàn toàn phù hợp với tiêu chuẩn thượng lưu của bạn.`
       : `Thank you for asking! I have analyzed our luxury resort portfolio. VinTravel Grand Resort & Spa in Phú Quốc and our Ocean Villas in Nha Trang fit your preferences seamlessly.`;
-    relatedHotels = [HOTELS[0]];
+    relatedHotels = [];
   }
 
   return {
@@ -361,7 +421,6 @@ export async function registerAccount({ name, email, phone, password, locale = '
     }),
   });
   setAuthToken(payload.access_token);
-  startNewChatSession();
   return payload.user;
 }
 
@@ -371,7 +430,6 @@ export async function loginAccount(identifier, password) {
     body: JSON.stringify({ identifier, password }),
   });
   setAuthToken(payload.access_token);
-  startNewChatSession();
   return payload.user;
 }
 
@@ -381,7 +439,6 @@ export async function fetchCurrentUser() {
     return await apiJson('/api/v1/auth/me');
   } catch (error) {
     setAuthToken(null);
-    clearChatSessionId();
     return null;
   }
 }
@@ -391,7 +448,6 @@ export async function logoutAccount() {
     if (getAuthToken()) await apiJson('/api/v1/auth/logout', { method: 'POST' });
   } finally {
     setAuthToken(null);
-    clearChatSessionId();
   }
 }
 

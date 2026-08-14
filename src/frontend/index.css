@@ -1,9 +1,36 @@
 :root {
+  /* ── Legacy tokens (kept for non-chat pages) ── */
   --color-gold: #c9a45c;
   --color-gold-dark: #b88a44;
   --color-navy: #0b2e3d;
   --color-navy-dark: #072f3f;
   --color-ocean: #0ea5c6;
+
+  /* ── VinTravel Concierge design tokens ── */
+  --vt-navy: #0E2A2E;
+  --vt-teal: #1C6B5E;
+  --vt-teal-soft: #E4EFEA;
+  --vt-gold: #C89B4A;
+  --vt-gold-soft: #F5E9D4;
+  --vt-cream: #FAF6EC;
+  --vt-sand: #F1E9D8;
+  --vt-ink: #20302E;
+  --vt-ink-soft: #5B6B66;
+
+  --vt-radius-card: 8px;
+  --vt-radius-pill: 999px;
+
+  --vt-font-sans: 'Roboto', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --vt-font-serif: var(--vt-font-sans);
+  --vt-font-mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 * {
@@ -16,6 +43,9 @@ body {
   min-height: 100vh;
   color: var(--color-navy);
   background-color: #ffffff;
+  font-family: var(--vt-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {

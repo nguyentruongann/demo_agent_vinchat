@@ -21,6 +21,7 @@ function Header() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
+  const [authDropdownOpen, setAuthDropdownOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
 
   const isHomePage = location.pathname === '/'
@@ -36,13 +37,14 @@ function Header() {
   }, [isHomePage, location.pathname])
 
   const languages = [
-    { code: 'EN', label: t.english },
-    { code: 'VI', label: t.vietnamese },
+    { code: 'en', label: 'English' },
+    { code: 'vi', label: 'Tiếng Việt' },
+    { code: 'ko', label: '한국어' },
+    { code: 'ja', label: '日本語' },
+    { code: 'zh', label: '中文' },
   ]
 
   const currentLang = languages.find((item) => item.code === language) || languages[0]
-  const isActive = (path) => location.pathname === path
-
   function handleLogout() {
     logout()
     setMobileMenuOpen(false)
@@ -62,7 +64,7 @@ function Header() {
             <img className="header__brand-logo" src={VINPEARL_LOGO_URL} alt="Vinpearl" />
           </Link>
 
-          <nav className="header__nav" aria-label="Main Navigation">
+          <nav className="header__nav" aria-label={t.mainNavigation}>
             <Link
               className={`header__link ${location.pathname === '/search' ? 'header__link--active' : ''}`}
               to="/search"
@@ -94,10 +96,10 @@ function Header() {
               {t.navMeetings}
             </Link>
             {user && (user.role === 'staff' || user.role === 'admin') && (
-              <Link className={`header__link ${location.pathname.startsWith('/staff') ? 'header__link--active' : ''}`} to="/staff/tickets">Tickets</Link>
+              <Link className={`header__link ${location.pathname.startsWith('/staff') ? 'header__link--active' : ''}`} to="/staff/tickets">{t.staffTickets}</Link>
             )}
             {user?.role === 'admin' && (
-              <Link className={`header__link ${location.pathname.startsWith('/admin') ? 'header__link--active' : ''}`} to="/admin/staff">Nhân viên</Link>
+              <Link className={`header__link ${location.pathname.startsWith('/admin') ? 'header__link--active' : ''}`} to="/admin/staff">{t.staffMembers}</Link>
             )}
             <Link
               className={`header__link ${location.pathname === '/regulations' && location.search.includes('doc=') ? 'header__link--active' : ''}`}
@@ -108,37 +110,45 @@ function Header() {
           </nav>
 
           <div className="header__actions">
-            <div className="header__language">
+            <div
+              className={`header__language ${langDropdownOpen ? 'header__language--open' : ''}`}
+              onMouseEnter={() => setLangDropdownOpen(true)}
+              onMouseLeave={() => setLangDropdownOpen(false)}
+              onFocus={() => setLangDropdownOpen(true)}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setLangDropdownOpen(false)
+                }
+              }}
+            >
               <button
                 className="header__language-trigger"
                 type="button"
-                onClick={() => setLangDropdownOpen((current) => !current)}
+                aria-haspopup="true"
               >
                 <Globe className="header__language-icon" />
-                <span>{currentLang.code}</span>
+                <span>{currentLang.code.toUpperCase()}</span>
                 <ChevronDown className="header__chevron" />
               </button>
 
-              {langDropdownOpen && (
-                <div className="header__language-menu">
-                  {languages.map((item) => (
-                    <button
-                      className={`header__language-option ${
-                        language === item.code ? 'header__language-option--active' : ''
-                      }`}
-                      key={item.code}
-                      type="button"
-                      onClick={() => {
-                        setLanguage(item.code)
-                        setLangDropdownOpen(false)
-                      }}
-                    >
-                      <span>{item.code}</span>
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="header__language-menu">
+                {languages.map((item) => (
+                  <button
+                    className={`header__language-option ${
+                      language === item.code ? 'header__language-option--active' : ''
+                    }`}
+                    key={item.code}
+                    type="button"
+                    onClick={() => {
+                      setLanguage(item.code)
+                      setLangDropdownOpen(false)
+                    }}
+                  >
+                    <span>{item.code.toUpperCase()}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {user ? (
@@ -157,15 +167,44 @@ function Header() {
                 </button>
               </div>
             ) : (
-              <div className="header__auth-box">
-                <User className="header__auth-icon" />
-                <Link className="header__auth-link" to="/login">
-                  {t.signIn}
-                </Link>
-                <span className="header__auth-sep">/</span>
-                <Link className="header__auth-link" to="/register">
-                  {t.navRegister}
-                </Link>
+              <div
+                className={`header__language ${authDropdownOpen ? 'header__language--open' : ''}`}
+                onMouseEnter={() => setAuthDropdownOpen(true)}
+                onMouseLeave={() => setAuthDropdownOpen(false)}
+                onFocus={() => setAuthDropdownOpen(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setAuthDropdownOpen(false)
+                  }
+                }}
+              >
+                <button
+                  className="header__language-trigger"
+                  type="button"
+                  aria-haspopup="true"
+                >
+                  <User className="header__language-icon" />
+                  <span>{t.signIn || 'Tài khoản'}</span>
+                  <ChevronDown className="header__chevron" />
+                </button>
+                <div className="header__language-menu">
+                  <Link
+                    className="header__language-option"
+                    to="/login"
+                    onClick={() => setAuthDropdownOpen(false)}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <span>{t.signIn || 'Đăng nhập'}</span>
+                  </Link>
+                  <Link
+                    className="header__language-option"
+                    to="/register"
+                    onClick={() => setAuthDropdownOpen(false)}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <span>{t.navRegister || 'Đăng ký'}</span>
+                  </Link>
+                </div>
               </div>
             )}
           </div>
@@ -176,12 +215,12 @@ function Header() {
               type="button"
               onClick={cycleMobileLanguage}
             >
-              {currentLang.code}
+              {currentLang.code.toUpperCase()}
             </button>
             <button
               className="header__mobile-toggle"
               type="button"
-              aria-label="Menu"
+              aria-label={t.menu}
               onClick={() => setMobileMenuOpen((current) => !current)}
             >
               {mobileMenuOpen ? (
@@ -239,10 +278,10 @@ function Header() {
             {t.navRegulations}
           </Link>
           {user && (user.role === 'staff' || user.role === 'admin') && (
-            <Link className="header__drawer-link" to="/staff/tickets" onClick={() => setMobileMenuOpen(false)}>Tickets</Link>
+            <Link className="header__drawer-link" to="/staff/tickets" onClick={() => setMobileMenuOpen(false)}>{t.staffTickets}</Link>
           )}
           {user?.role === 'admin' && (
-            <Link className="header__drawer-link" to="/admin/staff" onClick={() => setMobileMenuOpen(false)}>Nhân viên</Link>
+            <Link className="header__drawer-link" to="/admin/staff" onClick={() => setMobileMenuOpen(false)}>{t.staffMembers}</Link>
           )}
           {user ? (
             <div className="header__drawer-user">
