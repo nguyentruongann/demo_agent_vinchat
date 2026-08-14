@@ -158,6 +158,15 @@ def _source_item_from_document(
 
 
 def _build_sources(state: dict) -> list[SourceItem]:
+    # Sources are evidence for claims actually supported by the KB. If assessment
+    # failed (or answer generation failed closed), retrieved neighbors are NOT
+    # citations and must not be shown to the user. This prevents a no-data answer
+    # from appearing to be backed by unrelated URLs.
+    if state.get("enough_information") is False:
+        return []
+    if state.get("answer_substantive") is False:
+        return []
+
     destination_ids = {
         str(value)
         for value in state.get("detected_destination_ids", [])

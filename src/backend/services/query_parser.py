@@ -85,6 +85,74 @@ INTENT_ENTITY_TYPES: dict[str, set[str]] = {
     "payment": {"policy_document", "policy_section", "policy_block", "faq"},
 }
 
+
+
+# Generic destination discovery is intentionally mapped to several existing
+# catalog intents instead of adding a synthetic entity type. This keeps
+# retrieval branch-specific and gives the answerer a balanced set of grounded
+# evidence for broad requests such as "tôi muốn đi du lịch Hà Nội" or
+# "what can I do in Phu Quoc?".
+GENERIC_DISCOVERY_INTENTS: tuple[str, ...] = (
+    "attraction",
+    "hotel",
+    "dining",
+    "service",
+)
+
+# These markers are evaluated only when no explicit supported intent was found.
+# Current-message wording is checked first; the standalone RAG query is also
+# checked so non-Latin languages can benefit from the LLM's English rewrite.
+_GENERIC_DISCOVERY_MARKERS: tuple[str, ...] = (
+    "du lich",
+    "di choi",
+    "choi gi",
+    "co gi",
+    "goi y",
+    "kham pha",
+    "tham quan",
+    "lich trinh",
+    "muon di",
+    "travel",
+    "tourism",
+    "travel guide",
+    "travel advice",
+    "trip",
+    "visit",
+    "visiting",
+    "things to do",
+    "what to do",
+    "what is there",
+    "what s there",
+    "recommend",
+    "recommendation",
+    "explore",
+    "itinerary",
+    "vacation",
+    "holiday",
+)
+
+# A generic travel word must not broaden a clearly external request into a
+# Vinpearl discovery query. Scope/guardrail already handles these topics, but
+# this parser-level deny list makes retrieval fail-safe as well.
+_GENERIC_DISCOVERY_EXCLUSIONS: tuple[str, ...] = (
+    "ve may bay",
+    "may bay",
+    "flight",
+    "airline",
+    "thoi tiet",
+    "weather",
+    "visa",
+    "thi thuc",
+    "ho chieu",
+    "passport",
+    "taxi",
+    "grab",
+    "xe buyt",
+    "bus route",
+    "tau hoa",
+    "train ticket",
+)
+
 INTENT_QUERY_LABELS: dict[str, str] = {
     "hotel": "hotels resorts rooms accommodation",
     "service": "services amenities facilities",
@@ -292,6 +360,33 @@ def build_intent_query(
     return f"{fallback_query} {intent_part}".strip()
 
 
+
+def _is_generic_destination_discovery(
+    user_message: str,
+    rag_query: str,
+    destinations: list[dict[str, Any]],
+) -> bool:
+    """Return True only for broad destination exploration/planning requests.
+
+    This is deliberately a fallback: callers invoke it only after explicit
+    intents (hotel, golf, policy, payment, ...) have failed to match. The
+    destination requirement prevents generic phrases such as "gợi ý cho tôi"
+    from turning into a broad corpus search.
+    """
+    if not destinations:
+        return False
+
+    normalized_message = normalize_text(user_message)
+    normalized_rag = normalize_text(rag_query)
+    combined = f"{normalized_message} {normalized_rag}".strip()
+    if not combined:
+        return False
+
+    if any(marker in combined for marker in _GENERIC_DISCOVERY_EXCLUSIONS):
+        return False
+
+    return any(marker in combined for marker in _GENERIC_DISCOVERY_MARKERS)
+
 def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
     # The LLM-created RAG query remains the canonical destination target because it
     # resolves references/complaints from memory. Current-message intents, however,
@@ -300,8 +395,20 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
     if not destinations:
         destinations = detect_destinations(user_message)
 
+    # Explicit intent words in the CURRENT user message always win. If the
+    # current wording is broad discovery/planning, do not let the LLM rewrite
+    # accidentally narrow it to only one or two categories (e.g. "hotel services").
+    # Only use rewritten-query intents when the current message is neither explicit
+    # nor a generic discovery request. This keeps multilingual specific requests
+    # working while making broad travel consultation deterministic.
     intents = detect_intents(user_message)
-    if not intents:
+    if not intents and _is_generic_destination_discovery(
+        user_message=user_message,
+        rag_query=rag_query,
+        destinations=destinations,
+    ):
+        intents = list(GENERIC_DISCOVERY_INTENTS)
+    elif not intents:
         intents = detect_intents(rag_query)
 
     primary_intent = intents[0] if intents else None
