@@ -1,4 +1,5 @@
 from src.backend.agents.state import AgentState
+from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import detect_destinations, normalize_text
 
@@ -138,7 +139,7 @@ def _is_conversation_context_question(message: str) -> bool:
 
 def classify_input(state: AgentState) -> AgentState:
     # Current-message meta intent must win over any intent carried in history/rag_query.
-    user_message = state.get("user_message", "")
+    user_message = effective_user_message(state)
     rag_query = state.get("rag_query", "")
 
     if _is_conversation_context_question(user_message):
@@ -182,7 +183,7 @@ Previous conversation:
 {state.get("conversation_history", "(no previous conversation)")}
 
 Current message:
-{state["user_message"]}
+{user_message}
 
 Standalone English retrieval query:
 {state.get("rag_query", "")}

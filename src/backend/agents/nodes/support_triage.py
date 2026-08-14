@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 from src.backend.agents.state import AgentState
+from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import normalize_text
 
@@ -104,7 +105,7 @@ def _strong_fast_path(
     Ambiguous personal booking/refund/complaint wording deliberately falls through to
     the LLM so speed never comes at the cost of unsafe escalation decisions.
     """
-    message = state.get("user_message", "")
+    message = effective_user_message(state)
     rag_query = state.get("rag_query", "")
     # Evaluate deterministic markers on both the original wording and the canonical
     # English retrieval rewrite. This is essential for zh/ja/ko and any other
@@ -232,7 +233,7 @@ def analyze_support_request(state: AgentState) -> AgentState:
     Strong, unambiguous cases use deterministic rules. The semantic LLM is reserved
     for genuinely ambiguous support wording.
     """
-    message = state.get("user_message", "")
+    message = effective_user_message(state)
 
     fast = _strong_fast_path(state)
     if fast is not None:

@@ -1,4 +1,5 @@
 from src.backend.agents.state import AgentState
+from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.config import get_settings
 from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import normalize_text
@@ -14,7 +15,7 @@ def retrieve_context(state: AgentState) -> AgentState:
     rag = get_rag_service()
     documents, diagnostics = rag.hybrid_search(
         query=state["rag_query"],
-        user_message=state.get("user_message", ""),
+        user_message=effective_user_message(state),
     )
     return {
         "retrieved_documents": documents,
@@ -116,7 +117,7 @@ def assess_information(state: AgentState) -> AgentState:
                     + (f"; no grounded KB evidence for {', '.join(missing)}." if missing else ".")
                 )
                 print("\n===== RAG ASSESSMENT =====")
-                print(f"Question: {state.get('user_message', '')}")
+                print(f"Question: {effective_user_message(state)}")
                 print(f"Detected intents: {detected_intents}")
                 print(f"Intent results: {intent_results}")
                 print(f"Request mode: {request_mode}; resolution mode: {resolution_mode}")
@@ -202,7 +203,7 @@ def assess_information(state: AgentState) -> AgentState:
             "branch with non-empty context above the configured relevance threshold."
         )
         print("\n===== RAG ASSESSMENT =====")
-        print(f"Question: {state.get('user_message', '')}")
+        print(f"Question: {effective_user_message(state)}")
         print(f"Retrieval mode: {retrieval_mode}")
         print(f"Detected intents: {detected_intents or [state.get('detected_intent')]}")
         print(f"Intent results: {intent_results}")
@@ -231,7 +232,7 @@ def assess_information(state: AgentState) -> AgentState:
         ),
         user_prompt=f"""
 Question:
-{state["user_message"]}
+{effective_user_message(state)}
 
 Standalone retrieval query:
 {state.get("rag_query", "")}
@@ -270,7 +271,7 @@ Return exactly:
     action = "no_data" if enough else _insufficiency_action(state)
 
     print("\n===== RAG ASSESSMENT =====")
-    print(f"Question: {state.get('user_message', '')}")
+    print(f"Question: {effective_user_message(state)}")
     print(f"RAG query: {state.get('rag_query', '')}")
     print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
     print(f"Detected intents: {detected_intents or [state.get('detected_intent')]}")

@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from src.backend.agents.state import AgentState
+from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.db import open_session
 from src.backend.services.llm import LLMService
 from src.backend.services.ticket import TicketService
@@ -112,13 +113,13 @@ def create_ticket(state: AgentState) -> AgentState:
                 ),
                 user_prompt=(
                     f"TARGET_LANGUAGE: {state.get('original_language_name') or language} ({language})\n"
-                    f"CURRENT_MESSAGE: {state.get('user_message', '')}"
+                    f"CURRENT_MESSAGE: {effective_user_message(state)}"
                 ),
             )
         return {"ticket_id": None, "answer": answer}
 
     ticket_id = TicketService().create(
-        message=state["user_message"],
+        message=effective_user_message(state),
         language=state.get("original_language", "unknown"),
         session_id=state.get("session_id"),
         user_id=state.get("user_id"),

@@ -6,6 +6,7 @@ InsufficiencyAction = Literal["no_data", "ticket"]
 RequestMode = Literal["information", "support_action"]
 ResolutionMode = Literal["information_only", "self_serve", "human_required"]
 SafetyAction = Literal["allow", "block"]
+ScopeAction = Literal["allow", "block"]
 
 
 class AgentState(TypedDict, total=False):
@@ -30,6 +31,17 @@ class AgentState(TypedDict, total=False):
     safety_category: str
     safety_reason: str
     safety_confidence: float
+
+    # Authoritative semantic scope + prompt-injection guard. Downstream nodes
+    # consume sanitized_user_request instead of the raw user_message.
+    scope_action: ScopeAction
+    scope_reason: str
+    scope_confidence: float
+    prompt_injection_detected: bool
+    prompt_injection_reason: str
+    sanitized_user_request: str
+    guardrail_reason: str
+    guardrail_confidence: float
 
     retrieved_documents: list[dict[str, Any]]
     context: str

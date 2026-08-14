@@ -3,6 +3,7 @@ from langgraph.graph import END, START, StateGraph
 from src.backend.agents.nodes.answer import generate_answer
 from src.backend.agents.nodes.classify import classify_input
 from src.backend.agents.nodes.language import detect_language_and_translate
+from src.backend.agents.nodes.guardrail import enforce_input_guardrail
 from src.backend.agents.nodes.language_guard import enforce_response_language
 from src.backend.agents.nodes.grounding import validate_grounding
 from src.backend.agents.nodes.memory import (
@@ -27,8 +28,17 @@ def route_after_classification(state: AgentState) -> str:
 
 
 def route_after_safety(state: AgentState) -> str:
-    """Stop sensitive requests before classification, retrieval, or ticket creation."""
+    """Backward-compatible helper for tests/callers using the old safety split."""
     return "sensitive" if state.get("safety_action") == "block" else "classify"
+
+
+def route_after_guardrail(state: AgentState) -> str:
+    """Authoritative fail-closed routing before classification/retrieval."""
+    if state.get("safety_action") == "block":
+        return "sensitive"
+    if state.get("scope_action") != "allow":
+        return "out_of_scope"
+    return "classify"
 
 
 def route_after_support_triage(state: AgentState) -> str:
@@ -53,6 +63,7 @@ builder = StateGraph(AgentState)
 
 builder.add_node("load_memory", load_conversation_memory)
 builder.add_node("language", detect_language_and_translate)
+builder.add_node("guardrail", enforce_input_guardrail)
 builder.add_node("classify", classify_input)
 builder.add_node("sensitive", sensitive_content_response)
 builder.add_node("conversation_context", conversation_context_response)
@@ -69,7 +80,16 @@ builder.add_node("ticket", create_ticket)
 builder.add_node("save_memory", save_conversation_memory)
 
 builder.add_edge(START, "load_memory")
-builder.add_edge("load_memory", "language")
+builder.add_edge("load_memory", "guardrail")
+builder.add_conditional_edges(
+    "guardrail",
+    route_after_guardrail,
+    {
+        "sensitive": "sensitive",
+        "out_of_scope": "out_of_scope",
+        "classify": "language",
+    },
+)
 builder.add_conditional_edges(
     "language",
     route_after_safety,
