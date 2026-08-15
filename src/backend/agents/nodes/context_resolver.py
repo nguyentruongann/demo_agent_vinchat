@@ -228,8 +228,10 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
                 "facts/topics from those turns and re-retrieving their evidence would materially help. Do not select turns "
                 "merely because they are recent. Never treat old assistant prose itself as factual evidence. Return a "
                 "standalone faithful English RAG query for the CURRENT request, inserting selected destination/entity names "
-                "only when needed to resolve references. Preserve all requested facts, quantities, preferences, exclusions, "
-                "and comparison intent. Never invent an entity, destination, or missing detail. Return JSON only."
+                "only when needed to resolve references. Keep it as a semantic translation/paraphrase rather than a bag of search "
+                "keywords. Preserve the question operator and requested relation (quantity/count, eligibility, timing, location, identity, "
+                "reason, procedure, comparison, allowance/restriction, etc.), plus all requested facts, quantities, preferences and exclusions. "
+                "Do not broaden or narrow the current request. Never invent an entity, destination, or missing detail. Return JSON only."
             ),
             user_prompt=(
                 "UNTRUSTED_CONTEXT_JSON:\n"

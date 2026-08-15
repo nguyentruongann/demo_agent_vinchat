@@ -805,11 +805,23 @@ class RAGService:
             len(intents) >= 3
             and generic_discovery_intents.issubset(set(intents))
         )
+        faq_routing_context = " ".join(
+            str(value or "").strip()
+            for destination in destinations
+            for value in (
+                destination.get("id"),
+                destination.get("name_en"),
+                destination.get("name_vi"),
+                destination.get("matched_alias"),
+            )
+            if str(value or "").strip()
+        )
         faq_documents, faq_diagnostics = self.faq_matcher.match(
             original_query=str(user_message or "").strip(),
             rewritten_query=str(query or "").strip(),
             top_k=min(3, max(1, k)),
             skip_semantic=skip_faq_semantic,
+            routing_context=faq_routing_context,
         )
 
         if faq_diagnostics.get("accepted") and faq_documents:
@@ -881,6 +893,8 @@ class RAGService:
                 f"lexical={faq_diagnostics.get('best_lexical_score')} "
                 f"weighted_f1={faq_diagnostics.get('best_weighted_f1')} "
                 f"query_coverage={faq_diagnostics.get('best_query_coverage')} "
+                f"predicate_count={faq_diagnostics.get('best_predicate_count')} "
+                f"predicate_ratio={faq_diagnostics.get('best_predicate_ratio')} "
                 f"margin={faq_diagnostics.get('margin')}"
             )
             return faq_documents, diagnostics
@@ -895,6 +909,8 @@ class RAGService:
                 f"lexical={faq_diagnostics.get('best_lexical_score')} "
                 f"weighted_f1={faq_diagnostics.get('best_weighted_f1')} "
                 f"query_coverage={faq_diagnostics.get('best_query_coverage')} "
+                f"predicate_count={faq_diagnostics.get('best_predicate_count')} "
+                f"predicate_ratio={faq_diagnostics.get('best_predicate_ratio')} "
                 f"margin={faq_diagnostics.get('margin')}"
             )
 

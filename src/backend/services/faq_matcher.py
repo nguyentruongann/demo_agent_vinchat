@@ -318,6 +318,99 @@ class FAQMatcher:
         overlap = query_tokens & evidence_tokens
         return len(overlap), len(overlap) / max(1, min(len(query_tokens), 8))
 
+    @classmethod
+    def _predicate_overlap(
+        cls,
+        query: str,
+        entry: FAQEntry,
+        routing_context: str = "",
+    ) -> tuple[int, float]:
+        """Measure overlap on the requested fact, not merely routing/location words.
+
+        FAQ rows often share a category/subcategory or venue name. Those tokens are
+        useful for retrieval, but they are unsafe as proof that two questions ask the
+        same thing.  For example, a golf question and a ticket-purchase FAQ can both
+        contain ``Nam Hoi An`` while asking completely different predicates.
+
+        The candidate's own category/subcategory plus caller-supplied resolved
+        destination context are therefore treated as routing context and removed
+        from both sides before measuring overlap. This stays
+        data-driven: no product, destination, or topic keyword list is encoded here.
+        Answer text remains available so faithful paraphrases such as ``baggage
+        allowance`` can align with a source question phrased as ``pieces/kilos of
+        luggage``.
+        """
+        routing_tokens = cls._anchor_tokens(
+            f"{entry.category} {entry.subcategory} {routing_context}"
+        )
+        query_tokens = cls._anchor_tokens(query) - routing_tokens
+        if not query_tokens:
+            return 0, 0.0
+
+        evidence_tokens = cls._anchor_tokens(
+            f"{entry.question} {entry.answer}"
+        ) - routing_tokens
+        overlap = query_tokens & evidence_tokens
+        return len(overlap), len(overlap) / max(1, min(len(query_tokens), 8))
+
+    @staticmethod
+    def _confidence_gate(
+        *,
+        semantic: float,
+        lexical: float,
+        weighted_f1: float,
+        query_coverage: float,
+        predicate_count: int,
+        predicate_ratio: float,
+        margin: float,
+    ) -> tuple[bool, str]:
+        """Conservative cross-signal gate for deterministic FAQ clear-pass.
+
+        Semantic similarity locates a candidate, but it must not be sufficient on
+        its own because same-venue/same-category questions cluster tightly. Strong
+        direct question overlap keeps the established fast path. Otherwise, require
+        overlap on the candidate-specific predicate/object. Margin is only a
+        confidence reinforcement; it can never independently turn a topically wrong
+        candidate into an authoritative FAQ match.
+        """
+        semantic_alignment = semantic >= 0.70
+        direct_alignment = (
+            weighted_f1 >= 0.50
+            or query_coverage >= 0.58
+            or lexical >= 0.72
+        )
+        predicate_alignment = predicate_count >= 2 and predicate_ratio >= 0.30
+        separated_short_alignment = (
+            margin >= 0.045
+            and semantic >= 0.78
+            and predicate_count >= 1
+            and predicate_ratio >= 0.50
+        )
+
+        accepted = semantic_alignment and (
+            direct_alignment or predicate_alignment or separated_short_alignment
+        )
+
+        # A near tie needs unusually strong evidence. This keeps ambiguous FAQ rows
+        # on normal RAG, while still allowing translated/paraphrased questions whose
+        # distinctive predicate is well covered by the selected FAQ answer.
+        if accepted and margin < 0.018:
+            strong_near_tie_alignment = direct_alignment or (
+                predicate_count >= 3 and predicate_ratio >= 0.45
+            )
+            if not strong_near_tie_alignment:
+                accepted = False
+
+        if direct_alignment:
+            reason = "direct question alignment"
+        elif predicate_alignment:
+            reason = "candidate-specific predicate alignment"
+        elif separated_short_alignment:
+            reason = "short predicate alignment with clear candidate separation"
+        else:
+            reason = "insufficient cross-signal alignment"
+        return accepted, reason
+
     def _ensure_question_idf(self) -> dict[str, float]:
         """Build corpus-derived token importance over canonical FAQ questions.
 
@@ -462,6 +555,7 @@ class FAQMatcher:
         rewritten_query: str,
         top_k: int = 3,
         skip_semantic: bool = False,
+        routing_context: str = "",
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         entries = self._load_entries()
         if not entries:
@@ -582,6 +676,15 @@ class FAQMatcher:
                 key=lambda item: (item[0], item[1]),
                 default=(0, 0.0),
             )
+            predicate_scores = [
+                self._predicate_overlap(value, entry, routing_context=routing_context)
+                for _, value in variants
+            ]
+            best_predicate_count, best_predicate_ratio = max(
+                predicate_scores,
+                key=lambda item: (item[0], item[1]),
+                default=(0, 0.0),
+            )
 
             # Question semantics and corpus-weighted lexical coverage must agree.
             # The answer embedding is intentionally a small auxiliary signal; it may
@@ -606,6 +709,8 @@ class FAQMatcher:
                     "candidate_precision": candidate_precision,
                     "anchor_count": best_anchor_count,
                     "anchor_ratio": best_anchor_ratio,
+                    "predicate_count": best_predicate_count,
+                    "predicate_ratio": best_predicate_ratio,
                     "query_source": query_source,
                 }
             )
@@ -634,25 +739,21 @@ class FAQMatcher:
         best_candidate_precision = float(best.get("candidate_precision") or 0.0)
         best_anchor_count = int(best.get("anchor_count") or 0)
         best_anchor_ratio = float(best.get("anchor_ratio") or 0.0)
+        best_predicate_count = int(best.get("predicate_count") or 0)
+        best_predicate_ratio = float(best.get("predicate_ratio") or 0.0)
 
-        # Cross-signal confidence gate. High semantic similarity alone is not enough:
-        # same-venue FAQs are often close in embedding space. Whenever the rewritten
-        # query provides distinctive lexical concepts, the selected FAQ must cover a
-        # meaningful share of those concepts. This policy is corpus-derived and does
-        # not encode topic/product keywords.
-        direct_alignment = (
-            best_weighted_f1 >= 0.50
-            or best_query_coverage >= 0.58
-            or best_lexical >= 0.72
+        # Cross-signal confidence gate. Semantic similarity and candidate separation
+        # locate likely FAQs, but deterministic clear-pass also requires evidence
+        # that the selected row asks about the same predicate/object.
+        accepted, acceptance_signal = self._confidence_gate(
+            semantic=best_semantic,
+            lexical=best_lexical,
+            weighted_f1=best_weighted_f1,
+            query_coverage=best_query_coverage,
+            predicate_count=best_predicate_count,
+            predicate_ratio=best_predicate_ratio,
+            margin=margin,
         )
-        semantic_alignment = best_semantic >= 0.70
-        separation_alignment = margin >= 0.045 and best_semantic >= 0.78
-        accepted = semantic_alignment and (direct_alignment or separation_alignment)
-
-        # Very close candidates require stronger direct predicate/object coverage;
-        # otherwise fall back to normal RAG instead of deterministic FAQ clear-pass.
-        if accepted and margin < 0.018 and best_weighted_f1 < 0.58 and best_query_coverage < 0.64:
-            accepted = False
 
         if not accepted:
             return [], {
@@ -667,11 +768,16 @@ class FAQMatcher:
                 "best_candidate_precision": round(best_candidate_precision, 4),
                 "best_anchor_count": best_anchor_count,
                 "best_anchor_ratio": round(best_anchor_ratio, 4),
+                "best_predicate_count": best_predicate_count,
+                "best_predicate_ratio": round(best_predicate_ratio, 4),
                 "margin": round(margin, 4),
                 "matched_question": entries[int(best["entry_index"])].question,
                 "matched_query_source": best["query_source"],
                 "candidate_count": len(entries),
-                "reason": "Best FAQ candidate did not pass the conservative confidence gate.",
+                "reason": (
+                    "Best FAQ candidate did not pass the conservative confidence gate "
+                    f"({acceptance_signal})."
+                ),
             }
 
         # Once the confidence gate passes, use only the single best FAQ row. Feeding
@@ -698,9 +804,16 @@ class FAQMatcher:
             "best_weighted_f1": round(best_weighted_f1, 4),
             "best_query_coverage": round(best_query_coverage, 4),
             "best_candidate_precision": round(best_candidate_precision, 4),
+            "best_anchor_count": best_anchor_count,
+            "best_anchor_ratio": round(best_anchor_ratio, 4),
+            "best_predicate_count": best_predicate_count,
+            "best_predicate_ratio": round(best_predicate_ratio, 4),
             "margin": round(margin, 4),
             "matched_question": matched_entry.question,
             "matched_query_source": best["query_source"],
             "candidate_count": len(entries),
-            "reason": "High-confidence semantic/lexical match to canonical Vinpearl FAQ.",
+            "reason": (
+                "High-confidence cross-signal match to canonical Vinpearl FAQ "
+                f"({acceptance_signal})."
+            ),
         }

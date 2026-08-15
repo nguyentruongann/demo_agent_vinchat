@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eval evidence — Vinpearl chatbot</title>
+  <style>
+    :root {
+      --bg:#eef3f0;
+      --ink:#16302a;
+      --muted:#5d6f69;
+      --card:#fff;
+      --line:#d5e0db;
+      --green:#0f5c4c;
+      --green-soft:#e5f4ef;
+      --blue:#1a6b9a;
+      --blue-soft:#e7f3fa;
+      --sand:#f7f3ea;
+      --sand-line:#c4a574;
+      --rose:#9b2c2c;
+      --rose-soft:#fde8e8;
+      --violet:#5b3d8f;
+      --violet-soft:#f3eefb;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Segoe UI",Tahoma,sans-serif; background:var(--bg); color:var(--ink); }
+    .wrap { max-width:1080px; margin:0 auto; padding:28px 16px 64px; }
+    h1 { margin:0 0 8px; font-size:30px; letter-spacing:-0.03em; }
+    h2 { margin:0 0 12px; font-size:22px; color:var(--green); }
+    .meta { color:var(--muted); line-height:1.65; margin:0 0 22px; }
+    .meta a { color:var(--green); }
+    .hero {
+      background:linear-gradient(135deg,#0f5c4c 0%,#1a6b9a 100%);
+      color:#fff;
+      border-radius:20px;
+      padding:28px 24px;
+      margin-bottom:20px;
+    }
+    .hero h1, .hero .meta { color:#fff; }
+    .hero .meta a { color:#d7f3ea; }
+    .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0 8px; }
+    .kpi { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:14px; padding:14px 16px; }
+    .kpi b { display:block; font-size:28px; line-height:1.1; }
+    .kpi span { font-size:13px; opacity:.9; }
+    .section { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px; margin:0 0 16px; }
+    .type-row { display:grid; grid-template-columns:220px 1fr 260px; gap:10px; align-items:center; margin:8px 0; }
+    .type-name { font-size:13px; font-weight:600; }
+    .type-bar { background:#e8eeeb; border-radius:999px; height:10px; overflow:hidden; }
+    .type-bar span { display:block; height:100%; background:linear-gradient(90deg,var(--green),#2a9d7c); border-radius:999px; }
+    .type-num { font-size:12px; color:var(--muted); text-align:right; }
+    .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .chip { background:var(--green-soft); color:var(--green); border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
+    .chip-fail { background:var(--rose-soft); color:var(--rose); }
+    .flows { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .flow { background:var(--green-soft); border-radius:16px; padding:16px; }
+    .flow.memory { background:var(--violet-soft); }
+    .flow h3 { margin:0 0 10px; font-size:16px; }
+    .steps { list-style:none; margin:0; padding:0; }
+    .steps li {
+      position:relative;
+      margin:0 0 10px;
+      padding:10px 12px 10px 42px;
+      background:#fff;
+      border-radius:12px;
+      border:1px solid var(--line);
+      line-height:1.45;
+    }
+    .steps li:last-child { margin-bottom:0; }
+    .steps li::before {
+      content:attr(data-n);
+      position:absolute; left:10px; top:10px;
+      width:24px; height:24px; border-radius:50%;
+      background:var(--green); color:#fff;
+      font-size:12px; font-weight:800;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .flow.memory .steps li::before { background:var(--violet); }
+    .example {
+      margin-top:12px;
+      padding:12px;
+      background:#fff;
+      border-left:4px solid var(--violet);
+      border-radius:10px;
+      font-size:14px;
+      line-height:1.55;
+    }
+    .chat-frame {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:18px;
+      margin:0 0 16px;
+    }
+    .frame-title { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .chat-frame header strong { font-size:18px; }
+    .chat-frame header p { margin:6px 0 0; color:var(--muted); line-height:1.5; }
+    .tag {
+      background:var(--violet-soft); color:var(--violet);
+      border-radius:999px; padding:3px 8px; font-size:11px; font-weight:800;
+    }
+    .who { font-size:12px; font-weight:800; margin:0 0 6px; }
+    .ask-who { color:var(--blue); }
+    .ans-who { color:#8a5a16; }
+    .ask {
+      line-height:1.55; font-size:16px; margin:0;
+      padding:12px 14px; border-radius:12px;
+      background:var(--blue-soft); border-left:4px solid var(--blue);
+      color:#123a63; font-weight:600;
+    }
+    .answer, .hint { line-height:1.65; }
+    .answer {
+      background:var(--sand); border-radius:12px; padding:14px 16px;
+      border-left:4px solid var(--sand-line);
+    }
+    .answer p, .hint p { margin:0 0 10px; }
+    .answer p:last-child, .hint p:last-child { margin-bottom:0; }
+    .answer ul, .answer ol, .hint ul, .hint ol { margin:0 0 12px 22px; padding:0; }
+    .answer li, .hint li { margin:0 0 6px; }
+    .answer strong, .hint strong { font-weight:700; }
+    .answer a { color:var(--green); }
+    details { color:var(--muted); margin:10px 0; }
+    summary { cursor:pointer; font-weight:700; }
+    .branches { margin-top:8px; }
+    .branch-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 12px; }
+    .branch-tab {
+      border:1px solid var(--line); background:#fff; color:#3d524c;
+      border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer;
+    }
+    .branch-tab.is-on { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700; }
+    .branch-panel { display:none; }
+    .branch-panel.is-on { display:block; }
+    .turn-meta { font-size:12px; color:var(--muted); margin-bottom:8px; }
+    @media (max-width:860px) {
+      .kpis, .flows, .type-row { grid-template-columns:1fr; }
+      .type-num { text-align:left; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Eval evidence — báo cáo đánh giá chatbot</h1>
+      <p class="meta">
+        Bằng chứng manual lấy output thật đã ghi trong <strong>test_case_vi.csv</strong>.<br>
+        Web: <a href="https://frontend-production-48c1.up.railway.app/chat">https://frontend-production-48c1.up.railway.app/chat</a>
+      </p>
+      <div class="kpis">
+        <div class="kpi"><b>277</b><span>case trong bộ Việt</span></div>
+        <div class="kpi"><b>94.2%</b><span>tỉ lệ đúng ý (261/277)</span></div>
+        <div class="kpi"><b>16.9s</b><span>time trung bình / lượt (p50 16.1s)</span></div>
+        <div class="kpi"><b style="font-size:18px">gemini-3.1-flash-lite</b><span>model chạy test</span></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>1. Số liệu lấy từ test case Việt</h2>
+      <p class="meta">
+        Bộ <code>tests/test_case/test_case_vi.csv</code> có 277 case đã chạy production.
+        Tổng 370 lượt chat; thời gian phản hồi trung bình 16.9s
+        (trung vị 16.1s, nhanh nhất 1.9s, chậm nhất 97.6s).
+        Có 20 case Memory (hội thoại nhiều lượt, cùng session).
+      </p>
+      
+            <div class="type-row">
+              <div class="type-name">FAQ - VinWonders Safari</div>
+              <div class="type-bar"><span style="width:100%"></span></div>
+              <div class="type-num">62 case · 57 đúng · 5 lệch · 91.9%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">FAQ - VinClub</div>
+              <div class="type-bar"><span style="width:85%"></span></div>
+              <div class="type-num">53 case · 52 đúng · 1 lệch · 98.1%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">Promotion</div>
+              <div class="type-bar"><span style="width:82%"></span></div>
+              <div class="type-num">51 case · 47 đúng · 4 lệch · 92.2%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">FAQ - Tours Experiences</div>
+              <div class="type-bar"><span style="width:35%"></span></div>
+              <div class="type-num">22 case · 21 đúng · 1 lệch · 95.5%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">Memory</div>
+              <div class="type-bar"><span style="width:32%"></span></div>
+              <div class="type-num">20 case · 18 đúng · 2 lệch · 90.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">FAQ - Hotels</div>
+              <div class="type-bar"><span style="width:19%"></span></div>
+              <div class="type-num">12 case · 12 đúng · 0 lệch · 100.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">Golf</div>
+              <div class="type-bar"><span style="width:18%"></span></div>
+              <div class="type-num">11 case · 9 đúng · 2 lệch · 81.8%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">FAQ - Flights</div>
+              <div class="type-bar"><span style="width:16%"></span></div>
+              <div class="type-num">10 case · 9 đúng · 1 lệch · 90.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">Hotel</div>
+              <div class="type-bar"><span style="width:15%"></span></div>
+              <div class="type-num">9 case · 9 đúng · 0 lệch · 100.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">FAQ - General</div>
+              <div class="type-bar"><span style="width:13%"></span></div>
+              <div class="type-num">8 case · 8 đúng · 0 lệch · 100.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">FAQ - Bundle Hotels Flights</div>
+              <div class="type-bar"><span style="width:11%"></span></div>
+              <div class="type-num">7 case · 7 đúng · 0 lệch · 100.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">Regulation</div>
+              <div class="type-bar"><span style="width:11%"></span></div>
+              <div class="type-num">7 case · 7 đúng · 0 lệch · 100.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">Package</div>
+              <div class="type-bar"><span style="width:8%"></span></div>
+              <div class="type-num">3 case · 3 đúng · 0 lệch · 100.0%</div>
+            </div>
+            
+            <div class="type-row">
+              <div class="type-name">About</div>
+              <div class="type-bar"><span style="width:8%"></span></div>
+              <div class="type-num">2 case · 2 đúng · 0 lệch · 100.0%</div>
+            </div>
+            
+      <div class="chips" style="margin-top:16px">
+        <span class="chip">261 / 277 đúng ý</span>
+        <span class="chip">20 Memory</span>
+        <span class="chip">5 case khác được trích ra dưới</span>
+      </div>
+      <p class="meta" style="margin-top:14px">16 case lệch hint:</p>
+      <div class="chips"><span class="chip chip-fail">faq-046</span><span class="chip chip-fail">faq-057</span><span class="chip chip-fail">faq-110</span><span class="chip chip-fail">faq-142</span><span class="chip chip-fail">faq-147</span><span class="chip chip-fail">faq-148</span><span class="chip chip-fail">faq-162</span><span class="chip chip-fail">faq-170</span><span class="chip chip-fail">promo-029</span><span class="chip chip-fail">promo-035</span><span class="chip chip-fail">promo-040</span><span class="chip chip-fail">promo-048</span><span class="chip chip-fail">golf-001</span><span class="chip chip-fail">golf-006</span><span class="chip chip-fail">memory-nha-trang</span><span class="chip chip-fail">memory-correct-destination</span></div>
+    </section>
+
+    <section class="section">
+      <h2>2. Phân luồng đánh giá — ví dụ cụ thể</h2>
+      <div class="flows">
+        <div class="flow">
+          <h3>Case đơn (FAQ / Golf / Ưu đãi)</h3>
+          <ol class="steps">
+            <li data-n="1">Chọn 1 <code>test_id</code>, ví dụ <strong>faq-003</strong>: “CSKH phản hồi bao lâu?”</li>
+            <li data-n="2">Gửi đúng 1 câu <code>user_message</code> lên <code>POST /api/v1/chat</code>.</li>
+            <li data-n="3">Ghi <code>assistant_answer</code> và <code>response_time_ms</code> (faq-003 = 10.067 ms).</li>
+            <li data-n="4">Đối chiếu hint: phải có mốc <strong>48 giờ làm việc</strong>.</li>
+            <li data-n="5">Đủ ý chính → ghi nhận đúng; thiếu mốc / bịa số → lệch hint.</li>
+          </ol>
+        </div>
+        <div class="flow memory">
+          <h3>Case Memory (nhiều lượt, cùng session)</h3>
+          <ol class="steps">
+            <li data-n="1">Tách <code>user_message</code> theo dấu <code>|</code>. Phú Quốc có 6 lượt.</li>
+            <li data-n="2">Mọi lượt dùng chung <code>session_id</code>, không mở trang/chat mới.</li>
+            <li data-n="3">Nối đáp án bằng <code>||</code>, thời gian từng lượt cũng nối <code>||</code>.</li>
+            <li data-n="4">Lượt 5 phải nhớ đúng chủ đề (Phú Quốc / quy định / thanh toán).</li>
+            <li data-n="5">Lượt 6 tóm tắt được mạch đã hỏi từ đầu.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="example">
+        <strong>Ví dụ phân luồng memory-phu-quoc:</strong>
+        Lượt 1 ghi nhớ “Phú Quốc + gia đình” →
+        Lượt 2 liệt kê VinHolidays Fiesta / Wonderworld / Resort &amp; Spa Phu Quoc →
+        Lượt 3 xác nhận combo Vinpearl × Vietnam Airlines còn trong dữ liệu →
+        Lượt 4 trả lời Fiesta có phù hợp gia đình không →
+        Lượt 5 xác nhận vẫn nhớ Phú Quốc →
+        Lượt 6 tóm tắt toàn bộ hội thoại.
+        Trong trang này, bấm từng <em>Lượt</em> để xem nhánh, không sang trang khác.
+      </div>
+    </section>
+
+    <section class="section" style="background:transparent;border:0;padding:0">
+      <h2>3. Ít nhất 5 test case manual với output thực tế</h2>
+      <p class="meta">
+        3 hội thoại Memory + 5 case khác. Câu hỏi nền xanh, câu trả lời nền be.
+        Bấm nút lượt/câu để đổi nhánh trên cùng trang.
+      </p>
+    </section>
+    
+      <section class="chat-frame">
+        <header>
+          <div class="frame-title"><span class="tag">Memory · 6 lượt</span><strong>Nhớ hội thoại: chuyến đi Phú Quốc</strong></div>
+          <p>6 lượt cùng session. Khách hỏi kế hoạch gia đình → resort → ưu đãi → Fiesta → còn nhớ Phú Quốc? → tóm tắt.</p>
+        </header>
+        
+          <details>
+            <summary>Nội dung kỳ vọng</summary>
+            <div class="hint"><p>Ghi nhớ điểm đến: Phú Quốc; đối tượng: gia đình. || Liệt kê resort tại Phú Quốc: VinHolidays Fiesta Phu Quoc, Vinpearl Wonderworld Phu Quoc, Vinpearl Resort &amp; Spa Phu Quoc || Ưu đãi liên quan: Buy at a bargain price and relax in peace with Vinpearl and Vietnam Airlines; Enter code HAPPY10 to receive exclusive discount on MyVinpearl app up to 10% |…</p></div>
+          </details>
+        
+        
+      <div class="branches">
+        <div class="branch-tabs"><button type="button" class="branch-tab is-on" data-i="0">Lượt 1 · 13767 ms</button><button type="button" class="branch-tab" data-i="1">Lượt 2 · 9903 ms</button><button type="button" class="branch-tab" data-i="2">Lượt 3 · 12715 ms</button><button type="button" class="branch-tab" data-i="3">Lượt 4 · 9280 ms</button><button type="button" class="branch-tab" data-i="4">Lượt 5 · 14020 ms</button><button type="button" class="branch-tab" data-i="5">Lượt 6 · 2944 ms</button></div>
+        <div class="branch-panel is-on" data-i="0">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 13767 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tôi đang lên kế hoạch đi Phú Quốc với gia đình.</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Chào bạn! Dưới đây là các thông tin chi tiết về khách sạn</p>
+<p>resort, điểm tham quan và dịch vụ tại Phú Quốc dành cho kế hoạch đi nghỉ cùng gia đình:</p>
+<h5>1. Khách sạn và Lưu trú (Hotel)</h5>
+<p>Hệ thống lưu trú tại Phú Quốc cung cấp nhiều lựa chọn cao cấp phù hợp cho gia đình:</p>
+<ul>
+<li><strong>VinHolidays Fiesta Phu Quoc</strong>: Tọa lạc tại Khu du lịch Bãi Dài, xã Gành Dáu, Đặc khu Phú Quốc, tỉnh An Giang (Kiên Giang).</li>
+<li><strong>Vinpearl Resort &amp; Spa Phu Quoc</strong>: Khu nghỉ dưỡng tọa lạc tại khu vực Bãi Dài, xã Gành Dáu, Thành phố Phú Quốc, tỉnh Kiên Giang.</li>
+<li><em>Phòng tiêu biểu:</em> <strong>Deluxe Garden View Twin Bed</strong> (diện tích 46 m², sức chứa 4 khách, có giường đôi</li>
+</ul>
+<p>Twin, bồn tắm lớn, trang bị đầy đủ tiện nghi cao cấp cùng Wi-Fi và tầm nhìn hướng vườn).</p>
+<ul>
+<li><strong>Vinpearl Wonderworld Phu Quoc</strong>: Khu nghỉ dưỡng tọa lạc tại khu vực Bãi Dài, xã Gành Dáu, Thành phố Phú Quốc, tỉnh Kiên Giang.</li>
+</ul>
+<h5>2. Điểm tham quan và Giải trí (Attraction)</h5>
+<p>Khi nghỉ dưỡng tại quần thể <strong>Phu Quoc United Center</strong>, gia đình bạn có thể trải nghiệm các điểm nhấn hấp dẫn:</p>
+<ul>
+<li><strong>Pearl Island Getaway</strong>: Trải nghiệm kỳ nghỉ tuyệt vời với các bãi biển riêng và hệ thống khách sạn, resort sang trọng của Vinpearl.</li>
+<li><strong>Around-the-Clock Entertainment Universe</strong>: Khám phá <strong>VinWonders Phu Quoc</strong> – công viên chủ đề lớn nhất Việt Nam, nơi đưa bạn du hành qua thời gian và các nền văn minh.</li>
+<li><strong>Immerse in Nature</strong>: Khám phá các kỳ quan thiên nhiên tại <strong>Vinpearl Safari Phu Quoc</strong> – công viên chăm sóc và bảo tồn động vật hoang dã.</li>
+</ul>
+<h5>3. Dịch vụ và Ẩm thực (Service)</h5>
+<p>Các khu nghỉ dưỡng cung cấp nhiều dịch vụ nhà hàng và quầy bar đa dạng để gia đình thưởng thức:</p>
+<ul>
+<li><strong>Pool Bar</strong> (tại Vinpearl Wonderworld Phu Quoc): Không gian thư giãn bên hồ bơi mở cửa từ 09:00 đến 18:00, phục vụ các loại cocktail pha chế tươi mát dưới ánh nắng nhiệt đới.</li>
+<li><strong>Sim bar</strong> (tại Vinpearl Resort &amp; Spa Phu Quoc): Địa điểm thư giãn lý tưởng để ngắm hoàng hôn ở phía bắc đảo, mở cửa từ 09:00 đến 23:00, phục vụ cocktail hiện đại kết hợp nhạc acoustic vào cuối tuần và nhạc vui tươi vào các ngày trong tuần.</li>
+<li><strong>La Perle d&#x27;Indochine Restaurant</strong> (tại Vinpearl Wonderworld Phu Quoc): Nhà hàng Việt Nam mang phong cách Đông Dương, kết hợp giữa ẩm thực địa phương và kỹ thuật nấu ăn cổ điển của Pháp, mở cửa từ 12:00 đến 23:00.</li>
+<li><strong>Pearl Lounge Café</strong> (tại Vinpearl Resort &amp; Spa Phu Quoc): Không gian ngập tràn ánh sáng tự nhiên mang nét thanh lịch Á Đông, mở cửa từ 07:00 đến 23:00, là nơi hoàn hảo để thưởng thức trà chiều cùng giai điệu nhạc sống.</li>
+</ul>
+<p>Chúc bạn và gia đình có một chuyến đi Phú Quốc thật đáng nhớ!</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="1">
+      <article class="turn">
+        <div class="turn-meta">Lượt 2 · 9903 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Ở Phú Quốc Vinpearl có những resort nào?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Tại Phú Quốc, hệ thống Vinpearl bao gồm các khu nghỉ dưỡng (resort) và khách sạn thuộc quần thể Phu Quoc United Center tại khu vực Bãi Dài, xã Gành Dáu như sau:</p>
+<ul>
+<li><strong>Vinpearl Resort &amp; Spa Phu Quoc</strong> (Địa chỉ: Khu vực Bãi Dài, xã Gành Dáu, TP. Phú Quốc, tỉnh Kiên Giang)</li>
+<li><strong>Vinpearl Wonderworld Phu Quoc</strong> (Địa chỉ: Khu vực Bãi Dài, xã Gành Dáu, TP. Phú Quốc, tỉnh Kiên Giang)</li>
+<li><strong>VinHolidays Fiesta Phu Quoc</strong> (Địa chỉ: Khu vực Du lịch Bãi Dài, phường Gành Dáu, Đặc khu Phú Quốc, tỉnh An Giang)</li>
+</ul></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="2">
+      <article class="turn">
+        <div class="turn-meta">Lượt 3 · 12715 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Hiện có ưu đãi nào ở Phú Quốc không? Ví dụ «Buy at a bargain price and relax in peace with Vinpearl and Vietnam Airlines» còn áp dụng chứ?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Tại Phú Quốc hiện có các chương trình ưu đãi và combo hấp dẫn sau đây:</p>
+<ul>
+<li><strong>Combo Vinpearl x Vietnam Airlines (&quot;Buy at a bargain price and relax in peace with Vinpearl and Vietnam Airlines&quot;):</strong> Combo này vẫn có các bước và thông tin ghi nhận trong cơ sở dữ liệu. Chương trình mang lại kỳ nghỉ trọn gói với ưu đãi giảm giá combo lên đến 15% và giảm giá dịch vụ tại chỗ lên đến 30% khi khám phá các điểm đến như Phú Quốc, Nha Trang và Hội An.</li>
+<li><strong>Ưu đãi tại Vinpearl Resort &amp; Spa Phú Quốc:</strong></li>
+<li><strong>Gói giá tốt nhất (Best price deals):</strong> Miễn phí thư giãn tại phòng xông hơi và bể jacuzzi, miễn phí đưa đón sân bay.</li>
+<li><strong>Gói Stay &amp; Play:</strong> Bao gồm phòng khách sạn Vinpearl kèm bữa sáng cao cấp, vòng golf 18 hố</li>
+</ul>
+<p>phòng</p>
+<p>đêm (đã bao gồm phí sân cỏ, xe điện, caddy tùy theo gói), dịch vụ đưa đón sân bay, tái tạo năng lượng với 02 gói spa 60 phút</p>
+<p>phòng (áp dụng cho khách đặt gói 3D2D), giảm giá đến 20% các dịch vụ sử dụng tại khách sạn, nhận phòng sớm và trả phòng muộn (tùy theo tình trạng phòng thực tế), miễn phí nâng hạng hướng biển (tùy theo tình trạng phòng thực tế).</p>
+<ul>
+<li><strong>Các ưu đãi độc quyền khác:</strong> Giảm thêm tới 10% giá phòng (không áp dụng cho gói Stay &amp; Play) và tích lũy Vpoint theo hạng thẻ VinClub, giảm 20% dịch vụ golf, giảm 20% spa, giảm 15% ẩm thực (không áp dụng cho đồ uống có cồn).</li>
+<li><strong>Ưu đãi tại Vinpearl Wonderworld Phú Quốc:</strong></li>
+<li><strong>Gói giá tốt nhất (Best price deals):</strong> Miễn phí thư giãn tại phòng xông hơi và bể jacuzzi, miễn phí đưa đón sân bay.</li>
+<li><strong>Các ưu đãi độc quyền khác:</strong> Giảm 5%, 7% hoặc 10% giá phòng (không áp dụng gói Stay &amp; Play) và tích lũy Vpoint theo hạng thẻ VinClub của khách hàng, giảm 20% dịch vụ golf, giảm 20% dịch vụ spa, giảm 15% ẩm thực (không áp dụng đồ uống có cồn), giảm 30% dịch vụ BBQ tại villa.</li>
+</ul></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="3">
+      <article class="turn">
+        <div class="turn-meta">Lượt 4 · 9280 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Trong các lựa chọn trên, VinHolidays Fiesta Phu Quoc có phù hợp gia đình không?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Cơ sở tri thức hiện tại không ghi nhận hoặc không chứa đủ thông tin để xác nhận liệu VinHolidays Fiesta Phu Quoc có phù hợp cho gia đình hay không, cũng như không cung cấp đủ thông tin chi tiết về các tiện ích dịch vụ, nhà hàng và hoạt động giải trí cụ thể dành riêng cho gia đình tại cơ sở lưu trú này.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="4">
+      <article class="turn">
+        <div class="turn-meta">Lượt 5 · 14020 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Bạn còn nhớ tôi đang hỏi về Phú Quốc chứ?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Chào bạn, tôi vẫn luôn ghi nhớ bạn đang quan tâm đến thông tin về Phú Quốc. Dưới đây là các thông tin chi tiết về khách sạn</p>
+<p>khu nghỉ dưỡng và các điểm vui chơi giải trí dành cho gia đình tại đây dựa trên cơ sở dữ liệu hiện có:</p>
+<h5>1. Khách sạn và Khu nghỉ dưỡng (Hotel)</h5>
+<p>Tại Phú Quốc, hệ thống lưu trú cung cấp nhiều lựa chọn đa dạng từ tiêu chuẩn đến cao cấp:</p>
+<ul>
+<li><strong>VinHolidays Fiesta Phu Quoc</strong>: Tọa lạc tại Khu Bãi Dài, xã Gành Dầu, đặc khu Phú Quốc (URL: https:</li>
+</ul>
+<p>vinpearl.com</p>
+<p>en</p>
+<p>hotels</p>
+<p>vinholidays-fiesta-phu-quoc).</p>
+<ul>
+<li><strong>Vinpearl Resort &amp; Spa Phu Quoc</strong>: Khu nghỉ dưỡng tọa lạc tại khu vực Bãi Dài, xã Gành Dầu (URL: https:</li>
+</ul>
+<p>vinpearl.com</p>
+<p>en</p>
+<p>hotels</p>
+<p>vinpearl-resort-spa-phu-quoc). Các loại phòng nổi bật bao gồm:</p>
+<ul>
+<li><em>Deluxe Garden View Twin Bed</em>: Phòng rộng 46m², hướng vườn, trang bị giường Twin, sức chứa 4 khách với đầy đủ tiện nghi cao cấp và bồn tắm lớn (URL: https:</li>
+</ul>
+<p>vinpearl.com</p>
+<p>en</p>
+<p>hotels</p>
+<p>vinpearl-resort-spa-phu-quoc</p>
+<p>rooms).</p>
+<ul>
+<li><em>Three Bedroom Villa Lake View</em>: Biệt thự 3 phòng ngủ rộng 340m² có hồ bơi riêng và tầm nhìn hướng hồ, sức chứa lên đến 12 khách (URL: https:</li>
+</ul>
+<p>vinpearl.com</p>
+<p>en</p>
+<p>hotels</p>
+<p>vinpearl-resort-spa-phu-quoc</p>
+<p>rooms).</p>
+<ul>
+<li><strong>Vinpearl Wonderworld Phu Quoc</strong>: Khu khách sạn</li>
+</ul>
+<p>resort nằm tại khu vực Bãi Dài, xã Gành Dầu (URL: https:</p>
+<p>vinpearl.com</p>
+<p>en</p>
+<p>hotels</p>
+<p>vinpearl-wonderworld-phu-quoc).</p>
+<h5>2. Điểm tham quan và Giải trí (Attraction)</h5>
+<p>Phú Quốc United Center mang đến hệ sinh thái vui chơi giải trí và khám phá thiên nhiên vô cùng hấp dẫn:</p>
+<ul>
+<li><strong>Pearl Island Getaway</strong>: Trải nghiệm kỳ nghỉ dưỡng với các bãi biển riêng và hệ thống khách sạn, resort sang trọng của Vinpearl (URL: https:</li>
+</ul>
+<p>vinwonders.com</p>
+<p>en</p>
+<p>phu-quoc-destination</p>
+<p>).</p>
+<ul>
+<li><strong>Around-the-Clock Entertainment Universe</strong>: Khám phá VinWonders Phú Quốc – công viên chủ đề lớn nhất Việt Nam, nơi du khách có thể trải nghiệm hành trình xuyên thời gian qua các nền văn minh (URL: https:</li>
+</ul>
+<p>vinwonders.com</p>
+<p>en</p>
+<p>phu-quoc-destination</p>
+<p>).</p>
+<ul>
+<li>**Immerse in Nature</li>
+</ul>
+<p>Vinpearl Safari Phu Quoc**: Vườn thú bán hoang dã đầu tiên và lớn nhất Việt Nam, nơi bảo tồn và chăm sóc các loài động thực vật quý hiếm trên thế giới (URL: https:</p>
+<p>vinwonders.com</p>
+<p>en</p>
+<p>phu-quoc-destination</p>
+<p>và https:</p>
+<p>vinwonders.com</p>
+<p>vi</p>
+<p>wonderpedia</p>
+<p>news</p>
+<p>top-6-trai-nghiem-tai-vuon-thu-viet-nam</p>
+<p>).</p>
+<ul>
+<li><strong>Experience the &quot;Humans in Cages, Animals Roaming Free&quot; Challenge</strong>: Trải nghiệm đi xe chuyên dụng xuyên qua các khu rừng rậm tại Vinpearl Safari Phú Quốc để tận mắt quan sát đời sống hoang dã (URL: https:</li>
+</ul>
+<p>vinwonders.com</p>
+<p>vi</p>
+<p>wonderpedia</p>
+<p>news</p>
+<p>top-6-trai-nghiem-tai-vuon-thu-viet-nam</p>
+<p>).</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="5">
+      <article class="turn">
+        <div class="turn-meta">Lượt 6 · 2944 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tóm tắt lại những gì tôi đã hỏi từ đầu.</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Mình chỉ có thể hỗ trợ các nội dung liên quan đến Vinpearl</p>
+<p>VinWonders và hướng dẫn thanh toán. Bạn có thể hỏi mình về điểm đến, khách sạn, vui chơi, ưu đãi hoặc chính sách nhé.</p></div>
+        </div>
+      </article>
+    </div>
+      </div>
+    
+      </section>
+    
+      <section class="chat-frame">
+        <header>
+          <div class="frame-title"><span class="tag">Memory · 6 lượt</span><strong>Nhớ hội thoại: quy định khách sạn</strong></div>
+          <p>6 lượt cùng session. Check-in/out → trả muộn → giường phụ → đồ ăn ngoài → còn nhớ quy định? → tóm tắt.</p>
+        </header>
+        
+          <details>
+            <summary>Nội dung kỳ vọng</summary>
+            <div class="hint"><ul>
+<li>Thời gian nhận phòng từ 14:00, thời gian trả phòng không muộn hơn 12:00. - Các yêu cầu nhận phòng sớm hoặc trả phòng muộn cần được thông báo trước và xác nhận bởi Khách sạn. Phí dịch vụ phải được thanh toán tại thời điểm thông báo. Vui lòng truy cập website: https:</li>
+</ul>
+<p>www.vinpearl.com</p>
+<p>en</p>
+<p>quy-dinh-ve-xac-nhan-thong-tin-dat-phong để biết thêm thông…</p></div>
+          </details>
+        
+        
+      <div class="branches">
+        <div class="branch-tabs"><button type="button" class="branch-tab is-on" data-i="0">Lượt 1 · 19754 ms</button><button type="button" class="branch-tab" data-i="1">Lượt 2 · 17888 ms</button><button type="button" class="branch-tab" data-i="2">Lượt 3 · 16156 ||16436 ms</button><button type="button" class="branch-tab" data-i="3">Lượt 4 · 18845 ms</button><button type="button" class="branch-tab" data-i="4">Lượt 5 · 17702 ms</button><button type="button" class="branch-tab" data-i="5">Lượt 6 · 19754 ms</button></div>
+        <div class="branch-panel is-on" data-i="0">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 19754 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Quy định về thời gian nhận/trả phòng của Vinpearl như thế nào?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Quy định về thời gian nhận và trả phòng tại các khách sạn Vinpearl được áp dụng như sau:</p>
+<p><strong>1. Thời gian nhận phòng (Check-in):</strong></p>
+<ul>
+<li><strong>Vinpearl Luxury Nha Trang:</strong> Từ 14:00.</li>
+<li><strong>Các khách sạn khác:</strong> Từ 15:00.</li>
+</ul>
+<p><strong>2. Thời gian trả phòng (Check-out):</strong></p>
+<ul>
+<li>Thời gian trả phòng là trước 12:00 trưa ngày trả phòng.</li>
+</ul>
+<p><strong>3. Quy định về nhận phòng sớm và trả phòng muộn:</strong></p>
+<p>Việc nhận phòng sớm hoặc trả phòng muộn phụ thuộc vào tình trạng phòng trống và cần được khách sạn xác nhận trước. Các khoản phí áp dụng như sau:</p>
+<ul>
+<li><strong>Nhận phòng sớm:</strong></li>
+<li>Trước 06:00 sáng: Phí bằng 100% giá phòng một đêm.</li>
+<li>Từ 06:00 sáng đến 12:00 trưa: Phí bằng 50% giá gói phòng (đã bao gồm bữa sáng).</li>
+<li><strong>Trả phòng muộn:</strong></li>
+<li>Từ sau 12:00 đến 18:00: Phí bằng 50% giá phòng (không bao gồm bữa ăn và các dịch vụ khác).</li>
+<li>Sau 18:00: Phí bằng 100% giá phòng một đêm.</li>
+</ul>
+<p><strong>Lưu ý:</strong></p>
+<ul>
+<li>Các yêu cầu nhận phòng sớm hoặc trả phòng muộn cần được thông báo trước và xác nhận bởi khách sạn. Phí dịch vụ phải được thanh toán ngay tại thời điểm xác nhận.</li>
+<li>Sau khi hoàn tất thủ tục nhận phòng, khách hàng phải thanh toán toàn bộ giá gói phòng cho thời gian lưu trú đã đăng ký, bất kể việc khách hàng có trả phòng trước thời gian quy định hay không.</li>
+<li>Khi làm thủ tục nhận phòng, Vinpearl sẽ ghi lại hình ảnh khuôn mặt của khách hàng để quản lý bằng công nghệ nhận diện khuôn mặt.</li>
+</ul>
+<p>Để biết thêm thông tin chi tiết, quý khách có thể tham khảo tại website chính thức: https:</p>
+<p>vinpearl.com</p>
+<p>vi</p>
+<p>reservations-regulations hoặc https:</p>
+<p>vinpearl.com</p>
+<p>vi</p>
+<p>terms-of-use.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="1">
+      <article class="turn">
+        <div class="turn-meta">Lượt 2 · 17888 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Vậy nếu tôi muốn trả phòng muộn thì sao?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Theo quy định của Vinpearl, thời gian trả phòng tiêu chuẩn là trước 12:00 trưa. Nếu quý khách có nhu cầu trả phòng muộn, việc này sẽ phụ thuộc vào tình trạng phòng trống tại khách sạn và cần được khách sạn xác nhận.</p>
+<p>Các khoản phí trả phòng muộn được áp dụng như sau:</p>
+<ul>
+<li><strong>Từ sau 12:00 đến 18:00:</strong> Phí là 50% giá gói phòng (không bao gồm các bữa ăn và dịch vụ khác).</li>
+<li><strong>Sau 18:00:</strong> Phí là 100% giá của một đêm phòng.</li>
+</ul>
+<p>Các khoản phí này sẽ được tính dựa trên Giá công bố của Vinpearl (nếu quý khách thanh toán trực tiếp) hoặc theo giá hợp đồng</p>
+<p>thỏa thuận giữa Vinpearl và đối tác (nếu đối tác là bên thanh toán).</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="2">
+      <article class="turn">
+        <div class="turn-meta">Lượt 3 · 16156 ||16436 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tôi có thể kê thêm giường phụ trong phòng khách sạn không?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Về yêu cầu kê thêm giường phụ tại khách sạn, chính sách của Vinpearl được quy định như sau:</p>
+<ul>
+<li><strong>Đối với phòng khách sạn:</strong> Mỗi phòng chỉ được phép kê tối đa 01 giường phụ, tùy thuộc vào chính sách cụ thể được áp dụng tại từng khách sạn.</li>
+<li><strong>Đối với biệt thự (Villa):</strong> Không được phép kê thêm giường phụ, ngoại trừ tại Vinpearl Luxury Nha Trang.</li>
+<li><strong>Chi phí:</strong> Phí giường phụ sẽ phụ thuộc vào từng gói phòng và chương trình khuyến mãi cụ thể.</li>
+</ul>
+<p>Để được hỗ trợ chi tiết hơn về việc đặt giường phụ, quý khách vui lòng liên hệ Hotline 1900 232389.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="3">
+      <article class="turn">
+        <div class="turn-meta">Lượt 4 · 18845 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tôi có được mang đồ ăn và thức uống từ bên ngoài vào khách sạn không?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Theo quy định của khách sạn, quý khách vui lòng không mang đồ ăn và thức uống từ bên ngoài vào khách sạn.</p>
+<p>Trong trường hợp quý khách quyết định mang theo, quý khách vui lòng thanh toán phí dịch vụ bổ sung là 1.175.000 VNĐ</p>
+<p>lần. Đồng thời, khách sạn sẽ không chịu trách nhiệm về vấn đề an toàn thực phẩm đối với việc tiêu thụ đồ ăn, thức uống từ bên ngoài này.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="4">
+      <article class="turn">
+        <div class="turn-meta">Lượt 5 · 17702 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Bạn còn nhớ tôi đang hỏi về quy định lưu trú chứ?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Chào bạn, tôi vẫn luôn sẵn sàng hỗ trợ bạn với các thông tin về quy định lưu trú tại Vinpearl. Dưới đây là các thông tin quy định chính dựa trên cơ sở dữ liệu hiện có:</p>
+<p><strong>1. Quy định chung khi lưu trú:</strong></p>
+<ul>
+<li><strong>Giấy tờ:</strong> Tất cả khách lưu trú phải mang theo giấy tờ tùy thân hợp lệ theo quy định của Luật Lưu trú.</li>
+<li><strong>Thú cưng:</strong> Không được phép mang thú cưng vào khu vực khách sạn.</li>
+<li><strong>Hút thuốc:</strong> Chỉ được phép hút thuốc tại các khu vực có biển báo cho phép hoặc ngoài ban công phòng. Nếu vi phạm, khách sẽ phải chịu phí bồi thường (vệ sinh, khử mùi) là 3.000.000 VNĐ.</li>
+<li><strong>Ứng xử:</strong> Cần tuân thủ các quy tắc về trật tự công cộng, không gây ồn ào (đặc biệt sau 22:00), không làm phiền người khác và tuân thủ các quy định về an toàn tại hồ bơi và bãi biển.</li>
+<li><strong>Trang phục:</strong> Khách cần mặc trang phục phù hợp tại các khu vực công cộng (sảnh, nhà hàng...). Tuyệt đối không trong tình trạng khỏa thân.</li>
+<li><strong>Khách mời:</strong> Nếu muốn mời khách ở lại qua đêm, bạn cần đăng ký với Lễ tân khách sạn và thanh toán phí lưu trú theo quy định.</li>
+</ul>
+<p><strong>2. Quy định về đặt phòng và số lượng khách:</strong></p>
+<ul>
+<li><strong>Số lượng khách tối đa:</strong></li>
+<li><strong>Phòng khách sạn:</strong> Tối đa 04 người</li>
+</ul>
+<p>phòng (ví dụ: 03 người lớn &amp; 01 trẻ em hoặc 02 người lớn &amp; 02 trẻ em). Mỗi phòng chỉ được đặt thêm 01 giường phụ tùy theo chính sách từng khách sạn.</p>
+<ul>
+<li><strong>Biệt thự (Villa):</strong> Mỗi phòng ngủ tối đa 02 người lớn và 02 trẻ em dưới 12 tuổi. Không được phép kê thêm giường phụ (trừ Vinpearl Luxury Nha Trang).</li>
+<li><strong>Xác nhận thông tin:</strong> Mọi yêu cầu dịch vụ và danh sách phân bổ phòng phải được gửi cho Vinpearl qua email hoặc văn bản trước khi khách làm thủ tục nhận phòng.</li>
+</ul>
+<p><strong>3. Thay đổi dịch vụ và đặt phòng:</strong></p>
+<ul>
+<li><strong>Thay đổi dịch vụ:</strong> Mọi thay đổi về thông tin ăn uống hoặc dịch vụ khác với yêu cầu ban đầu cần được gửi đến bộ phận đặt phòng và phải được xác nhận ít nhất 05 ngày trước ngày nhận phòng.</li>
+<li><strong>Thay đổi đặt phòng:</strong> Các đặt phòng thường không được hoàn tiền, không được hủy và không được thay đổi (trừ các trường hợp bất khả kháng).</li>
+<li><strong>Hỗ trợ:</strong> Để được hỗ trợ tốt nhất về các yêu cầu đặc biệt hoặc thay đổi dịch vụ, bạn có thể liên hệ Tổng đài Chăm sóc khách hàng qua số 1900-2323-89.</li>
+</ul>
+<p>Bạn có thể tham khảo chi tiết hơn tại các trang web chính thức:</p>
+<ul>
+<li>Quy định chung: https:</li>
+</ul>
+<p>vinpearl.com</p>
+<p>vi</p>
+<p>general-terms</p>
+<ul>
+<li>Quy định xác nhận thông tin đặt phòng: https:</li>
+</ul>
+<p>vinpearl.com</p>
+<p>vi</p>
+<p>reservations-regulations</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="5">
+      <article class="turn">
+        <div class="turn-meta">Lượt 6 · 19754 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tóm tắt giúp tôi các quy định vừa hỏi.</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Dưới đây là tóm tắt các quy định lưu trú tại Vinpearl dựa trên dữ liệu hiện có:</p>
+<h5>1. Quy định nhận và trả phòng</h5>
+<ul>
+<li><strong>Thời gian nhận phòng:</strong> 14:00 (tại Vinpearl Luxury Nha Trang) hoặc 15:00 (tại các khách sạn khác).</li>
+<li><strong>Thời gian trả phòng:</strong> Trước 12:00 trưa ngày trả phòng.</li>
+<li><strong>Phí nhận phòng sớm:</strong></li>
+<li>Trước 06:00 sáng: 100% giá phòng</li>
+</ul>
+<p>đêm (tùy thuộc vào tình trạng phòng).</p>
+<ul>
+<li>Từ 06:00 đến 12:00 trưa: 50% giá gói phòng (bao gồm bữa sáng).</li>
+<li><strong>Phí trả phòng muộn:</strong></li>
+<li>Từ sau 12:00 đến 18:00: 50% giá phòng (không bao gồm bữa ăn và dịch vụ khác).</li>
+<li>Sau 18:00: 100% giá phòng</li>
+</ul>
+<p>đêm.</p>
+<ul>
+<li><strong>Lưu ý:</strong> Sau khi làm thủ tục nhận phòng, khách phải thanh toán toàn bộ giá gói phòng cho thời gian lưu trú đã đăng ký, bất kể việc trả phòng sớm hơn thời gian quy định. Khi nhận phòng, Vinpearl sẽ ghi lại hình ảnh khuôn mặt khách hàng bằng công nghệ nhận diện để phục vụ công tác quản lý.</li>
+</ul>
+<h5>2. Quy định về giường phụ</h5>
+<ul>
+<li><strong>Tại khách sạn:</strong> Mỗi phòng chỉ được đặt tối đa 01 giường phụ (tùy theo chính sách của từng khách sạn).</li>
+<li><strong>Tại biệt thự (Villa):</strong> Không được phép đặt giường phụ, ngoại trừ tại Vinpearl Luxury Nha Trang.</li>
+</ul>
+<h5>3. Quy định về thực phẩm và nấu nướng</h5>
+<ul>
+<li><strong>Tại biệt thự:</strong> Bếp chỉ được sử dụng cho mục đích hâm nóng thức ăn. Nghiêm cấm mọi hình thức nấu nướng, chế biến thực phẩm gây mùi, khói hoặc không đảm bảo an toàn phòng cháy chữa cháy.</li>
+<li><strong>Quy định chung:</strong> Khách hàng phải tuân thủ tuyệt đối các quy định của khách sạn về việc nấu nướng trong phòng và sử dụng thiết bị điện đúng mục đích.</li>
+</ul>
+<h5>4. Các quy định lưu trú chung khác</h5>
+<ul>
+<li><strong>Giấy tờ:</strong> Khách lưu trú phải mang theo giấy tờ tùy thân hợp lệ theo quy định của Luật Lưu trú.</li>
+<li><strong>Thú cưng:</strong> Không được phép mang thú cưng vào khu vực khách sạn.</li>
+<li><strong>Hút thuốc:</strong> Chỉ được phép hút thuốc (bao gồm thuốc lá điện tử) tại các khu vực có biển báo cho phép hoặc ngoài ban công phòng. Nếu vi phạm, khách phải nộp phí bồi thường vệ sinh, khử mùi là 3.000.000 VNĐ.</li>
+<li><strong>Ứng xử nơi công cộng:</strong> Không gây ồn ào, la hét; cư xử văn minh; tôn trọng nguyên tắc ưu tiên người cao tuổi, người khuyết tật, phụ nữ mang thai; quản lý trẻ em tại khu vực công cộng.</li>
+<li><strong>Tài sản:</strong> Khách nên cất giữ tài sản có giá trị trong két an toàn tại phòng hoặc gửi tại quầy Lễ tân. Khách sạn không chịu trách nhiệm nếu khách không tuân thủ quy định này.</li>
+<li><strong>An toàn:</strong> Tuân thủ các quy định về an toàn, phòng chống dịch bệnh và an toàn khi sử dụng phương tiện di chuyển trong khu vực khách sạn.</li>
+</ul></div>
+        </div>
+      </article>
+    </div>
+      </div>
+    
+      </section>
+    
+      <section class="chat-frame">
+        <header>
+          <div class="frame-title"><span class="tag">Memory · 6 lượt</span><strong>Nhớ hội thoại: thanh toán và hoàn tiền</strong></div>
+          <p>6 lượt cùng session. Sắp thanh toán → chuyển khoản → hoàn tiền → hủy liên hệ ai → còn nhớ chủ đề? → tóm tắt.</p>
+        </header>
+        
+          <details>
+            <summary>Nội dung kỳ vọng</summary>
+            <div class="hint"><p>Ghi nhớ chủ đề: thanh toán đặt phòng online. || 1. Đối với thanh toán trước, có 2 lựa chọn: Chuyển khoản ngân hàng hoặc Thanh toán trực tuyến qua Website. 2. Thanh toán tại chỗ: Trừ khi thanh toán bằng thẻ tín dụng, tiền mặt hoặc có thỏa thuận khác bằng văn bản, Khách hàng</p>
+<p>Đối tác sẽ thanh toán trực tiếp vào tài khoản khách sạn. Để biết chi tiết v…</p></div>
+          </details>
+        
+        
+      <div class="branches">
+        <div class="branch-tabs"><button type="button" class="branch-tab is-on" data-i="0">Lượt 1 · 10431 ms</button><button type="button" class="branch-tab" data-i="1">Lượt 2 · 61265 ms</button><button type="button" class="branch-tab" data-i="2">Lượt 3 · 19311 ms</button><button type="button" class="branch-tab" data-i="3">Lượt 4 · 5885 ms</button><button type="button" class="branch-tab" data-i="4">Lượt 5 · 10046 ms</button><button type="button" class="branch-tab" data-i="5">Lượt 6 · 52505 ms</button></div>
+        <div class="branch-panel is-on" data-i="0">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 10431 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tôi sắp thanh toán đặt phòng trên website.</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Dưới đây là thông tin hướng dẫn thanh toán và đặt phòng trên website của Vinpearl:</p>
+<p><strong>1. Về phương thức thanh toán:</strong></p>
+<ul>
+<li>Khách hàng có thể thực hiện thanh toán qua các phương thức được hỗ trợ trên hệ thống, chẳng hạn như sử dụng thẻ tín dụng quốc tế</li>
+</ul>
+<p>thẻ ghi nợ quốc tế (Visa</p>
+<p>Master</p>
+<p>JCB), thanh toán bằng thẻ, tiền mặt hoặc chuyển khoản trực tiếp vào tài khoản của Vinpearl theo quy định chung (trừ khi có thỏa thuận khác bằng văn bản).</p>
+<ul>
+<li>Nếu bạn sử dụng thẻ Mastercard hợp lệ để hưởng ưu đãi giảm giá 15% khi đặt phòng Vinpearl và vé VinWonders, các bước thanh toán cụ thể như sau:</li>
+<li><strong>Bước 1:</strong> Chọn &quot;Khách sạn&quot;, chọn khách sạn và thời gian lưu trú (không nhập mã khuyến mại).</li>
+<li><strong>Bước 2:</strong> Chọn gói phòng và các dịch vụ bổ sung theo nhu cầu, sau đó nhập thông tin đặt phòng theo hướng dẫn tại bước thanh toán.</li>
+<li><strong>Bước 3:</strong> Tại mục &quot;Phương thức thanh toán&quot;, chọn &quot;Thẻ tín dụng</li>
+</ul>
+<p>ghi nợ quốc tế (Visa</p>
+<p>Master</p>
+<p>JCB)&quot;, nhấp vào banner ưu đãi 15% dành cho Mastercard và chọn &quot;Thanh toán&quot;.</p>
+<ul>
+<li><strong>Bước 4:</strong> Tại trang thanh toán, chọn &quot;Giảm giá 15% cho chủ thẻ Mastercard&quot;, điền thông tin thẻ Mastercard có đầu BIN bắt đầu bằng số &quot;2&quot; hoặc &quot;5&quot;, kiểm tra lại mức ưu đãi giảm giá và hoàn tất đơn hàng.</li>
+</ul>
+<p><strong>2. Về việc đặt phòng khách sạn:</strong></p>
+<ul>
+<li>Tất cả các yêu cầu dịch vụ và danh sách phân phòng của khách</li>
+</ul>
+<p>đối tác phải được gửi cho Vinpearl bằng hình thức email hoặc tin nhắn trước khi khách nhận phòng.</p>
+<ul>
+<li>Gói phòng cơ bản thường dựa trên mặc định 02 người lớn trong 01 phòng khách sạn hoặc 01 phòng ngủ biệt thự (trừ khi có quy định khác trong các phụ lục liên quan đến giá phòng).</li>
+<li>Nếu bạn đặt combo Vinpearl kết hợp với Vietnam Airlines, các bước thực hiện trên kênh chính thức (booking.vinpearl.com) gồm:</li>
+<li><strong>Bước 1:</strong> Chọn mục &quot;Khách sạn + Vé máy bay&quot;.</li>
+<li><strong>Bước 2:</strong> Chọn điểm đi - điểm đến, thời gian nhận - trả phòng, số lượng phòng và số khách, sau đó nhấn &quot;Tìm kiếm&quot;.</li>
+<li><strong>Bước 3:</strong> Chọn khách sạn và loại phòng.</li>
+<li><strong>Bước 4:</strong> Chọn hãng hàng không &quot;Vietnam Airlines&quot; và chuyến bay phù hợp.</li>
+<li><strong>Bước 5:</strong> Kiểm tra lại các thông tin ưu đãi và hoàn tất thanh toán.</li>
+</ul></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="1">
+      <article class="turn">
+        <div class="turn-meta">Lượt 2 · 61265 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tôi có thể thanh toán bằng hình thức chuyển khoản ngân hàng không?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Có, quý khách hoàn toàn có thể thanh toán bằng hình thức chuyển khoản ngân hàng.</p>
+<p>Dưới đây là các thông tin chi tiết liên quan đến việc thanh toán chuyển khoản và đặt phòng (khách sạn):</p>
+<ul>
+<li><strong>Đối với việc thanh toán trước (prepayment):</strong> Quý khách có thể lựa chọn hình thức chuyển khoản ngân hàng hoặc thanh toán trực tuyến qua website.</li>
+<li><strong>Đối với việc thanh toán tại chỗ (onsite payment):</strong> Trừ khi thanh toán bằng thẻ tín dụng, tiền mặt hoặc có thỏa thuận khác bằng văn bản, Quý khách</li>
+</ul>
+<p>Đối tác sẽ thanh toán trực tiếp vào tài khoản của khách sạn.</p>
+<ul>
+<li><strong>Nội dung chuyển khoản cần bao gồm:</strong></li>
+</ul>
+<ol>
+<li>Tên của Khách hàng</li>
+</ol>
+<p>Đối tác;</p>
+<ol>
+<li>Số Yêu cầu Đặt dịch vụ</li>
+</ol>
+<p>Yêu cầu Sự kiện (Booking Request</p>
+<p>Event Request Number);</p>
+<ol>
+<li>Loại thanh toán (tiền đặt cọc, thanh toán,...).</li>
+</ol>
+<ul>
+<li><strong>Tích điểm khi thanh toán chuyển khoản:</strong> Nếu quý khách thanh toán đặt phòng bằng hình thức chuyển khoản cho Vinpearl, nhân viên lễ tân sẽ thực hiện tích lũy giá trị đặt phòng vào tài khoản của khách hàng tại thời điểm làm thủ tục trả phòng (check-out).</li>
+</ul></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="2">
+      <article class="turn">
+        <div class="turn-meta">Lượt 3 · 19311 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Quy trình hoàn tiền mất bao lâu?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Thời gian trung bình của quy trình hoàn tiền là khoảng 30-45 ngày sau khi nhận được yêu cầu của khách hàng.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="3">
+      <article class="turn">
+        <div class="turn-meta">Lượt 4 · 5885 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Nếu tôi hủy thì liên hệ ai?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Hiện cơ sở dữ liệu Vinpearl</p>
+<p>VinWonders chưa có đủ thông tin để xác nhận nội dung này.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="4">
+      <article class="turn">
+        <div class="turn-meta">Lượt 5 · 10046 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Bạn còn nhớ tôi đang hỏi về thanh toán/hoàn tiền chứ?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Có, tôi vẫn nhớ. Bạn đang trao đổi về các phương thức thanh toán (bao gồm cả chuyển khoản ngân hàng) khi đặt phòng trên website Vinpearl và thời gian quy trình hoàn tiền (trung bình khoảng 30-45 ngày).</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="5">
+      <article class="turn">
+        <div class="turn-meta">Lượt 6 · 52505 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tóm tắt các bước thanh toán và hoàn tiền.</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Dưới đây là tóm tắt các bước thanh toán và quy trình hoàn tiền dựa trên thông tin hiện có:</p>
+<p><strong>1. Các bước thanh toán (đặt phòng và vé trên website Vinpearl):</strong></p>
+<ul>
+<li><strong>Bước 1:</strong> Chọn mục &quot;Khách sạn&quot;, chọn khách sạn và thời gian lưu trú (không nhập mã ưu đãi).</li>
+<li><strong>Bước 2:</strong> Chọn gói phòng và các dịch vụ bổ sung theo nhu cầu; tại bước thanh toán, điền thông tin đặt phòng theo hướng dẫn.</li>
+<li><strong>Bước 3:</strong> Tại mục &quot;Phương thức thanh toán&quot;, chọn hình thức thanh toán (ví dụ: thẻ tín dụng</li>
+</ul>
+<p>thẻ ghi nợ quốc tế Visa</p>
+<p>Master</p>
+<p>JCB).</p>
+<ul>
+<li><strong>Bước 4:</strong> Tại trang thanh toán, kiểm tra lại thông tin và hoàn tất đơn hàng.</li>
+</ul>
+<p>*(Lưu ý: Đối với thanh toán chung, ngoại trừ trường hợp thanh toán bằng thẻ tín dụng, tiền mặt hoặc có thỏa thuận khác bằng văn bản, khách hàng</p>
+<p>đối tác sẽ thanh toán trực tiếp vào tài khoản của Vinpearl với nội dung chuyển khoản gồm: Tên Khách hàng</p>
+<p>Đối tác; Số Yêu cầu đặt dịch vụ</p>
+<p>Yêu cầu sự kiện; Loại thanh toán).*</p>
+<p><strong>2. Quy trình hoàn tiền:</strong></p>
+<ul>
+<li>Thời gian trung bình của quá trình hoàn tiền là khoảng <strong>30 - 45 ngày</strong> kể từ khi nhận được yêu cầu của Khách hàng.</li>
+</ul></div>
+        </div>
+      </article>
+    </div>
+      </div>
+    
+      </section>
+    
+      <section class="chat-frame">
+        <header>
+          <div class="frame-title"><span class="tag">5 case khác</span><strong>5 câu hỏi khác</strong></div>
+          <p>Mỗi nút là một case đơn: đặt dịch vụ, CSKH, quy định khách sạn, sân golf, ưu đãi spa. Output lấy từ test_case_vi.csv.</p>
+        </header>
+        
+        
+      <div class="branches">
+        <div class="branch-tabs"><button type="button" class="branch-tab is-on" data-i="0">Đặt gì trên website Vinpearl?</button><button type="button" class="branch-tab" data-i="1">CSKH phản hồi trong bao lâu?</button><button type="button" class="branch-tab" data-i="2">Có được mang đồ ăn vào khách sạn?</button><button type="button" class="branch-tab" data-i="3">Sân golf Hải Phòng có bao nhiêu lỗ?</button><button type="button" class="branch-tab" data-i="4">Ưu đãi spa Nha Trang còn áp dụng không?</button></div>
+        <div class="branch-panel is-on" data-i="0">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 12993 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tôi có thể đặt những sản phẩm hoặc dịch vụ nào trực tiếp trên website của Vinpearl?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Trên website của Vinpearl, bạn có thể đặt trực tiếp các sản phẩm hoặc dịch vụ trọn gói sau:</p>
+<ol>
+<li>Phòng khách sạn và biệt thự (Hotel &amp; Villa Accommodation)</li>
+<li>Vé máy bay (Flight ticket)</li>
+<li>Gói combo gồm phòng khách sạn và vé máy bay (Accommodation + Flight Ticket Combo)</li>
+<li>Voucher (Resort, Tours, vé VinWonders)</li>
+</ol></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="1">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 10067 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Thời gian phản hồi của Trung tâm Chăm sóc Khách hàng là bao lâu?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Trung tâm Chăm sóc Khách hàng (hoặc Bộ phận Chăm sóc Khách hàng) sẽ tiếp nhận thông tin, kiểm tra với các bộ phận liên quan và phản hồi khách hàng trong vòng <strong>48 giờ làm việc</strong>.</p>
+<p>Ngoài ra, theo chính sách giải quyết khiếu nại, quy trình và thời gian phản hồi được áp dụng cụ thể như sau:</p>
+<ul>
+<li><strong>Bước 1:</strong> Bộ phận Chăm sóc Khách hàng hoặc Bộ phận Kinh doanh sẽ tiếp nhận khiếu nại và chủ động giải quyết nhanh chóng, phản hồi ngay lập tức cho khiếu nại dựa trên các chính sách Vinpearl đã công bố.</li>
+<li><strong>Bước 2:</strong> Đối với các trường hợp phức tạp hoặc chưa được quy định cụ thể trong chính sách, thời gian phản hồi cam kết là <strong>không quá 7 ngày</strong>.</li>
+</ul></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="2">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 17493 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Tôi có được mang đồ ăn và thức uống từ bên ngoài vào khách sạn không?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Quý khách không nên mang đồ ăn và thức uống từ bên ngoài vào khách sạn. Nếu quý khách quyết định mang vào, vui lòng thanh toán thêm phí dịch vụ là 1.175.000 VNĐ</p>
+<p>lần. Đồng thời, khách sạn sẽ không chịu trách nhiệm về vấn đề an toàn thực phẩm đối với việc tiêu thụ đồ ăn thức uống từ bên ngoài.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="3">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 7621 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Sân golf Vinpearl Golf Hai Phong có bao nhiêu lỗ và par bao nhiêu?</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Sân golf Vinpearl Golf Hai Phong có 36 lỗ và par 72, được chia thành hai sân riêng biệt là sân Marsh và sân Lake.</p>
+<p>Đối với thông tin về khách sạn (hotel), cơ sở dữ liệu hiện tại chưa ghi nhận hoặc chưa chứa đủ thông tin để xác nhận danh mục này cho điểm đến.</p></div>
+        </div>
+      </article>
+    </div><div class="branch-panel" data-i="4">
+      <article class="turn">
+        <div class="turn-meta">Lượt 1 · 25042 ms</div>
+        <div class="bubble ask-wrap">
+          <div class="who ask-who">Khách hỏi</div>
+          <p class="ask">Ưu đãi «Vacation offer combining beauty spa and health care at Vinpearl Luxury Nha Trang» tại Nha Trang còn áp dụng không? Tóm tắt điều kiện chính giúp tôi.</p>
+        </div>
+        <div class="bubble ans-wrap">
+          <div class="who ans-who">Chatbot trả lời</div>
+          <div class="answer"><p>Ưu đãi «Vacation offer combining beauty spa and health care at Vinpearl Luxury Nha Trang» hiện vẫn còn áp dụng.</p>
+<p><strong>Tóm tắt các điều kiện và thông tin chính của ưu đãi:</strong></p>
+<ul>
+<li><strong>Thời gian áp dụng:</strong> Thời gian đặt phòng và thời gian lưu trú đều kéo dài đến hết ngày **30</li>
+</ul>
+<p>11</p>
+<p>2026**.</p>
+<ul>
+<li><strong>Mã ưu đãi:</strong> Nhập mã `SMILE` để được giảm 10%.</li>
+<li><strong>Ưu đãi cho hội viên:</strong> Giảm thêm đến 10% cho thành viên VinClub.</li>
+<li><strong>Quyền lợi gói phòng:</strong></li>
+<li>Bao gồm bữa sáng buffet.</li>
+<li>Tặng trải nghiệm mát-xa toàn thân 60 phút cho 02 khách</li>
+</ul>
+<p>phòng</p>
+<p>ngày.</p>
+<ul>
+<li>Miễn phí trải nghiệm thư giãn tại Aquafiled – tổ hợp spa &amp; xông hơi cao cấp hàng đầu Hàn Quốc tại Việt Nam (01 lần cho tất cả khách trong phòng trong suốt thời gian lưu trú).</li>
+<li><strong>Ưu đãi độc quyền khi đặt qua website Vinpearl.com hoặc ứng dụng MyVinpearl:</strong></li>
+<li>Giảm 20% dịch vụ golf.</li>
+<li>Giảm 30% dịch vụ spa.</li>
+<li>Giảm 20% dịch vụ ẩm thực (không bao gồm đồ uống có cồn).</li>
+</ul>
+<p><em>Về các dịch vụ tiện ích bổ sung (như các quán bar tại Nha Trang):</em> Cơ sở dữ liệu ghi nhận một số dịch vụ ăn uống và giải trí tại các khách sạn</p>
+<p>khu nghỉ dưỡng khác ở Nha Trang như <strong>Pool Bar</strong> (tại Vinpearl Empire Nha Trang, Affiliated by Meliá), <strong>Lobby Bar</strong> và <strong>Infinity Pool Bar</strong> (tại Vinpearl Beachfront Nha Trang). Tuy nhiên, cơ sở dữ liệu hiện chưa ghi nhận thông tin chi tiết về các dịch vụ cụ thể bên trong gói ưu đãi spa và chăm sóc sức khỏe này ngoài các đặc quyền nêu trên.</p></div>
+        </div>
+      </article>
+    </div>
+      </div>
+    
+      </section>
+    
+  </div>
+  <script>
+    document.querySelectorAll(".branches").forEach(function (box) {
+      box.addEventListener("click", function (e) {
+        var tab = e.target.closest(".branch-tab");
+        if (!tab) return;
+        var i = tab.getAttribute("data-i");
+        box.querySelectorAll(".branch-tab").forEach(function (el) {
+          el.classList.toggle("is-on", el === tab);
+        });
+        box.querySelectorAll(".branch-panel").forEach(function (el) {
+          el.classList.toggle("is-on", el.getAttribute("data-i") === i);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
