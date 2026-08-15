@@ -124,6 +124,53 @@ function sanitizeTypos(obj) {
   return obj
 }
 
+function normalizeTopics(rawTopics, sourceText) {
+  if (!Array.isArray(rawTopics)) return []
+
+  const topics = rawTopics
+    .filter((topic) => topic && typeof topic === 'object')
+    .map((topic) => ({
+      icon: topic.icon || guessTopicIcon(String(topic.title || '')),
+      title: String(topic.title || '').trim(),
+      subtitle: String(topic.subtitle || '').trim(),
+      stops: Array.isArray(topic.stops) ? topic.stops.filter(Boolean) : [],
+      items: Array.isArray(topic.items)
+        ? topic.items.map((item) => String(item || '').trim()).filter(Boolean)
+        : [],
+    }))
+    .filter((topic) => topic.title || topic.stops.length || topic.items.length)
+
+  if (!topics.length) return []
+
+  // Gemini sometimes formats a short list as consecutive bold lines:
+  //   **Tên khách hàng**
+  //   **Số booking**
+  //   **Loại thanh toán**
+  // The old parser treated every bold line as a new card heading, producing three
+  // empty accordion bodies rendered as "—". If *all* parsed topics are header-only,
+  // they are semantically a list, so collapse them into one visible list card.
+  if (topics.every((topic) => !topic.stops.length && !topic.items.length)) {
+    const items = topics.map((topic) => topic.title).filter(Boolean)
+    if (!items.length) return []
+    return [{
+      icon: '📌',
+      title: getImplicitTopicTitle(sourceText),
+      subtitle: `${items.length} mục`,
+      stops: [],
+      items,
+    }]
+  }
+
+  for (const topic of topics) {
+    if (topic.subtitle) continue
+    const parts = []
+    if (topic.stops.length) parts.push(`${topic.stops.length} hoạt động`)
+    if (topic.items.length && !topic.stops.length) parts.push(`${topic.items.length} mục`)
+    topic.subtitle = parts.join(' · ')
+  }
+  return topics
+}
+
 // ── main parser ──────────────────────────────────────────────────────────────
 
 export function parseStructuredMessage(text) {
@@ -141,13 +188,14 @@ export function parseStructuredMessage(text) {
       const rawObj = JSON.parse(cleanText)
       if (rawObj && typeof rawObj === 'object' && !Array.isArray(rawObj)) {
         const obj = sanitizeTypos(rawObj)
+        const topics = normalizeTopics(obj.topics, text)
         return {
           lead: obj.lead || '',
           context: obj.context && typeof obj.context === 'object' ? obj.context : null,
-          topics: Array.isArray(obj.topics) ? obj.topics : [],
+          topics,
           sources: Array.isArray(obj.sources) ? obj.sources : [],
           actions: Array.isArray(obj.actions) ? obj.actions : [],
-          plainText: '',
+          plainText: topics.length ? '' : (obj.lead || text),
         }
       }
     }
@@ -179,7 +227,7 @@ export function parseStructuredMessage(text) {
     if (!leadDone) {
       const heading = isHeadingLine(trimmed)
       if (!heading && !isBullet(trimmed)) {
-        const cleaned = stripMarkdownBold(trimmed)
+        const cleaned = trimmed
         if (lead) {
           lead += ' ' + cleaned
           leadDone = true // 2 sentences max for lead
@@ -201,8 +249,8 @@ export function parseStructuredMessage(text) {
     // Do not consume such bullets as a context strip, otherwise the place silently
     // disappears from the list. ContextStrip is reserved for standalone prose.
     if (!context && !isBullet(trimmed) && LOCATION_RE.test(trimmed)) {
-      const cleaned = stripMarkdownBold(trimmed)
-      if (cleaned.length < 150) {
+      const cleaned = trimmed
+      if (stripMarkdownBold(cleaned).length < 150) {
         context = { icon: '📍', text: cleaned }
         continue
       }
@@ -230,12 +278,13 @@ export function parseStructuredMessage(text) {
     // ── Process bullet / content lines under a topic ──
     if (currentTopic) {
       const bulletText = isBullet(trimmed) ? cleanBulletText(trimmed) : trimmed
-      const cleaned = stripMarkdownBold(bulletText)
-      const time = parseTimeFromLine(cleaned)
+      const parsingText = stripMarkdownBold(bulletText)
+      const time = parseTimeFromLine(parsingText)
 
       if (time) {
-        // It's a timeline stop
-        const afterTime = cleaned.replace(TIME_RANGE_RE, '').replace(TIME_SINGLE_RE, '').trim()
+        // It's a timeline stop. Use markdown-free text for structural parsing;
+        // normal non-timeline content keeps its inline markdown for rendering.
+        const afterTime = parsingText.replace(TIME_RANGE_RE, '').replace(TIME_SINGLE_RE, '').trim()
         const colonIdx = afterTime.indexOf(':')
         let name, desc
         if (colonIdx > 0 && colonIdx < 60) {
@@ -248,10 +297,10 @@ export function parseStructuredMessage(text) {
         }
         currentTopic.stops.push({ time, name, desc })
       } else if (isBullet(trimmed)) {
-        currentTopic.items.push(cleaned)
+        currentTopic.items.push(bulletText)
       } else {
         // Non-bullet text under a topic — append as description item
-        currentTopic.items.push(cleaned)
+        currentTopic.items.push(bulletText)
       }
       continue
     }
@@ -261,8 +310,9 @@ export function parseStructuredMessage(text) {
     // bullets, without markdown headings. Previously only timed bullets were kept,
     // so normal place/service bullets were dropped from the rendered response.
     if (isBullet(trimmed)) {
-      const cleaned = cleanBulletText(stripMarkdownBold(trimmed))
-      const time = parseTimeFromLine(cleaned)
+      const displayText = cleanBulletText(trimmed)
+      const parsingText = stripMarkdownBold(displayText)
+      const time = parseTimeFromLine(parsingText)
 
       if (!currentTopic) {
         currentTopic = {
@@ -275,11 +325,11 @@ export function parseStructuredMessage(text) {
       }
 
       if (time) {
-        const afterTime = cleaned.replace(TIME_RANGE_RE, '').replace(TIME_SINGLE_RE, '').trim()
+        const afterTime = parsingText.replace(TIME_RANGE_RE, '').replace(TIME_SINGLE_RE, '').trim()
         const name = afterTime.replace(/^[–—-]\s*/, '').trim()
         currentTopic.stops.push({ time, name, desc: '' })
-      } else if (cleaned) {
-        currentTopic.items.push(cleaned)
+      } else if (displayText) {
+        currentTopic.items.push(displayText)
       }
       continue
     }
@@ -290,24 +340,18 @@ export function parseStructuredMessage(text) {
     topics.push(currentTopic)
   }
 
-  // Build subtitles from stop/item counts
-  for (const topic of topics) {
-    const parts = []
-    if (topic.stops.length) parts.push(`${topic.stops.length} hoạt động`)
-    if (topic.items.length && !topic.stops.length) parts.push(`${topic.items.length} mục`)
-    topic.subtitle = parts.join(' · ')
-  }
+  const normalizedTopics = normalizeTopics(topics, text)
 
   // If we got nothing useful, return plainText fallback
-  if (!topics.length && !lead) {
+  if (!normalizedTopics.length && !lead) {
     return { plainText: text, lead: text, context: null, topics: [] }
   }
 
   return sanitizeTypos({
     lead: lead || '',
     context,
-    topics,
-    plainText: topics.length === 0 ? text : '',
+    topics: normalizedTopics,
+    plainText: normalizedTopics.length === 0 ? text : '',
   })
 }
 

@@ -8,6 +8,7 @@ from sqlalchemy import delete, func, select
 
 from src.backend.config import get_settings
 from src.backend.services.db import open_session
+from src.backend.services.query_parser import normalize_text
 from src.data_postgre.db.app import AppUser, ChatSession, EventLog, Message
 
 
@@ -190,6 +191,7 @@ class MemoryService:
                     "ticket_id": metadata.get("ticket_id"),
                     "detected_destinations": metadata.get("detected_destinations") or [],
                     "resolved_destinations": metadata.get("resolved_destinations") or [],
+                    "focus_entities": metadata.get("focus_entities") or [],
                     "context_uses_memory": bool(metadata.get("context_uses_memory", False)),
                     "context_resolution_reason": metadata.get("context_resolution_reason"),
                     "context_resolution_confidence": metadata.get("context_resolution_confidence"),
@@ -433,6 +435,141 @@ class MemoryService:
             for item in destinations
         )
 
+    @staticmethod
+    def extract_recent_entities(
+        turns: list[dict[str, Any]],
+        limit: int = 8,
+    ) -> list[dict[str, str]]:
+        """Return grounded recent entities, newest first, across arbitrary types.
+
+        Entity names/types come from retrieval metadata saved with each turn; this
+        method does not know about specific packages, hotels, promotions or future
+        catalog classes.
+        """
+        recent: list[dict[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for turn in reversed(turns):
+            for item in turn.get("focus_entities") or []:
+                name = str(item.get("name") or "").strip()
+                entity_type = str(item.get("type") or item.get("entity_type") or "entity").strip() or "entity"
+                if not name:
+                    continue
+                key = (entity_type.casefold(), normalize_text(name))
+                if not key[1] or key in seen:
+                    continue
+                seen.add(key)
+                recent.append(
+                    {
+                        "name": name,
+                        "type": entity_type,
+                        "source": str(item.get("source") or "grounded_retrieval"),
+                    }
+                )
+                if len(recent) >= limit:
+                    return recent
+        return recent
+
+    @staticmethod
+    def format_entity_summary(entities: list[dict[str, str]]) -> str:
+        if not entities:
+            return "(none yet)"
+        return ", ".join(
+            f"{item.get('name')} <{item.get('type') or 'entity'}>"
+            for item in entities
+            if item.get("name")
+        ) or "(none yet)"
+
+    @staticmethod
+    def derive_focus_entities(state: dict[str, Any], limit: int = 6) -> list[dict[str, str]]:
+        """Derive current-turn entity focus from grounded retrieval metadata.
+
+        No entity names or topic keywords are hard-coded. Candidate names come from
+        the documents actually retrieved for this turn. A candidate is retained when
+        it is explicitly represented in the user's request/retrieval query or appears
+        in the grounded assistant answer. FAQ documents contribute their subcategory
+        rather than the full question text, which is an evidence record, not an entity.
+        """
+        if str(state.get("route") or "") != "rag":
+            return []
+        if state.get("grounding_passed") is False:
+            return []
+
+        user_blob = normalize_text(
+            " ".join(
+                [
+                    str(state.get("user_message") or ""),
+                    str(state.get("sanitized_user_request") or ""),
+                    str(state.get("rag_query") or ""),
+                ]
+            )
+        )
+        answer_blob = normalize_text(state.get("answer") or "")
+        documents = list(state.get("retrieved_documents") or [])
+
+        ranked: list[tuple[float, dict[str, str]]] = []
+        seen: set[tuple[str, str]] = set()
+
+        def phrase_match(name: str, blob: str) -> float:
+            name_norm = normalize_text(name)
+            if not name_norm or not blob:
+                return 0.0
+            if f" {name_norm} " in f" {blob} ":
+                return 1.0
+            name_tokens = set(name_norm.split())
+            blob_tokens = set(blob.split())
+            if not name_tokens:
+                return 0.0
+            return len(name_tokens & blob_tokens) / len(name_tokens)
+
+        for position, doc in enumerate(documents[:12]):
+            metadata = dict(doc.get("metadata") or {})
+            entity_type = str(metadata.get("entity_type") or metadata.get("source_table") or "entity").strip() or "entity"
+            names: list[tuple[str, str]] = []
+            if entity_type == "faq":
+                subcategory = str(metadata.get("subcategory") or "").strip()
+                if subcategory:
+                    names.append((subcategory, "faq_subject"))
+            else:
+                entity_name = str(metadata.get("entity_name") or "").strip()
+                if entity_name:
+                    names.append((entity_name, entity_type))
+
+            for name, candidate_type in names:
+                normalized_name = normalize_text(name)
+                if not normalized_name:
+                    continue
+                key = (candidate_type.casefold(), normalized_name)
+                if key in seen:
+                    continue
+
+                user_match = phrase_match(name, user_blob)
+                answer_match = phrase_match(name, answer_blob)
+                # Require strong evidence that the entity was actually part of this
+                # conversational turn, not merely a nearby retrieval candidate.
+                if user_match < 0.60 and answer_match < 0.85:
+                    continue
+
+                seen.add(key)
+                try:
+                    doc_score = float(doc.get("score") or 0.0)
+                except (TypeError, ValueError):
+                    doc_score = 0.0
+                source = "user_or_query" if user_match >= 0.60 else "grounded_answer"
+                score = 2.0 * user_match + answer_match + min(1.0, max(0.0, doc_score)) - position * 0.01
+                ranked.append(
+                    (
+                        score,
+                        {
+                            "name": name,
+                            "type": candidate_type,
+                            "source": source,
+                        },
+                    )
+                )
+
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        return [item for _, item in ranked[: max(1, limit)]]
+
     def append_turn(
         self,
         *,
@@ -446,6 +583,7 @@ class MemoryService:
         ticket_id: str | None = None,
         detected_destinations: list[dict[str, Any]] | None = None,
         resolved_destinations: list[dict[str, Any]] | None = None,
+        focus_entities: list[dict[str, Any]] | None = None,
         context_uses_memory: bool = False,
         context_resolution_reason: str | None = None,
         context_resolution_confidence: float | None = None,
@@ -484,6 +622,29 @@ class MemoryService:
 
         compact_destinations = _compact_destination_list(detected_destinations)
         compact_resolved_destinations = _compact_destination_list(resolved_destinations)
+
+        def _compact_entity_list(items: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+            compact: list[dict[str, str]] = []
+            seen_entities: set[tuple[str, str]] = set()
+            for item in items or []:
+                name = str(item.get("name") or "").strip()
+                entity_type = str(item.get("type") or item.get("entity_type") or "entity").strip() or "entity"
+                if not name:
+                    continue
+                key = (entity_type.casefold(), normalize_text(name))
+                if not key[1] or key in seen_entities:
+                    continue
+                seen_entities.add(key)
+                compact.append(
+                    {
+                        "name": name[:220],
+                        "type": entity_type[:100],
+                        "source": str(item.get("source") or "grounded_retrieval")[:80],
+                    }
+                )
+            return compact[:8]
+
+        compact_focus_entities = _compact_entity_list(focus_entities)
 
         with open_session() as db:
             if parsed_user_id is not None and db.get(AppUser, parsed_user_id) is None:
@@ -557,6 +718,7 @@ class MemoryService:
                         "rag_query": rag_query,
                         "detected_destinations": compact_destinations,
                         "resolved_destinations": compact_resolved_destinations,
+                        "focus_entities": compact_focus_entities,
                         "context_uses_memory": bool(context_uses_memory),
                         "context_resolution_reason": context_resolution_reason,
                         "context_resolution_confidence": context_resolution_confidence,

@@ -11,6 +11,83 @@ CATALOG_INTENTS = {
 }
 
 
+def _select_memory_turns(state: AgentState, limit: int = 6) -> list[dict]:
+    """Select prior factual turns chosen by the semantic context resolver.
+
+    The resolver sees the current request plus closed refs for recent turns and
+    decides whether the current factual request genuinely depends on prior context.
+    This avoids topic-specific recap keywords and scales to unseen follow-up forms.
+    We still re-run retrieval for the selected turns instead of trusting old
+    assistant prose as evidence.
+    """
+    selected_refs = [
+        str(value or "").strip()
+        for value in (state.get("selected_memory_turn_refs") or [])
+        if str(value or "").strip()
+    ]
+    if not selected_refs:
+        return []
+
+    selected_set = set(selected_refs[: max(1, limit)])
+    turns = [
+        turn
+        for turn in (state.get("conversation_turns") or [])
+        if str(turn.get("memory_ref") or "") in selected_set
+        and str(turn.get("route") or "") == "rag"
+        and str(turn.get("rag_query") or "").strip()
+    ]
+    # Preserve conversational order, not resolver output order.
+    return turns[-max(1, limit):]
+
+
+def _dedupe_documents(documents: list[dict]) -> list[dict]:
+    output: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for item in documents:
+        metadata = item.get("metadata", {}) or {}
+        key = (
+            str(metadata.get("entity_type") or ""),
+            str(
+                item.get("id")
+                or metadata.get("entity_id")
+                or metadata.get("entity_name")
+                or item.get("text", "")[:160]
+            ),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(item)
+    return output
+
+
+def _merge_intent_results(base: dict, extra: dict) -> dict:
+    merged = {key: dict(value) for key, value in (base or {}).items()}
+    for intent, result in (extra or {}).items():
+        result = dict(result or {})
+        if intent not in merged:
+            merged[intent] = result
+            continue
+        current = merged[intent]
+        if result.get("status") == "found":
+            current["status"] = "found"
+        current["document_count"] = int(current.get("document_count") or 0) + int(
+            result.get("document_count") or 0
+        )
+        current["candidate_count"] = int(current.get("candidate_count") or 0) + int(
+            result.get("candidate_count") or 0
+        )
+        current["best_score"] = max(
+            float(current.get("best_score") or 0.0),
+            float(result.get("best_score") or 0.0),
+        )
+        if result.get("faq_match"):
+            current["faq_match"] = True
+            current["matched_question"] = result.get("matched_question")
+        merged[intent] = current
+    return merged
+
+
 def retrieve_context(state: AgentState) -> AgentState:
     rag = get_rag_service()
     documents, diagnostics = rag.hybrid_search(
@@ -18,20 +95,70 @@ def retrieve_context(state: AgentState) -> AgentState:
         user_message=effective_user_message(state),
         resolved_destinations=state.get("resolved_destinations"),
     )
+
+    memory_turns = _select_memory_turns(state)
+    memory_documents: list[dict] = []
+    memory_queries: list[str] = []
+    merged_intent_results = dict(diagnostics.get("intent_results", {}) or {})
+    merged_intents = list(diagnostics.get("intents", []) or [])
+
+    for turn in memory_turns:
+        previous_query = str(turn.get("rag_query") or "").strip()
+        previous_message = str(turn.get("user_message") or "").strip()
+        if not previous_query:
+            continue
+        memory_queries.append(previous_query)
+        previous_docs, previous_diag = rag.hybrid_search(
+            query=previous_query,
+            user_message=previous_message,
+            top_k=min(3, max(1, get_settings().top_k)),
+            resolved_destinations=turn.get("resolved_destinations") or None,
+        )
+        for item in previous_docs:
+            copied = dict(item)
+            copied["memory_retrieved"] = True
+            memory_documents.append(copied)
+        merged_intent_results = _merge_intent_results(
+            merged_intent_results,
+            previous_diag.get("intent_results", {}),
+        )
+        for intent in previous_diag.get("intents", []) or []:
+            if intent and intent not in merged_intents:
+                merged_intents.append(intent)
+
+    if memory_documents:
+        # For recap/synthesis, previously grounded branches are the most useful
+        # evidence. Put them before the broad current retrieval so the context
+        # character budget cannot hide a short authoritative FAQ behind a long
+        # regulations document.
+        documents = _dedupe_documents(memory_documents + documents)
+        retrieval_mode = f"memory_augmented:{diagnostics.get('mode') or 'unknown'}"
+        print(
+            "[MEMORY RETRIEVAL] "
+            f"selected_turns={len(memory_turns)} queries={len(memory_queries)} "
+            f"memory_docs={len(memory_documents)} merged_docs={len(documents)}"
+        )
+    else:
+        retrieval_mode = diagnostics.get("mode")
+
+    primary_intent = merged_intents[0] if merged_intents else diagnostics.get("intent")
+
     return {
         "retrieved_documents": documents,
         "context": rag.build_context(documents),
-        "retrieval_mode": diagnostics.get("mode"),
+        "retrieval_mode": retrieval_mode,
         "detected_destination": diagnostics.get("destination_id"),
         "detected_destination_name": diagnostics.get("destination_name"),
         "detected_destinations": diagnostics.get("destinations", []),
         "detected_destination_ids": diagnostics.get("destination_ids", []),
         "detected_destination_names": diagnostics.get("destination_names", []),
-        "detected_intent": diagnostics.get("intent"),
-        "detected_intents": diagnostics.get("intents", []),
-        "intent_results": diagnostics.get("intent_results", {}),
+        "detected_intent": primary_intent,
+        "detected_intents": merged_intents,
+        "intent_results": merged_intent_results,
         "keyword_candidate_count": int(diagnostics.get("keyword_candidate_count") or 0),
         "missing_destination_ids": diagnostics.get("missing_destination_ids", []),
+        "memory_retrieval_queries": memory_queries,
+        "memory_augmented": bool(memory_documents),
     }
 
 
@@ -76,11 +203,12 @@ def _insufficiency_action(state: AgentState) -> str:
 
     if resolution_mode == "human_required":
         return "ticket"
-    if request_mode == "support_action":
-        return "ticket"
 
-    # Informational/catalog questions should never create a ticket merely because
-    # the knowledge base does not contain the requested category.
+    # Do not auto-create tickets merely because a self-service/how-to branch lacks
+    # enough data. Automatic escalation is reserved for requests that triage has
+    # explicitly classified as case-specific human-required work. This keeps policy,
+    # refund/cancellation procedure, and contact-information questions from creating
+    # tickets unexpectedly.
     return "no_data"
 
 
@@ -98,6 +226,35 @@ def assess_information(state: AgentState) -> AgentState:
     settings = get_settings()
     intent_results = state.get("intent_results", {}) or {}
     detected_intents = state.get("detected_intents", []) or []
+
+    # FAQ-first retrieval is already a high-confidence evidence decision against
+    # the canonical FAQ file. Do not send it through the generic LLM sufficiency
+    # judge again: that adds latency/rate-limit pressure and can incorrectly reject
+    # an authoritative FAQ answer that the deterministic matcher already identified.
+    retrieval_mode = str(state.get("retrieval_mode") or "")
+    if retrieval_mode.startswith("faq_") and documents:
+        scores = [float(item.get("score", 0.0) or 0.0) for item in documents]
+        best_score = max(scores, default=0.0)
+        if best_score >= settings.min_relevance_score:
+            reason = (
+                "Deterministic FAQ clear-pass: canonical FAQ-first retrieval returned "
+                "authoritative evidence above the configured relevance threshold."
+            )
+            print("\n===== RAG ASSESSMENT =====")
+            print(f"Question: {effective_user_message(state)}")
+            print(f"Retrieval mode: {retrieval_mode}")
+            print(f"Detected intents: {detected_intents or [state.get('detected_intent')]}")
+            print(f"Intent results: {intent_results}")
+            print(f"Best score: {best_score:.4f}")
+            print("Enough: True (deterministic FAQ clear-pass)")
+            print(f"Reason: {reason}")
+            print("==========================\n")
+            return {
+                "enough_information": True,
+                "assessment_reason": reason,
+                "best_relevance_score": best_score,
+                "insufficiency_action": "no_data",
+            }
 
     # Native partial-answer behavior for multi-intent informational turns. One
     # missing catalog branch must not erase the evidence from other branches. For
@@ -226,8 +383,10 @@ def assess_information(state: AgentState) -> AgentState:
             "Decide only whether the supplied retrieved context contains enough information "
             "to give a useful, grounded answer to the user's current question. Do not use "
             "outside knowledge. Mark enough=true when the context directly contains the requested "
-            "facts or enough information for a useful partial answer. Do not mark false merely "
-            "because every possible detail is absent. Mark enough=false only when key facts are "
+            "facts or enough information for a useful partial answer. For comparison requests, if the context contains "
+            "grounded descriptions of each compared entity, that is enough to synthesize a comparison even when no source "
+            "contains an explicit pre-written comparison. Do not mark false merely because every possible detail is absent. "
+            "Mark enough=false only when key facts are "
             "genuinely missing or contradictory. Do not decide ticket escalation here; support triage is "
             "provided separately. Return valid JSON only with keys enough and reason."
         ),

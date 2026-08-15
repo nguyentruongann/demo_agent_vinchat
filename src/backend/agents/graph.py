@@ -57,7 +57,10 @@ def route_after_assessment(state: AgentState) -> str:
         return "ticket"
     if state.get("enough_information"):
         return "answer"
-    return state.get("insufficiency_action", "ticket")
+    # Fail safe toward an informational no-data response. Ticket creation is a
+    # consequential side effect and must be explicitly justified by triage as
+    # ``human_required``; a missing/unknown assessment field must never create one.
+    return state.get("insufficiency_action", "no_data")
 
 
 builder = StateGraph(AgentState)

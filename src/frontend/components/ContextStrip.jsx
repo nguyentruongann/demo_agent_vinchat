@@ -1,3 +1,4 @@
+import InlineMarkdown from './InlineMarkdown'
 import '../styles/components/StructuredMessage.css'
 
 /**
@@ -10,7 +11,7 @@ function ContextStrip({ context }) {
   return (
     <div className="context-strip">
       <span className="context-strip__icon">{context.icon}</span>
-      <span className="context-strip__text">{context.text}</span>
+      <span className="context-strip__text"><InlineMarkdown>{context.text}</InlineMarkdown></span>
     </div>
   )
 }

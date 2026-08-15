@@ -8,6 +8,7 @@ import chromadb
 import numpy as np
 from src.backend.config import get_settings
 from src.backend.services.onnx_embeddings import OnnxE5Embedder, OnnxEmbeddingConfig
+from src.backend.services.faq_matcher import FAQMatcher
 from src.backend.services.query_parser import (
     build_intent_query,
     load_destination_catalog,
@@ -54,6 +55,14 @@ class RAGService:
             name=settings.chroma_collection,
             metadata={"hnsw:space": "cosine"},
         )
+        # Canonical FAQ retrieval is intentionally separate from generic catalog
+        # retrieval. It reuses this same ONNX model instance and the raw 174-row
+        # FAQ JSON, so no second embedding model is loaded into memory.
+        self.faq_matcher = FAQMatcher(
+            embed_passages=self.embed_documents,
+            embed_queries=self.embed_queries,
+            fallback_rows=self._load_faq_fallback_rows,
+        )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         passages = [f"passage: {text}" for text in texts]
@@ -63,6 +72,17 @@ class RAGService:
     def embed_query(self, query: str) -> list[float]:
         embedding = self.model.encode([f"query: {query}"])[0]
         return embedding.tolist()
+
+    def embed_queries(self, queries: list[str]) -> np.ndarray:
+        """Embed several query strings in one ONNX batch.
+
+        FAQ-first retrieval compares both the user's original multilingual wording
+        and the English standalone rewrite. Batching them avoids duplicate inference.
+        """
+        cleaned = [str(query or "").strip() for query in queries if str(query or "").strip()]
+        if not cleaned:
+            return np.empty((0, 384), dtype=np.float32)
+        return self.model.encode([f"query: {query}" for query in cleaned])
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         return self.embed_documents(texts)
@@ -258,6 +278,49 @@ class RAGService:
         print(f"[RAG] Built lexical cache: {count} Chroma documents")
         return cache
 
+    def _load_faq_fallback_rows(self) -> list[dict[str, Any]]:
+        """Recover FAQ rows from Chroma when raw JSON is absent in the image.
+
+        ``postgres_loader`` writes FAQ columns into labeled text lines and keeps the
+        question in ``entity_name``. Reconstructing these lightweight rows makes the
+        FAQ-first path deployment-safe without requiring a database migration or
+        Chroma rebuild.
+        """
+        cache = self._load_corpus_cache()
+        rows: list[dict[str, Any]] = []
+
+        def field(text: str, label: str) -> str:
+            prefix = f"{label}:"
+            for line in str(text or "").splitlines():
+                if line.startswith(prefix):
+                    return line[len(prefix):].strip()
+            return ""
+
+        for index, metadata in enumerate(cache["metadatas"]):
+            entity_type = normalize_text(
+                str(metadata.get("entity_type") or metadata.get("category") or "")
+            )
+            if entity_type != "faq":
+                continue
+
+            document_text = str(cache["documents"][index] or "")
+            question = str(metadata.get("entity_name") or field(document_text, "Question")).strip()
+            answer = field(document_text, "Answer") or document_text
+            if not question or not answer:
+                continue
+            rows.append({
+                "index": len(rows),
+                "question": question,
+                "answer": answer,
+                "category": str(metadata.get("category") or field(document_text, "Category") or "General"),
+                "subcategory": field(document_text, "Subcategory"),
+                "source_url": str(metadata.get("source_url") or "https://vinpearl.com/en/faqs"),
+                "language": str(metadata.get("content_language") or "en"),
+                "source_path": "chroma:faq",
+            })
+
+        return rows
+
     @staticmethod
     def _phrase_in_text(text: str, phrase: str) -> bool:
         if not text or not phrase:
@@ -444,6 +507,129 @@ class RAGService:
                 break
         return selected
 
+    def _find_named_entity_mentions(
+        self,
+        *texts: str,
+        max_entities: int = 6,
+    ) -> list[dict[str, Any]]:
+        """Find corpus entity names literally/faithfully present in the request.
+
+        The index is built from Chroma metadata at runtime. There is no package,
+        property or promotion name dictionary in code, so newly ingested entity
+        types automatically participate. FAQ question titles are excluded because
+        the dedicated FAQ matcher owns that evidence lane.
+        """
+        combined = normalize_text(" ".join(str(value or "") for value in texts))
+        if not combined:
+            return []
+
+        cache = self._load_corpus_cache()
+        by_name: dict[tuple[str, str], dict[str, Any]] = {}
+        for index, metadata in enumerate(cache["metadatas"]):
+            entity_type = str(metadata.get("entity_type") or metadata.get("category") or "entity").strip() or "entity"
+            if normalize_text(entity_type) == "faq":
+                continue
+            name = str(metadata.get("entity_name") or "").strip()
+            normalized_name = normalize_text(name)
+            if not normalized_name:
+                continue
+            tokens = normalized_name.split()
+            # Single-token names are too broad for substring matching unless the
+            # entire current request is that entity name. This is structural, not
+            # a topic-specific deny-list.
+            if len(tokens) == 1 and combined != normalized_name:
+                continue
+            if not self._phrase_in_text(combined, normalized_name):
+                continue
+
+            key = (entity_type, normalized_name)
+            bucket = by_name.setdefault(
+                key,
+                {
+                    "name": name,
+                    "normalized_name": normalized_name,
+                    "type": entity_type,
+                    "indices": [],
+                },
+            )
+            bucket["indices"].append(index)
+
+        # Prefer the most specific/longest named mentions and suppress a shorter
+        # candidate fully contained in an already selected longer name.
+        ranked = sorted(
+            by_name.values(),
+            key=lambda item: (
+                len(str(item["normalized_name"]).split()),
+                len(str(item["normalized_name"])),
+            ),
+            reverse=True,
+        )
+        selected: list[dict[str, Any]] = []
+        selected_names: list[str] = []
+        for item in ranked:
+            name_norm = str(item["normalized_name"])
+            if any(
+                name_norm != longer and self._phrase_in_text(longer, name_norm)
+                for longer in selected_names
+            ):
+                continue
+            selected.append(item)
+            selected_names.append(name_norm)
+            if len(selected) >= max_entities:
+                break
+        return selected
+
+    def _retrieve_named_entity_branches(
+        self,
+        entities: list[dict[str, Any]],
+        query: str,
+        per_entity_k: int = 2,
+    ) -> list[dict[str, Any]]:
+        """Retrieve evidence independently for every named entity mention.
+
+        Comparison/synthesis requests therefore cannot lose one side merely because
+        a single embedding query spends all top-k slots on the other side.
+        """
+        if not entities:
+            return []
+        cache = self._load_corpus_cache()
+        groups: list[list[dict[str, Any]]] = []
+        for entity in entities:
+            candidates: list[dict[str, Any]] = []
+            for index in entity.get("indices") or []:
+                metadata = cache["metadatas"][index]
+                candidates.append(
+                    {
+                        "id": cache["ids"][index],
+                        "text": cache["documents"][index],
+                        "metadata": metadata,
+                        "keyword_score": 1.0,
+                        "matched_aliases": [entity.get("normalized_name")],
+                    }
+                )
+            branch_query = f"{entity.get('name')}. {query}".strip()
+            ranked = self._rerank_candidates(
+                query=branch_query,
+                candidates=candidates,
+                top_k=max(1, per_entity_k),
+                preferred_entity_types={str(entity.get("type") or "")},
+                intent=None,
+            )
+            for item in ranked:
+                item["matched_named_entity"] = str(entity.get("name") or "")
+                item["retrieval_mode"] = "named_entity_branch"
+            groups.append(ranked)
+
+        # Round-robin guarantees at least the best source for each entity before a
+        # second source from any one branch can consume context budget.
+        merged: list[dict[str, Any]] = []
+        max_len = max((len(group) for group in groups), default=0)
+        for offset in range(max_len):
+            for group in groups:
+                if offset < len(group):
+                    merged.append(group[offset])
+        return self._dedupe_documents(merged)
+
     def _rerank_candidates(
         self,
         query: str,
@@ -600,6 +786,130 @@ class RAGService:
         missing_destination_ids: list[str] = []
         documents: list[dict[str, Any]] = []
         intent_results: dict[str, dict[str, Any]] = {}
+
+        # ------------------------------------------------------------------
+        # FAQ-FIRST RETRIEVAL
+        # ------------------------------------------------------------------
+        # FAQ questions must be checked BEFORE destination/entity filtering. The old
+        # ordering could detect ``Phu Quoc`` + ``attraction`` and then restrict the
+        # candidate set to attraction/complex rows, making the exact FAQ invisible.
+        # That is precisely why "Can I bring my pet into Grand World Phu Quoc?"
+        # previously retrieved two unrelated attraction articles even though the FAQ
+        # JSON contained the authoritative answer.
+        #
+        # Exact FAQ equality is always allowed. Semantic FAQ matching is skipped only
+        # for broad multi-category discovery queries, where a narrow FAQ answer should
+        # not replace normal destination consultation.
+        generic_discovery_intents = {"attraction", "hotel", "dining", "service"}
+        skip_faq_semantic = (
+            len(intents) >= 3
+            and generic_discovery_intents.issubset(set(intents))
+        )
+        faq_documents, faq_diagnostics = self.faq_matcher.match(
+            original_query=str(user_message or "").strip(),
+            rewritten_query=str(query or "").strip(),
+            top_k=min(3, max(1, k)),
+            skip_semantic=skip_faq_semantic,
+        )
+
+        if faq_diagnostics.get("accepted") and faq_documents:
+            primary_destination = destinations[0] if destinations else None
+            destination_ids = [str(item.get("id") or "") for item in destinations]
+            destination_names = [
+                str(item.get("name_vi") or item.get("name_en") or item.get("id") or "")
+                for item in destinations
+            ]
+
+            # Carry resolved destination identity into the FAQ evidence. This keeps
+            # downstream source filtering/citation selection consistent even though
+            # the raw FAQ row itself does not store a normalized destination_id.
+            if primary_destination:
+                for item in faq_documents:
+                    item["matched_destination_id"] = str(primary_destination.get("id") or "")
+                    item["matched_destination_name"] = str(
+                        primary_destination.get("name_vi")
+                        or primary_destination.get("name_en")
+                        or primary_destination.get("id")
+                        or ""
+                    )
+                    metadata = item.get("metadata", {}) or {}
+                    if not metadata.get("destination_id"):
+                        metadata["destination_id"] = str(primary_destination.get("id") or "")
+                    item["metadata"] = metadata
+
+            matched_intent_names = intents or ([primary_intent] if primary_intent else ["faq"])
+            for item in faq_documents:
+                item["matched_intent"] = primary_intent or "faq"
+            for intent_name in matched_intent_names:
+                if not intent_name:
+                    continue
+                intent_results[str(intent_name)] = {
+                    "status": "found",
+                    "document_count": len(faq_documents),
+                    "candidate_count": int(faq_diagnostics.get("candidate_count") or 0),
+                    "best_score": round(float(faq_diagnostics.get("best_score") or 0.0), 4),
+                    "query": query,
+                    "missing_destination_ids": [],
+                    "faq_match": True,
+                    "matched_question": faq_diagnostics.get("matched_question"),
+                }
+
+            faq_mode = str(faq_diagnostics.get("mode") or "faq_semantic")
+            diagnostics = {
+                "mode": faq_mode,
+                "destination_id": primary_destination.get("id") if primary_destination else None,
+                "destination_name": (
+                    primary_destination.get("name_vi") or primary_destination.get("name_en")
+                    if primary_destination else None
+                ),
+                "destinations": destinations,
+                "destination_ids": destination_ids,
+                "destination_names": destination_names,
+                "intent": primary_intent or "faq",
+                "intents": intents or ["faq"],
+                "intent_results": intent_results,
+                "keyword_candidate_count": int(faq_diagnostics.get("candidate_count") or 0),
+                "missing_destination_ids": [],
+                "faq_match": faq_diagnostics,
+            }
+            print(
+                "[FAQ RETRIEVAL] "
+                f"mode={faq_mode} accepted=true "
+                f"question={faq_diagnostics.get('matched_question')!r} "
+                f"score={faq_diagnostics.get('best_score')} "
+                f"semantic={faq_diagnostics.get('best_semantic_score')} "
+                f"lexical={faq_diagnostics.get('best_lexical_score')} "
+                f"weighted_f1={faq_diagnostics.get('best_weighted_f1')} "
+                f"query_coverage={faq_diagnostics.get('best_query_coverage')} "
+                f"margin={faq_diagnostics.get('margin')}"
+            )
+            return faq_documents, diagnostics
+
+        if faq_diagnostics.get("mode") not in {None, "faq_skipped"}:
+            print(
+                "[FAQ RETRIEVAL] "
+                f"mode={faq_diagnostics.get('mode')} accepted=false "
+                f"candidate={faq_diagnostics.get('matched_question')!r} "
+                f"score={faq_diagnostics.get('best_score')} "
+                f"semantic={faq_diagnostics.get('best_semantic_score')} "
+                f"lexical={faq_diagnostics.get('best_lexical_score')} "
+                f"weighted_f1={faq_diagnostics.get('best_weighted_f1')} "
+                f"query_coverage={faq_diagnostics.get('best_query_coverage')} "
+                f"margin={faq_diagnostics.get('margin')}"
+            )
+
+        named_entities = self._find_named_entity_mentions(user_message, query)
+        named_entity_documents = self._retrieve_named_entity_branches(
+            named_entities,
+            query=query,
+            per_entity_k=2,
+        )
+        if named_entities:
+            print(
+                "[NAMED ENTITY RETRIEVAL] "
+                f"entities={[item.get('name') for item in named_entities]} "
+                f"documents={len(named_entity_documents)}"
+            )
 
         if destinations:
             # Allocate a useful minimum to each intent. The final merged context is
@@ -786,6 +1096,11 @@ class RAGService:
                         "missing_destination_ids": [],
                     }
 
+        if named_entity_documents:
+            documents = self._dedupe_documents(named_entity_documents + documents)
+            prefix = "named_entity_multi" if len(named_entities) > 1 else "named_entity"
+            mode = f"{prefix}:{mode}"
+
         primary = destinations[0] if destinations else None
         destination_names = [
             str(item.get("name_vi") or item.get("name_en") or item.get("id") or "")
@@ -807,12 +1122,17 @@ class RAGService:
             "intent_results": intent_results,
             "keyword_candidate_count": all_candidates,
             "missing_destination_ids": missing_destination_ids,
+            "named_entities": [
+                {"name": item.get("name"), "type": item.get("type")}
+                for item in named_entities
+            ],
         }
 
         print(
             "[RAG RETRIEVAL] "
             f"mode={mode} destinations={destination_ids or 'none'} "
             f"intents={intents or [primary_intent]} candidates={all_candidates} "
+            f"named_entities={[item.get('name') for item in named_entities]} "
             f"intent_results={intent_results}"
         )
         return documents, diagnostics

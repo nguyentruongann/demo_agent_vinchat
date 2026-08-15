@@ -18,6 +18,8 @@ class AgentState(TypedDict, total=False):
     conversation_history: str
     recent_destinations: list[dict[str, str]]
     recent_destination_summary: str
+    recent_entities: list[dict[str, str]]
+    recent_entity_summary: str
 
     # Semantic reference resolution. These fields describe the destination focus
     # of the CURRENT user request before retrieval runs. They are deliberately
@@ -26,6 +28,9 @@ class AgentState(TypedDict, total=False):
     resolved_destinations: list[dict[str, Any]]
     resolved_destination_ids: list[str]
     resolved_destination_names: list[str]
+    resolved_entities: list[dict[str, Any]]
+    resolved_entity_names: list[str]
+    selected_memory_turn_refs: list[str]
     context_uses_memory: bool
     context_resolution_reason: str
     context_resolution_confidence: float
@@ -70,6 +75,10 @@ class AgentState(TypedDict, total=False):
     intent_results: dict[str, dict[str, Any]]
     keyword_candidate_count: int
     missing_destination_ids: list[str]
+
+    # Conversation-memory retrieval augmentation used for recap/summary follow-ups.
+    memory_retrieval_queries: list[str]
+    memory_augmented: bool
 
     enough_information: bool
     assessment_reason: str
