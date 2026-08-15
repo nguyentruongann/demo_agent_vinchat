@@ -15,7 +15,11 @@ def load_conversation_memory(state: AgentState) -> AgentState:
         state.get("session_id"),
         user_id=state.get("user_id"),
     )
+    for index, turn in enumerate(turns):
+        turn["memory_ref"] = f"turn:{index + 1}"
+
     recent_destinations = memory.extract_recent_destinations(turns)
+    recent_entities = memory.extract_recent_entities(turns)
 
     # Keep this log concise but explicit: it makes reference-resolution bugs
     # visible before retrieval. Most importantly, assistant-only destination
@@ -23,8 +27,10 @@ def load_conversation_memory(state: AgentState) -> AgentState:
     print("\n===== CONVERSATION MEMORY =====")
     print(f"Session: {state.get('session_id')}")
     print(f"Loaded turns: {len(turns)}")
-    print(f"Recent focus: {[item.get('id') for item in recent_destinations]}")
-    print(f"Focus summary: {memory.format_destination_summary(recent_destinations)}")
+    print(f"Recent destinations: {[item.get('id') for item in recent_destinations]}")
+    print(f"Destination summary: {memory.format_destination_summary(recent_destinations)}")
+    print(f"Recent entities: {[item.get('name') for item in recent_entities]}")
+    print(f"Entity summary: {memory.format_entity_summary(recent_entities)}")
     print("===============================\n")
 
     return {
@@ -32,6 +38,8 @@ def load_conversation_memory(state: AgentState) -> AgentState:
         "conversation_history": memory.format_for_prompt(turns),
         "recent_destinations": recent_destinations,
         "recent_destination_summary": memory.format_destination_summary(recent_destinations),
+        "recent_entities": recent_entities,
+        "recent_entity_summary": memory.format_entity_summary(recent_entities),
     }
 
 
@@ -42,7 +50,9 @@ def save_conversation_memory(state: AgentState) -> AgentState:
     if state.get("safety_action") == "block" or state.get("scope_action") == "block":
         persisted_route = "out_of_scope"
 
-    MemoryService().append_turn(
+    memory = MemoryService()
+    focus_entities = memory.derive_focus_entities(state)
+    memory.append_turn(
         session_id=state.get("session_id"),
         user_id=state.get("user_id"),
         user_message=state.get("user_message", ""),
@@ -53,6 +63,7 @@ def save_conversation_memory(state: AgentState) -> AgentState:
         ticket_id=state.get("ticket_id"),
         detected_destinations=state.get("detected_destinations", []),
         resolved_destinations=state.get("resolved_destinations", []),
+        focus_entities=focus_entities,
         context_uses_memory=bool(state.get("context_uses_memory", False)),
         context_resolution_reason=state.get("context_resolution_reason"),
         context_resolution_confidence=state.get("context_resolution_confidence"),

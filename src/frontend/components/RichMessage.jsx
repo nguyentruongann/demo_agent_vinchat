@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ExternalLink, ImageIcon, Link2, X } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import InlineMarkdown from './InlineMarkdown'
 import '../styles/components/RichMessage.css'
 
 /**
@@ -138,7 +139,8 @@ function InlineLink({ href }) {
  * @param {{ text: string, isUser?: boolean }} props
  */
 function RichMessage({ text, isUser }) {
-  // User messages are rendered as-is (no parsing).
+  // User messages are rendered exactly as typed. Markdown formatting is only
+  // applied to assistant output.
   if (isUser || !text) {
     return <p className="rich-msg__text">{text}</p>
   }
@@ -147,7 +149,7 @@ function RichMessage({ text, isUser }) {
 
   // If there are no URLs at all, render as plain text (fast path).
   if (tokens.length === 1 && tokens[0].type === 'text') {
-    return <p className="rich-msg__text">{text}</p>
+    return <p className="rich-msg__text"><InlineMarkdown>{text}</InlineMarkdown></p>
   }
 
   return (
@@ -162,7 +164,7 @@ function RichMessage({ text, isUser }) {
         // Plain text segment — preserve whitespace.
         return (
           <span key={`txt-${index}`} className="rich-msg__text">
-            {token.value}
+            <InlineMarkdown>{token.value}</InlineMarkdown>
           </span>
         )
       })}

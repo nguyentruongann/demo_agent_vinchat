@@ -32,6 +32,8 @@ def validate_grounding(state: AgentState) -> AgentState:
             "It NEVER supports the stronger claim that golf or any entity does not exist in reality. "
             "For multi-intent answers, validate each section independently. A missing branch may be "
             "reported as KB-not-found while found branches must remain grounded in context. "
+            "When RETRIEVED_CONTEXT contains a matching type=faq source, a faithful translation or concise "
+            "paraphrase of that FAQ's Answer field is grounded even if it does not repeat the English wording verbatim. "
             "If unsupported content exists, return a corrected answer removing only unsupported claims "
             "and preserving grounded partial sections. Introduce no new facts. corrected_answer MUST be "
             "entirely in TARGET_RESPONSE_LANGUAGE. Do not fall back to English just because the context is English. "

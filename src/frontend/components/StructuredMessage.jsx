@@ -5,6 +5,7 @@ import TopicCard from './TopicCard'
 import SourcePills from './SourcePills'
 import ActionRow from './ActionRow'
 import RichMessage from './RichMessage'
+import InlineMarkdown from './InlineMarkdown'
 import '../styles/components/StructuredMessage.css'
 
 /**
@@ -50,7 +51,7 @@ function StructuredMessage({ text, sources, isUser, onAction, showActions = true
     <div className="structured-msg">
       {/* Lead paragraph */}
       {parsed.lead && (
-        <p className="structured-msg__lead">{parsed.lead}</p>
+        <p className="structured-msg__lead"><InlineMarkdown>{parsed.lead}</InlineMarkdown></p>
       )}
 
       {/* Context strip (location/distance) */}

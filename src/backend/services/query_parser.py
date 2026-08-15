@@ -52,6 +52,17 @@ INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "policy", "policies", "regulation", "regulations", "terms", "term",
         "chinh sach", "chính sách", "quy dinh", "quy định", "dieu khoan", "điều khoản",
         "check-in", "check-out", "check in", "check out",
+        # Booking/refund lifecycle is policy even when the user does not literally
+        # say "policy". Keeping these here lets mixed questions such as
+        # "payment + refund" create separate payment/policy retrieval branches.
+        "refund", "refunds", "refundable", "non-refundable", "nonrefundable",
+        "cancellation", "cancel booking", "cancel reservation", "booking cancellation",
+        "amendment", "reschedule", "change booking", "change reservation",
+        "hoan tien", "hoàn tiền", "hoan ve", "hoàn vé",
+        "huy dat phong", "hủy đặt phòng", "huỷ đặt phòng",
+        "huy booking", "hủy booking", "huỷ booking",
+        "huy dat cho", "hủy đặt chỗ", "huỷ đặt chỗ",
+        "doi dat cho", "đổi đặt chỗ", "thay doi dat cho", "thay đổi đặt chỗ",
     ),
     "payment": (
         "payment", "payments", "pay", "bank", "account", "swift",
@@ -131,27 +142,10 @@ _GENERIC_DISCOVERY_MARKERS: tuple[str, ...] = (
     "holiday",
 )
 
-# A generic travel word must not broaden a clearly external request into a
-# Vinpearl discovery query. Scope/guardrail already handles these topics, but
-# this parser-level deny list makes retrieval fail-safe as well.
-_GENERIC_DISCOVERY_EXCLUSIONS: tuple[str, ...] = (
-    "ve may bay",
-    "may bay",
-    "flight",
-    "airline",
-    "thoi tiet",
-    "weather",
-    "visa",
-    "thi thuc",
-    "ho chieu",
-    "passport",
-    "taxi",
-    "grab",
-    "xe buyt",
-    "bus route",
-    "tau hoa",
-    "train ticket",
-)
+# Scope is decided once, upstream, by the authoritative semantic guardrail.
+# This parser deliberately does not maintain an external-topic keyword deny-list:
+# terms such as flight, shuttle, transfer, rain, passport, or payment can be valid
+# Vinpearl FAQ/service content and must not suppress retrieval after scope was allowed.
 
 INTENT_QUERY_LABELS: dict[str, str] = {
     "hotel": "hotels resorts rooms accommodation",
@@ -380,9 +374,6 @@ def _is_generic_destination_discovery(
     normalized_rag = normalize_text(rag_query)
     combined = f"{normalized_message} {normalized_rag}".strip()
     if not combined:
-        return False
-
-    if any(marker in combined for marker in _GENERIC_DISCOVERY_EXCLUSIONS):
         return False
 
     return any(marker in combined for marker in _GENERIC_DISCOVERY_MARKERS)

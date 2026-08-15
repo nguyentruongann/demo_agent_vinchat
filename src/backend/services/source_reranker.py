@@ -433,6 +433,67 @@ class SourceReranker:
             original_retrieved_ids.add(pseudo_id)
             seed_items.append(copied)
 
+        # Canonical FAQ-first retrieval already selected the authoritative source row.
+        # Do not replace it with a destination article merely because the final answer
+        # names "Grand World Phu Quoc" more prominently than it repeats the FAQ
+        # question. This was the citation-side companion of the FAQ retrieval bug.
+        faq_seeds = [
+            item for item in seed_items
+            if str((item.get("metadata", {}) or {}).get("entity_type") or "") == "faq"
+            and str(item.get("retrieval_mode") or "").startswith("faq_")
+        ]
+        # Short-circuit to FAQ-only citations only when the retrieval result itself
+        # is FAQ-only. A recap/synthesis turn may intentionally merge a canonical
+        # FAQ with payment regulations or other previously grounded branches. In
+        # that mixed case, returning only the FAQ silently drops evidence needed by
+        # the rest of the answer.
+        faq_only_retrieval = bool(seed_items) and all(
+            str((item.get("metadata", {}) or {}).get("entity_type") or "") == "faq"
+            and str(item.get("retrieval_mode") or "").startswith("faq_")
+            for item in seed_items
+        )
+        if faq_seeds and faq_only_retrieval:
+            output: list[dict[str, Any]] = []
+            seen_urls: set[str] = set()
+            seen_questions: set[str] = set()
+            for item in faq_seeds:
+                metadata = item.get("metadata", {}) or {}
+                question = normalize_text(str(metadata.get("entity_name") or ""))
+                best_url = self._best_url(
+                    item,
+                    answer_entities=answer_entities,
+                    target_destination_ids=destination_ids,
+                )
+                if best_url and best_url in seen_urls:
+                    # All FAQ rows normally share the official FAQ page; one source
+                    # card is enough even if duplicate wording exists in two categories.
+                    continue
+                if question and question in seen_questions:
+                    continue
+                if best_url:
+                    seen_urls.add(best_url)
+                if question:
+                    seen_questions.add(question)
+                output.append({
+                    **item,
+                    "citation_score": 999.0,
+                    "best_source_url": best_url,
+                })
+                if len(output) >= max_sources:
+                    break
+
+            print(
+                "[SOURCE RERANK] authoritative FAQ source path "
+                f"destination_ids={sorted(destination_ids)} selected={len(output)}"
+            )
+            for index, item in enumerate(output, start=1):
+                metadata = item.get("metadata", {}) or {}
+                print(
+                    f"  {index}. citation_score={item.get('citation_score')} "
+                    f"name={metadata.get('entity_name')} url={item.get('best_source_url')}"
+                )
+            return output
+
         # Search the entire indexed knowledge base lexically, but only for entities
         # that survived into the final answer. This is the key difference from using
         # retrieved_documents[:5].

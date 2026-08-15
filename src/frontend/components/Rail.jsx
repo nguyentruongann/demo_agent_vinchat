@@ -1,3 +1,4 @@
+import InlineMarkdown from './InlineMarkdown'
 import '../styles/components/StructuredMessage.css'
 
 /**
@@ -14,9 +15,9 @@ function Stop({ stop }) {
         {stop.time && (
           <span className="rail__time-chip">{stop.time}</span>
         )}
-        <span className="rail__stop-name">{stop.name}</span>
+        <span className="rail__stop-name"><InlineMarkdown>{stop.name}</InlineMarkdown></span>
         {stop.desc && (
-          <p className="rail__stop-desc">{stop.desc}</p>
+          <p className="rail__stop-desc"><InlineMarkdown>{stop.desc}</InlineMarkdown></p>
         )}
       </div>
     </div>

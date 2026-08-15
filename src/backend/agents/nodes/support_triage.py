@@ -12,6 +12,136 @@ RequestMode = Literal["information", "support_action"]
 ResolutionMode = Literal["information_only", "self_serve", "human_required"]
 
 
+_DIRECT_OPERATION_MARKERS = (
+    # Explicit requests for the assistant/staff to inspect or act on a personal record.
+    "can you check", "could you check", "please check", "check my", "verify my",
+    "look up my", "find my booking", "find my reservation", "track my luggage",
+    "trace my luggage", "find my luggage", "locate my luggage", "resend my",
+    "send it to me", "send me the", "process my", "process a refund", "refund me",
+    "refund my", "can you cancel my", "could you cancel my", "please cancel my",
+    "cancel my booking for me", "cancel my reservation for me",
+    "can you change my booking", "could you change my booking", "please change my booking",
+    "change my booking for me", "change my reservation for me",
+    "modify my booking for me", "book it for me", "do it for me", "contact them for me",
+    "create a ticket", "open a ticket", "raise a ticket", "escalate this to support",
+    "ban kiem tra", "vui long kiem tra", "kiem tra booking cua toi",
+    "kiem tra dat cho cua toi", "xac minh cho toi", "tra cuu cho toi",
+    "tim hanh ly cua toi", "theo doi hanh ly cua toi", "gui lai cho toi",
+    "hoan tien cho toi", "huy booking giup toi", "huy dat phong giup toi",
+    "huy dat cho giup toi", "doi booking giup toi", "doi dat cho giup toi",
+    "thay doi dat cho giup toi", "lam giup toi", "xu ly giup toi",
+    "ban kiem tra giup", "vui long xu ly", "vui long huy", "hay huy",
+    "tao ticket", "tao phieu ho tro", "chuyen cho nhan vien",
+)
+
+
+def _looks_like_contact_guidance_question(text: str) -> bool:
+    """Return True when the user asks *who/where/how to contact* for a process.
+
+    Asking for a hotline/contact channel is informational guidance, not a request
+    for the bot to mutate a booking. This distinction prevents turns such as
+    "Nếu tôi hủy thì liên hệ ai?" from auto-creating a ticket.
+    """
+    normalized = normalize_text(text)
+    if not normalized:
+        return False
+
+    contact_markers = (
+        "lien he ai", "lien he o dau", "lien he dau", "lien he so nao",
+        "so dien thoai nao", "hotline nao", "goi ai", "goi so nao",
+        "who do i contact", "who should i contact", "who can i contact",
+        "where do i contact", "where can i contact", "how do i contact",
+        "how can i contact", "which number", "what number", "contact number",
+        "contact details", "contact information",
+    )
+    asks_contact = any(marker in normalized for marker in contact_markers)
+    if not asks_contact:
+        return False
+
+    return not any(marker in normalized for marker in _DIRECT_OPERATION_MARKERS)
+
+
+def _looks_like_self_serve_procedure_question(text: str) -> bool:
+    """Recognize how-to cancellation/refund/change questions as guidance.
+
+    A user asking how a process works may need instructions, but that is still
+    different from asking the assistant to execute the process on their record.
+    """
+    normalized = normalize_text(text)
+    if not normalized:
+        return False
+    if any(marker in normalized for marker in _DIRECT_OPERATION_MARKERS):
+        return False
+
+    markers = (
+        "how do i cancel", "how can i cancel", "how to cancel",
+        "what should i do to cancel", "steps to cancel",
+        "how do i request a refund", "how can i request a refund",
+        "how can i get a refund", "how to get a refund", "how to request a refund",
+        "what should i do for a refund", "steps to get a refund",
+        "how do i change my booking", "how can i change my booking",
+        "how to change my booking", "how do i reschedule", "how can i reschedule",
+        "lam sao de huy", "cach huy", "muon huy thi lam sao",
+        "lam the nao de huy", "thu tuc huy",
+        "lam sao de hoan tien", "cach hoan tien", "muon hoan tien thi lam sao",
+        "lam the nao de hoan tien", "thu tuc hoan tien",
+        "lam sao de doi dat cho", "cach doi dat cho", "thu tuc doi dat cho",
+    )
+    return any(marker in normalized for marker in markers)
+
+
+def _asks_explicit_personal_operation(text: str) -> bool:
+    """Return True only when the user asks the assistant/staff to act on a case.
+
+    First-person wording ("my booking") and a process verb ("cancel") are not
+    sufficient. Questions asking for policy, steps, or contact information stay
+    informational/self-service; explicit inspect/mutate/process requests escalate.
+    """
+    normalized = normalize_text(text)
+    if not normalized:
+        return False
+    if _looks_like_contact_guidance_question(normalized):
+        return False
+    if _looks_like_self_serve_procedure_question(normalized):
+        return False
+    return any(marker in normalized for marker in _DIRECT_OPERATION_MARKERS)
+
+
+def _looks_like_permission_or_policy_question(text: str) -> bool:
+    """Recognize permission/eligibility questions without mistaking them for operations.
+
+    Phrases such as "Can I change my booking?" or "tôi có thể đổi đặt chỗ không?"
+    normally ask what the policy permits. They should remain informational unless the
+    user separately asks the assistant/staff to perform, inspect, verify, or process a
+    personal case.
+    """
+    normalized = normalize_text(text)
+    if not normalized:
+        return False
+
+    permission_markers = (
+        "can i ", "may i ", "am i allowed", "is it possible for me",
+        "is it possible to ", "do i need to ", "do i have to ",
+        "toi co the ", "minh co the ", "toi co duoc ", "minh co duoc ",
+        "co the doi ", "co the thay doi ", "co duoc doi ", "co duoc thay doi ",
+    )
+    asks_permission = any(marker in f"{normalized} " for marker in permission_markers)
+    if not asks_permission:
+        return False
+
+    explicit_operation_markers = (
+        "can you ", "could you ", "would you ", "please ",
+        "help me change", "help me cancel", "help me refund",
+        "check my booking", "check my reservation", "check my transaction",
+        "verify my ", "process my ", "change it for me", "cancel it for me",
+        "ban co the ", "vui long ", "giup toi ", "giup minh ",
+        "kiem tra booking", "kiem tra dat cho", "kiem tra giao dich",
+        "doi giup toi", "doi giup minh", "huy giup toi", "huy giup minh",
+        "hoan tien cho toi", "hoan tien cho minh",
+    )
+    return not any(marker in normalized for marker in explicit_operation_markers)
+
+
 def _heuristic_fallback(
     message: str,
     rag_query: str = "",
@@ -24,17 +154,26 @@ def _heuristic_fallback(
     """
     text = normalize_text(f"{message} {rag_query}")
 
+    if _looks_like_contact_guidance_question(text):
+        return (
+            "information",
+            "information_only",
+            "User asks for a contact channel/person for a process, not for record mutation.",
+            0.97,
+        )
+
+    if _looks_like_self_serve_procedure_question(text):
+        return (
+            "support_action",
+            "self_serve",
+            "User asks for process instructions that can be answered as self-service guidance.",
+            0.93,
+        )
+
     personal_markers = (
         "toi ", "cua toi", "cho toi", "giao dich cua", "booking cua",
         "minh ", "cua minh", "cho minh", "giup minh",
         "my ", "me ", "i was", "i have", "i did",
-    )
-    operational_markers = (
-        "kiem tra giao dich", "kiem tra giup giao dich", "kiem tra giup minh",
-        "check my transaction", "check this transaction", "kiem tra booking", "check my booking",
-        "hoan tien cho toi", "refund my", "huy booking", "cancel my booking",
-        "doi booking", "change my booking", "xac minh", "verify my",
-        "toi de quen do", "i lost", "khong nhan duoc xac nhan", "did not receive confirmation",
     )
     transaction_problem_markers = (
         "bi tru tien 2 lan", "bi tru tien hai lan", "charged twice", "double charged",
@@ -45,9 +184,10 @@ def _heuristic_fallback(
         "tien da bi tru", "money was charged",
     )
     has_personal = any(marker in f"{text} " for marker in personal_markers)
-    has_operational = any(marker in text for marker in operational_markers)
+    has_operational = _asks_explicit_personal_operation(text)
     has_transaction_problem = any(marker in text for marker in transaction_problem_markers)
-    if has_operational or (has_personal and has_transaction_problem):
+    permission_or_policy_question = _looks_like_permission_or_policy_question(text)
+    if (has_operational and not permission_or_policy_question) or (has_personal and has_transaction_problem):
         return (
             "support_action",
             "human_required",
@@ -123,6 +263,38 @@ def _strong_fast_path(
             "information_only",
             "Empty/neutral RAG turn treated as information.",
             0.90,
+        )
+
+    # Contact-channel questions and how-to process questions are explicitly
+    # non-operational. Evaluate them before FAQ/personal-case heuristics so a noisy
+    # retrieval rewrite cannot turn "who should I contact?" into "cancel my booking".
+    if _looks_like_contact_guidance_question(text):
+        return (
+            "information",
+            "information_only",
+            "Contact/how-to-reach-support question; no personal-record operation requested.",
+            0.99,
+        )
+
+    if _looks_like_self_serve_procedure_question(text):
+        return (
+            "support_action",
+            "self_serve",
+            "Procedural cancellation/refund/change guidance requested without asking the bot to execute it.",
+            0.96,
+        )
+
+    # A high-confidence canonical FAQ match is informational by default. This rule
+    # is intentionally evaluated before the generic "I lost / my booking" heuristic
+    # because many official FAQ questions are written in first person. Keep escalation
+    # only for an explicit request to inspect or mutate the user's own case.
+    retrieval_mode = str(state.get("retrieval_mode") or "")
+    if retrieval_mode.startswith("faq_") and not _asks_explicit_personal_operation(text):
+        return (
+            "information",
+            "information_only",
+            "Canonical FAQ match with no explicit personal-record operation requested.",
+            0.99,
         )
 
     fallback = _heuristic_fallback(message, rag_query)
@@ -204,6 +376,17 @@ def _strong_fast_path(
             "information",
             "information_only",
             "Explicit policy/factual wording with no personal-record action.",
+            0.95,
+        )
+
+    # Modal permission/eligibility wording is usually a FAQ/policy question, even
+    # when it contains first-person language ("Can I change my booking?"). Keep it
+    # informational unless an earlier rule found an actual failure/refund operation.
+    if _looks_like_permission_or_policy_question(text):
+        return (
+            "information",
+            "information_only",
+            "Permission/eligibility wording indicates a policy question, not a request to mutate a personal record.",
             0.95,
         )
 
