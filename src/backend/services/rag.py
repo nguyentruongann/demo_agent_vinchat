@@ -10,6 +10,7 @@ from src.backend.config import get_settings
 from src.backend.services.onnx_embeddings import OnnxE5Embedder, OnnxEmbeddingConfig
 from src.backend.services.faq_matcher import FAQMatcher
 from src.backend.services.query_parser import (
+    INTENT_ENTITY_TYPES,
     build_intent_query,
     load_destination_catalog,
     normalize_text,
@@ -744,6 +745,8 @@ class RAGService:
         user_message: str = "",
         top_k: int | None = None,
         resolved_destinations: list[dict[str, Any]] | None = None,
+        excluded_destination_ids: list[str] | None = None,
+        excluded_entity_names: list[str] | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Run destination-aware retrieval with native multi-intent support.
 
@@ -753,6 +756,30 @@ class RAGService:
         the normal context budget downstream.
         """
         k = top_k or self.settings.top_k
+        excluded_destination_norms = {
+            normalize_text(str(value or ""))
+            for value in (excluded_destination_ids or [])
+            if normalize_text(str(value or ""))
+        }
+        excluded_entity_norms = {
+            normalize_text(str(value or ""))
+            for value in (excluded_entity_names or [])
+            if normalize_text(str(value or ""))
+        }
+        has_exclusions = bool(excluded_destination_norms or excluded_entity_norms)
+        # Retrieve a slightly wider pool when exclusions are active so filtering one
+        # previously recommended entity does not leave the answer with no alternatives.
+        search_k = max(k * 2, k + 4) if has_exclusions else k
+
+        def document_is_excluded(item: dict[str, Any]) -> bool:
+            metadata = item.get("metadata", {}) or {}
+            destination_norm = normalize_text(str(metadata.get("destination_id") or ""))
+            entity_norm = normalize_text(str(metadata.get("entity_name") or ""))
+            return bool(
+                (destination_norm and destination_norm in excluded_destination_norms)
+                or (entity_norm and entity_norm in excluded_entity_norms)
+            )
+
         parsed = parse_retrieval_query(user_message=user_message, rag_query=query)
 
         # When the semantic context resolver has run, its closed/validated
@@ -879,6 +906,8 @@ class RAGService:
                 "destination_names": destination_names,
                 "intent": primary_intent or "faq",
                 "intents": intents or ["faq"],
+                "explicit_intents": list(parsed.get("explicit_intents") or []),
+                "intent_origin": str(parsed.get("intent_origin") or "none"),
                 "intent_results": intent_results,
                 "keyword_candidate_count": int(faq_diagnostics.get("candidate_count") or 0),
                 "missing_destination_ids": [],
@@ -895,7 +924,8 @@ class RAGService:
                 f"query_coverage={faq_diagnostics.get('best_query_coverage')} "
                 f"predicate_count={faq_diagnostics.get('best_predicate_count')} "
                 f"predicate_ratio={faq_diagnostics.get('best_predicate_ratio')} "
-                f"margin={faq_diagnostics.get('margin')}"
+                f"margin={faq_diagnostics.get('margin')} "
+                f"selected_rank={faq_diagnostics.get('selected_candidate_rank', 1)}"
             )
             return faq_documents, diagnostics
 
@@ -915,6 +945,27 @@ class RAGService:
             )
 
         named_entities = self._find_named_entity_mentions(user_message, query)
+        if named_entities and has_exclusions:
+            cache = self._load_corpus_cache()
+            filtered_named_entities: list[dict[str, Any]] = []
+            for item in named_entities:
+                entity_norm = normalize_text(str(item.get("normalized_name") or item.get("name") or ""))
+                if entity_norm and entity_norm in excluded_entity_norms:
+                    continue
+                excluded_by_destination = False
+                for index in item.get("indices", []) or []:
+                    try:
+                        metadata = cache["metadatas"][int(index)] or {}
+                    except (TypeError, ValueError, IndexError):
+                        continue
+                    destination_norm = normalize_text(str(metadata.get("destination_id") or ""))
+                    if destination_norm and destination_norm in excluded_destination_norms:
+                        excluded_by_destination = True
+                        break
+                if not excluded_by_destination:
+                    filtered_named_entities.append(item)
+            named_entities = filtered_named_entities
+
         named_entity_documents = self._retrieve_named_entity_branches(
             named_entities,
             query=query,
@@ -1033,7 +1084,7 @@ class RAGService:
             original_query = str(user_message or "").strip()
             rewritten_query = str(query or "").strip()
 
-            exact_faq = self._exact_faq_matches(original_query, top_k=k)
+            exact_faq = self._exact_faq_matches(original_query, top_k=search_k)
 
             semantic_queries: list[tuple[str, str]] = []
             seen_queries: set[str] = set()
@@ -1054,7 +1105,7 @@ class RAGService:
 
             semantic_groups = self.semantic_search_many(
                 [item[1] for item in semantic_queries],
-                top_k=k,
+                top_k=search_k,
             ) if semantic_queries else []
 
             merged_by_key: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1088,7 +1139,7 @@ class RAGService:
                 merged_by_key.values(),
                 key=lambda item: float(item.get("score", 0.0) or 0.0),
                 reverse=True,
-            )[:k]
+            )[:search_k]
 
             if exact_faq:
                 mode = "semantic_fallback_exact_faq"
@@ -1097,25 +1148,61 @@ class RAGService:
             else:
                 mode = "semantic_fallback"
 
-            if intents:
-                best_score = max(
-                    (float(item.get("score", 0.0) or 0.0) for item in documents),
-                    default=0.0,
-                )
-                for intent in intents:
-                    intent_results[intent] = {
-                        "status": "found" if documents else "not_found",
-                        "document_count": len(documents),
-                        "candidate_count": len(merged_by_key),
-                        "best_score": round(best_score, 4),
-                        "query": query,
-                        "missing_destination_ids": [],
-                    }
+        if has_exclusions:
+            documents = [item for item in documents if not document_is_excluded(item)]
+            named_entity_documents = [
+                item for item in named_entity_documents if not document_is_excluded(item)
+            ]
 
         if named_entity_documents:
             documents = self._dedupe_documents(named_entity_documents + documents)
             prefix = "named_entity_multi" if len(named_entities) > 1 else "named_entity"
             mode = f"{prefix}:{mode}"
+
+        if has_exclusions:
+            documents = [item for item in documents if not document_is_excluded(item)][:k]
+
+        # With no resolved destination the semantic search is corpus-wide.  A
+        # non-empty document list therefore cannot be used as proof that *every*
+        # detected intent was found.  Score each intent only from entity types that
+        # are valid evidence for that branch.  This prevents an attraction article
+        # from making a rewrite-inferred ``hotel`` branch look found (and vice
+        # versa), while still allowing the same document to support multiple
+        # branches when the type map explicitly permits it.
+        if not destinations and intents:
+            intent_results = {}
+            for intent in intents:
+                allowed_types = set(INTENT_ENTITY_TYPES.get(intent, set()))
+                branch_docs = []
+                for item in documents:
+                    metadata = item.get("metadata", {}) or {}
+                    entity_type = str(
+                        metadata.get("entity_type")
+                        or metadata.get("source_table")
+                        or ""
+                    ).strip()
+                    if not allowed_types or entity_type in allowed_types:
+                        branch_docs.append(item)
+
+                best_score = max(
+                    (float(item.get("score", 0.0) or 0.0) for item in branch_docs),
+                    default=0.0,
+                )
+                intent_results[intent] = {
+                    "status": "found" if branch_docs else "not_found",
+                    "document_count": len(branch_docs),
+                    "candidate_count": len(documents),
+                    "best_score": round(best_score, 4),
+                    "query": query,
+                    "missing_destination_ids": [],
+                    "evidence_entity_types": sorted(
+                        {
+                            str((item.get("metadata", {}) or {}).get("entity_type") or "")
+                            for item in branch_docs
+                            if str((item.get("metadata", {}) or {}).get("entity_type") or "").strip()
+                        }
+                    ),
+                }
 
         primary = destinations[0] if destinations else None
         destination_names = [
@@ -1135,6 +1222,8 @@ class RAGService:
             "destination_names": destination_names,
             "intent": primary_intent,
             "intents": intents,
+            "explicit_intents": list(parsed.get("explicit_intents") or []),
+            "intent_origin": str(parsed.get("intent_origin") or "none"),
             "intent_results": intent_results,
             "keyword_candidate_count": all_candidates,
             "missing_destination_ids": missing_destination_ids,
@@ -1142,6 +1231,8 @@ class RAGService:
                 {"name": item.get("name"), "type": item.get("type")}
                 for item in named_entities
             ],
+            "excluded_destination_ids": sorted(excluded_destination_norms),
+            "excluded_entity_names": sorted(excluded_entity_norms),
         }
 
         print(
@@ -1149,6 +1240,8 @@ class RAGService:
             f"mode={mode} destinations={destination_ids or 'none'} "
             f"intents={intents or [primary_intent]} candidates={all_candidates} "
             f"named_entities={[item.get('name') for item in named_entities]} "
+            f"excluded_destinations={sorted(excluded_destination_norms)} "
+            f"excluded_entities={sorted(excluded_entity_norms)} "
             f"intent_results={intent_results}"
         )
         return documents, diagnostics

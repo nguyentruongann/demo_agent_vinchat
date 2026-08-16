@@ -96,15 +96,17 @@ def _build_entity_candidates(state: AgentState) -> list[dict[str, Any]]:
         if key in seen:
             continue
         seen.add(key)
-        output.append(
-            {
-                "ref": f"entity:{rank}",
-                "name": name,
-                "type": entity_type,
-                "source": str(raw.get("source") or "recent_grounded_focus"),
-                "recency_rank": rank,
-            }
-        )
+        candidate = {
+            "ref": f"entity:{rank}",
+            "name": name,
+            "type": entity_type,
+            "source": str(raw.get("source") or "recent_grounded_focus"),
+            "recency_rank": rank,
+        }
+        destination_id = str(raw.get("destination_id") or "").strip()
+        if destination_id:
+            candidate["destination_id"] = destination_id
+        output.append(candidate)
     return output
 
 
@@ -119,14 +121,18 @@ def _compact_focus_turns(state: AgentState, limit: int = 8) -> list[dict[str, An
             for item in focus
             if str(item.get("id") or "").strip()
         ]
-        focus_entities = [
-            {
+        focus_entities = []
+        for item in (turn.get("focus_entities") or [])[:12]:
+            if not str(item.get("name") or "").strip():
+                continue
+            compact_entity = {
                 "name": str(item.get("name") or "")[:180],
                 "type": str(item.get("type") or item.get("entity_type") or "entity")[:80],
             }
-            for item in (turn.get("focus_entities") or [])[:6]
-            if str(item.get("name") or "").strip()
-        ]
+            destination_id = str(item.get("destination_id") or "").strip()
+            if destination_id:
+                compact_entity["destination_id"] = destination_id[:120]
+            focus_entities.append(compact_entity)
         output.append(
             {
                 "turn_ref": str(turn.get("memory_ref") or ""),
@@ -144,8 +150,10 @@ def _fallback_resolution(
     explicit: list[dict[str, Any]],
     rag_query: str,
     reason: str,
+    *,
+    request_kind: str = "independent",
 ) -> AgentState:
-    """Fail safely to explicit current destinations and no inherited entities."""
+    """Fail safely to current explicit context with memory fully disabled."""
     names = [_destination_name(item) for item in explicit]
     return {
         "explicit_destinations": explicit,
@@ -155,7 +163,10 @@ def _fallback_resolution(
         "resolved_entities": [],
         "resolved_entity_names": [],
         "selected_memory_turn_refs": [],
+        "excluded_destination_ids": [],
+        "excluded_entity_names": [],
         "context_uses_memory": False,
+        "context_request_kind": request_kind,
         "context_resolution_reason": reason,
         "context_resolution_confidence": 0.0,
         "context_resolution_source": "explicit_fallback" if explicit else "none",
@@ -163,14 +174,108 @@ def _fallback_resolution(
     }
 
 
-def resolve_conversation_context(state: AgentState) -> AgentState:
-    """Resolve references and factual-memory dependencies semantically.
+def _closed_refs_used(
+    selected_destinations: list[dict[str, Any]],
+    selected_entities: list[dict[str, Any]],
+    selected_turn_refs: list[str],
+    excluded_destinations: list[dict[str, Any]],
+    excluded_entities: list[dict[str, Any]],
+) -> bool:
+    return bool(
+        any(item.get("source") == "recent_user_focus" for item in selected_destinations)
+        or selected_entities
+        or selected_turn_refs
+        or excluded_destinations
+        or excluded_entities
+    )
 
-    There are deliberately no product/topic keyword tables here. The model receives
-    closed candidate sets derived from current destination detection, grounded entity
-    metadata from prior turns, and recent turn refs. It may select none, one or many.
-    This supports unseen packages/entities and follow-ups such as comparisons without
-    teaching the resolver every future product name.
+
+def _parse_closed_selection(
+    result: dict[str, Any],
+    *,
+    destination_by_id: dict[str, dict[str, Any]],
+    entity_by_ref: dict[str, dict[str, Any]],
+    turn_refs: set[str],
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[str],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[str],
+]:
+    """Parse target and exclusion refs without allowing invented memory IDs."""
+    fields = (
+        "selected_destination_ids",
+        "selected_entity_refs",
+        "selected_turn_refs",
+        "excluded_destination_ids",
+        "excluded_entity_refs",
+    )
+    if any(not isinstance(result.get(field, []), list) for field in fields):
+        return [], [], [], [], [], ["malformed-reference-list"]
+
+    invalid: list[str] = []
+
+    def destinations(field: str) -> list[dict[str, Any]]:
+        output: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for raw in result.get(field, []) or []:
+            ref = str(raw or "").strip()
+            if not ref or ref in seen:
+                continue
+            item = destination_by_id.get(ref)
+            if item is None:
+                invalid.append(ref)
+                continue
+            output.append(item)
+            seen.add(ref)
+        return output
+
+    def entities(field: str) -> list[dict[str, Any]]:
+        output: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for raw in result.get(field, []) or []:
+            ref = str(raw or "").strip()
+            if not ref or ref in seen:
+                continue
+            item = entity_by_ref.get(ref)
+            if item is None:
+                invalid.append(ref)
+                continue
+            output.append(item)
+            seen.add(ref)
+        return output
+
+    selected_turns: list[str] = []
+    seen_turns: set[str] = set()
+    for raw in result.get("selected_turn_refs", []) or []:
+        ref = str(raw or "").strip()
+        if not ref or ref in seen_turns:
+            continue
+        if ref not in turn_refs:
+            invalid.append(ref)
+            continue
+        selected_turns.append(ref)
+        seen_turns.add(ref)
+
+    return (
+        destinations("selected_destination_ids"),
+        entities("selected_entity_refs"),
+        selected_turns,
+        destinations("excluded_destination_ids"),
+        entities("excluded_entity_refs"),
+        invalid,
+    )
+
+
+def resolve_conversation_context(state: AgentState) -> AgentState:
+    """Decide whether the current turn needs memory, then resolve only that memory.
+
+    Memory is a conditional dependency, not a session-wide constraint. The resolver
+    distinguishes independent factual requests, factual continuations, and questions
+    about the stored conversation itself. Positive targets and exclusions are kept
+    separate so "another place" cannot turn the previous place into a retrieval target.
     """
     current_message = effective_user_message(state)
     guarded_query = str(state.get("rag_query") or current_message).strip()
@@ -178,11 +283,12 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     entity_candidates = _build_entity_candidates(state)
     focus_turns = _compact_focus_turns(state)
 
-    if str(state.get("route") or "") != "rag":
+    route = str(state.get("route") or "").strip()
+    if route not in {"rag", "conversation_context"}:
         return _fallback_resolution(
             explicit,
             guarded_query,
-            "Context resolver skipped because the current route is not RAG.",
+            "Context resolver skipped because this route cannot consume conversation memory.",
         )
 
     has_memory = bool(
@@ -191,11 +297,13 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         or focus_turns
     )
     if not has_memory:
+        request_kind = "conversation_meta" if route == "conversation_context" else "independent"
         return {
             **_fallback_resolution(
                 explicit,
                 guarded_query,
                 "No prior structured memory is available; only current explicit context was used.",
+                request_kind=request_kind,
             ),
             "context_resolution_confidence": 1.0 if explicit else 0.0,
             "context_resolution_source": "current_explicit" if explicit else "none",
@@ -212,146 +320,210 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     ]
 
     llm = LLMService()
-    try:
-        result = llm.json(
-            system_prompt=(
-                "You are a semantic conversation-reference resolver for a Vinpearl/VinWonders RAG assistant. "
-                "Resolve the CURRENT request from meaning and discourse context, never from keyword rules. You receive "
-                "three CLOSED memory surfaces: supported destination candidates, grounded entity candidates from prior "
-                "retrieval, and prior RAG turn refs. Select only refs/IDs supplied to you. You may select zero, one, or "
-                "multiple items from each surface. Current-explicit destinations are authoritative literal mentions. "
-                "Recent destinations/entities are only inherited when the current request truly refers back through an "
-                "omitted subject, pronoun, comparison, continuation, correction, ordinal/reference, or equivalent semantic "
-                "relation. Do not blindly carry the previous topic into an independent new question. A named entity that "
-                "appears only in the current request does not need to be in memory; preserve it faithfully in the query. "
-                "Select prior turn refs when the CURRENT factual request depends on, summarizes, compares with, or continues "
-                "facts/topics from those turns and re-retrieving their evidence would materially help. Do not select turns "
-                "merely because they are recent. Never treat old assistant prose itself as factual evidence. Return a "
-                "standalone faithful English RAG query for the CURRENT request, inserting selected destination/entity names "
-                "only when needed to resolve references. Keep it as a semantic translation/paraphrase rather than a bag of search "
-                "keywords. Preserve the question operator and requested relation (quantity/count, eligibility, timing, location, identity, "
-                "reason, procedure, comparison, allowance/restriction, etc.), plus all requested facts, quantities, preferences and exclusions. "
-                "Do not broaden or narrow the current request. Never invent an entity, destination, or missing detail. Return JSON only."
-            ),
-            user_prompt=(
-                "UNTRUSTED_CONTEXT_JSON:\n"
-                + json.dumps(
-                    {
-                        "current_message": current_message,
-                        "guarded_rag_query": guarded_query,
-                        "destination_candidates": destination_payload,
-                        "memory_entity_candidates": entity_candidates,
-                        "recent_structured_focus_turns": focus_turns,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n\nReturn exactly:\n"
-                + '''{
+    system_prompt = (
+        "You are the semantic memory-dependency resolver for a Vinpearl/VinWonders assistant. "
+        "First decide whether the CURRENT request actually needs prior conversation. Memory is optional: being in the same "
+        "session is never enough. Classify request_kind as exactly one of: independent, factual_continuation, conversation_meta. "
+        "independent means the request is fully understandable and answerable as a new factual request without prior turns. "
+        "factual_continuation means the user wants a NEW factual Vinpearl answer but a prior turn is required to resolve an omitted "
+        "subject, pronoun, correction/clarification, comparison, ordinal, continuation, alternative, exclusion, or equivalent discourse "
+        "relation. A clarification that narrows or corrects a previous factual question is factual_continuation, NOT conversation_meta. "
+        "A request for another/additional/different option after a prior recommendation is factual_continuation because the previous "
+        "option must be known in order not to repeat it. conversation_meta is only when the requested OUTPUT itself is about the chat "
+        "record and no new KB lookup is requested. "
+        "\n\nYou receive CLOSED candidate sets. Select only supplied IDs/refs; never invent one. Separate POSITIVE TARGETS from EXCLUSIONS. "
+        "selected_* identifies prior destinations/entities that the current factual request is ABOUT. excluded_* identifies prior "
+        "destinations/entities that must NOT be returned. Prefer excluding the concrete prior entity rather than its entire destination "
+        "unless the user explicitly excludes the destination. Select prior turn refs only when re-retrieving that turn's grounded evidence "
+        "materially helps the current factual continuation; do not select a turn merely because it is recent. Old assistant prose is never "
+        "factual evidence. "
+        "\n\nINVARIANT: if request_kind=independent, select no memory targets, exclusions, or turn refs and keep the standalone query faithful "
+        "to the current request only. If request_kind=factual_continuation, select at least one required memory target, exclusion, or turn "
+        "ref. Every memory-only name inserted into rag_query must be backed by one of those selected/excluded refs. For factual requests, "
+        "return a standalone faithful English rag_query preserving the user's relation, constraints, preferences, and exclusions. Return JSON only."
+    )
+    payload = {
+        "current_route_hint": route,
+        "current_message": current_message,
+        "guarded_rag_query": guarded_query,
+        "destination_candidates": destination_payload,
+        "memory_entity_candidates": entity_candidates,
+        "recent_structured_focus_turns": focus_turns,
+    }
+
+    schema = '''{
+  "request_kind": "independent|factual_continuation|conversation_meta",
   "selected_destination_ids": ["candidate-id"],
   "selected_entity_refs": ["entity:1"],
   "selected_turn_refs": ["turn:5"],
+  "excluded_destination_ids": ["candidate-id"],
+  "excluded_entity_refs": ["entity:1"],
   "uses_memory": false,
-  "rag_query": "standalone faithful English retrieval query",
-  "reason": "brief semantic reference-resolution reason",
+  "rag_query": "standalone faithful English retrieval query; empty only for conversation_meta",
+  "reason": "brief semantic memory-dependency reason",
   "confidence": 0.0
 }'''
+
+    try:
+        result = llm.json(
+            system_prompt=system_prompt,
+            user_prompt=(
+                "UNTRUSTED_CONTEXT_JSON:\n"
+                + json.dumps(payload, ensure_ascii=False)
+                + "\n\nReturn exactly:\n"
+                + schema
             ),
         )
     except Exception as exc:
+        request_kind = "conversation_meta" if route == "conversation_context" else "independent"
         return _fallback_resolution(
             explicit,
             guarded_query,
-            f"Semantic context resolver failed; used explicit current context only: {exc}",
+            f"Semantic context resolver failed; memory disabled safely: {exc}",
+            request_kind=request_kind,
         )
 
     destination_by_id = {str(item.get("id") or ""): item for item in destination_candidates}
     entity_by_ref = {str(item.get("ref") or ""): item for item in entity_candidates}
     turn_refs = {str(item.get("turn_ref") or "") for item in focus_turns if str(item.get("turn_ref") or "")}
 
-    raw_destination_ids = result.get("selected_destination_ids")
-    raw_entity_refs = result.get("selected_entity_refs")
-    raw_turn_refs = result.get("selected_turn_refs")
-    if not isinstance(raw_destination_ids, list) or not isinstance(raw_entity_refs, list) or not isinstance(raw_turn_refs, list):
-        return _fallback_resolution(
-            explicit,
-            guarded_query,
-            "Semantic context resolver returned malformed reference lists; used explicit current context only.",
+    request_kind = str(result.get("request_kind") or "").strip().lower()
+    if request_kind not in {"independent", "factual_continuation", "conversation_meta"}:
+        request_kind = "conversation_meta" if route == "conversation_context" else "independent"
+
+    def parse(value: dict[str, Any]):
+        return _parse_closed_selection(
+            value,
+            destination_by_id=destination_by_id,
+            entity_by_ref=entity_by_ref,
+            turn_refs=turn_refs,
         )
 
-    selected_destinations: list[dict[str, Any]] = []
-    invalid_refs: list[str] = []
-    seen_destinations: set[str] = set()
-    for raw_id in raw_destination_ids:
-        destination_id = str(raw_id or "").strip()
-        if not destination_id or destination_id in seen_destinations:
-            continue
-        item = destination_by_id.get(destination_id)
-        if item is None:
-            invalid_refs.append(destination_id)
-            continue
-        selected_destinations.append(item)
-        seen_destinations.add(destination_id)
-
-    selected_entities: list[dict[str, Any]] = []
-    seen_entity_refs: set[str] = set()
-    for raw_ref in raw_entity_refs:
-        ref = str(raw_ref or "").strip()
-        if not ref or ref in seen_entity_refs:
-            continue
-        item = entity_by_ref.get(ref)
-        if item is None:
-            invalid_refs.append(ref)
-            continue
-        selected_entities.append(item)
-        seen_entity_refs.add(ref)
-
-    selected_turn_refs: list[str] = []
-    seen_turn_refs: set[str] = set()
-    for raw_ref in raw_turn_refs:
-        ref = str(raw_ref or "").strip()
-        if not ref or ref in seen_turn_refs:
-            continue
-        if ref not in turn_refs:
-            invalid_refs.append(ref)
-            continue
-        selected_turn_refs.append(ref)
-        seen_turn_refs.add(ref)
-
+    (
+        selected_destinations,
+        selected_entities,
+        selected_turn_refs,
+        excluded_destinations,
+        excluded_entities,
+        invalid_refs,
+    ) = parse(result)
     if invalid_refs:
         return _fallback_resolution(
             explicit,
             guarded_query,
-            "Semantic context resolver selected unsupported memory references; used explicit current context only.",
+            "Semantic context resolver selected unsupported memory references; memory disabled safely.",
+            request_kind="conversation_meta" if request_kind == "conversation_meta" else "independent",
         )
 
-    uses_memory = bool(
-        any(item.get("source") == "recent_user_focus" for item in selected_destinations)
-        or selected_entities
-        or selected_turn_refs
+    if request_kind == "independent":
+        selected_destinations = [item for item in selected_destinations if item.get("source") == "current_explicit"]
+        selected_entities = []
+        selected_turn_refs = []
+        excluded_destinations = []
+        excluded_entities = []
+        resolved_query = guarded_query
+    elif request_kind == "conversation_meta":
+        resolved_query = ""
+    else:
+        resolved_query = str(result.get("rag_query") or "").strip() or guarded_query
+        if not _closed_refs_used(
+            selected_destinations,
+            selected_entities,
+            selected_turn_refs,
+            excluded_destinations,
+            excluded_entities,
+        ):
+            try:
+                repair = llm.json(
+                    system_prompt=(
+                        system_prompt
+                        + "\n\nREPAIR: You classified this as factual_continuation but selected no memory ref. "
+                          "That is invalid. Select the minimal CLOSED target/exclusion/turn refs needed, or change "
+                          "request_kind to independent if no prior context is actually needed."
+                    ),
+                    user_prompt=(
+                        "UNTRUSTED_CONTEXT_JSON:\n"
+                        + json.dumps(payload, ensure_ascii=False)
+                        + "\n\nReturn exactly:\n"
+                        + schema
+                    ),
+                )
+                repaired_kind = str(repair.get("request_kind") or "").strip().lower()
+                if repaired_kind in {"independent", "factual_continuation", "conversation_meta"}:
+                    request_kind = repaired_kind
+                (
+                    selected_destinations,
+                    selected_entities,
+                    selected_turn_refs,
+                    excluded_destinations,
+                    excluded_entities,
+                    invalid_refs,
+                ) = parse(repair)
+                if invalid_refs:
+                    raise ValueError("repair selected unsupported refs")
+                if request_kind == "independent":
+                    selected_destinations = [item for item in selected_destinations if item.get("source") == "current_explicit"]
+                    selected_entities = []
+                    selected_turn_refs = []
+                    excluded_destinations = []
+                    excluded_entities = []
+                    resolved_query = guarded_query
+                elif request_kind == "conversation_meta":
+                    resolved_query = ""
+                else:
+                    resolved_query = str(repair.get("rag_query") or "").strip() or guarded_query
+                    result = repair
+            except Exception as exc:
+                return _fallback_resolution(
+                    explicit,
+                    guarded_query,
+                    f"Continuation memory selection was inconsistent and repair failed; memory disabled safely: {exc}",
+                    request_kind="independent",
+                )
+
+    uses_memory = _closed_refs_used(
+        selected_destinations,
+        selected_entities,
+        selected_turn_refs,
+        excluded_destinations,
+        excluded_entities,
     )
-    resolved_query = str(result.get("rag_query") or "").strip() or guarded_query
+
+    if request_kind == "factual_continuation" and not uses_memory:
+        request_kind = "independent"
+        selected_destinations = [item for item in selected_destinations if item.get("source") == "current_explicit"]
+        selected_entities = []
+        selected_turn_refs = []
+        excluded_destinations = []
+        excluded_entities = []
+        resolved_query = guarded_query
+
+    excluded_destination_ids = [str(item.get("id") or "") for item in excluded_destinations if str(item.get("id") or "")]
+    excluded_entity_names = [str(item.get("name") or "").strip() for item in excluded_entities if str(item.get("name") or "").strip()]
+
     reason = str(result.get("reason") or "Semantic context resolution completed.").strip()[:500]
     confidence = _bounded_confidence(result.get("confidence"))
 
     source = "none"
-    if selected_destinations or selected_entities or selected_turn_refs:
-        has_explicit = any(item.get("source") == "current_explicit" for item in selected_destinations)
-        if has_explicit and uses_memory:
+    if uses_memory:
+        source = "memory"
+        if any(item.get("source") == "current_explicit" for item in selected_destinations):
             source = "current_plus_memory"
-        elif uses_memory:
-            source = "memory"
-        elif has_explicit:
-            source = "current_explicit"
+    elif selected_destinations:
+        source = "current_explicit"
 
     destination_names = [_destination_name(item) for item in selected_destinations]
     entity_names = [str(item.get("name") or "").strip() for item in selected_entities]
 
     print("\n===== CONTEXT RESOLUTION =====")
     print(f"Question: {current_message}")
+    print(f"Request kind: {request_kind}")
     print(f"Destination candidates: {[(item.get('id'), item.get('source')) for item in destination_candidates]}")
     print(f"Entity candidates: {[(item.get('ref'), item.get('name')) for item in entity_candidates]}")
     print(f"Resolved destinations: {[item.get('id') for item in selected_destinations]}")
     print(f"Resolved entities: {entity_names}")
+    print(f"Excluded destinations: {excluded_destination_ids}")
+    print(f"Excluded entities: {excluded_entity_names}")
     print(f"Selected memory turns: {selected_turn_refs}")
     print(f"Uses memory: {uses_memory}")
     print(f"Confidence: {confidence:.2f}")
@@ -367,7 +539,10 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         "resolved_entities": selected_entities,
         "resolved_entity_names": entity_names,
         "selected_memory_turn_refs": selected_turn_refs,
+        "excluded_destination_ids": excluded_destination_ids,
+        "excluded_entity_names": excluded_entity_names,
         "context_uses_memory": uses_memory,
+        "context_request_kind": request_kind,
         "context_resolution_reason": reason,
         "context_resolution_confidence": confidence,
         "context_resolution_source": source,

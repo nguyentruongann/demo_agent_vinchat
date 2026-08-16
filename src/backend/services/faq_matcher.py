@@ -366,20 +366,46 @@ class FAQMatcher:
     ) -> tuple[bool, str]:
         """Conservative cross-signal gate for deterministic FAQ clear-pass.
 
-        Semantic similarity locates a candidate, but it must not be sufficient on
-        its own because same-venue/same-category questions cluster tightly. Strong
-        direct question overlap keeps the established fast path. Otherwise, require
-        overlap on the candidate-specific predicate/object. Margin is only a
-        confidence reinforcement; it can never independently turn a topically wrong
-        candidate into an authoritative FAQ match.
+        The main failure mode this gate prevents is a same-venue FAQ winning only
+        because the venue/destination words are very similar.  A semantic score is
+        therefore never enough by itself.  We accept either:
+
+        * very strong direct question overlap;
+        * strong candidate-specific predicate/object overlap; or
+        * a balanced paraphrase where semantic, lexical and predicate evidence all
+          agree.
+
+        This is intentionally topic-agnostic: there are no Safari/tram/hotel keys.
         """
         semantic_alignment = semantic >= 0.70
-        direct_alignment = (
-            weighted_f1 >= 0.50
-            or query_coverage >= 0.58
-            or lexical >= 0.72
+
+        # Keep high-confidence direct paraphrases even when predicate extraction is
+        # sparse, but require substantially more than the old single >=0.50 signal.
+        # This prevents a nearby FAQ such as "operating hours at <same venue>" from
+        # clear-passing on venue overlap alone.
+        strong_direct_alignment = (
+            semantic >= 0.72
+            and lexical >= 0.76
+            and weighted_f1 >= 0.58
+            and query_coverage >= 0.55
         )
+
         predicate_alignment = predicate_count >= 2 and predicate_ratio >= 0.30
+
+        # Translation/rewrite drift often changes a concrete noun (e.g. tram ->
+        # electric vehicle) while preserving most of the rest of the request.  This
+        # balanced path lets such paraphrases through only when *all* independent
+        # signals are reasonably strong and at least one predicate token is shared.
+        balanced_paraphrase_alignment = (
+            margin >= 0.020
+            and semantic >= 0.84
+            and lexical >= 0.52
+            and weighted_f1 >= 0.42
+            and query_coverage >= 0.35
+            and predicate_count >= 1
+            and predicate_ratio >= 0.30
+        )
+
         separated_short_alignment = (
             margin >= 0.045
             and semantic >= 0.78
@@ -388,23 +414,28 @@ class FAQMatcher:
         )
 
         accepted = semantic_alignment and (
-            direct_alignment or predicate_alignment or separated_short_alignment
+            strong_direct_alignment
+            or predicate_alignment
+            or balanced_paraphrase_alignment
+            or separated_short_alignment
         )
 
         # A near tie needs unusually strong evidence. This keeps ambiguous FAQ rows
         # on normal RAG, while still allowing translated/paraphrased questions whose
         # distinctive predicate is well covered by the selected FAQ answer.
         if accepted and margin < 0.018:
-            strong_near_tie_alignment = direct_alignment or (
+            strong_near_tie_alignment = strong_direct_alignment or (
                 predicate_count >= 3 and predicate_ratio >= 0.45
             )
             if not strong_near_tie_alignment:
                 accepted = False
 
-        if direct_alignment:
-            reason = "direct question alignment"
+        if strong_direct_alignment:
+            reason = "strong direct question alignment"
         elif predicate_alignment:
             reason = "candidate-specific predicate alignment"
+        elif balanced_paraphrase_alignment:
+            reason = "balanced semantic/lexical/predicate paraphrase alignment"
         elif separated_short_alignment:
             reason = "short predicate alignment with clear candidate separation"
         else:
@@ -614,14 +645,20 @@ class FAQMatcher:
             }
 
         # Broad discovery/planning requests are intentionally kept on the normal
-        # catalog path by the caller. This local guard prevents very short fragments
-        # from hijacking retrieval merely because one FAQ happens to be semantically near.
-        if skip_semantic or not self._question_like(*(value for _, value in variants)):
+        # catalog path by the caller.  For every other factual RAG request we run the
+        # FAQ lane even when the surface form is not an interrogative.  Users often
+        # ask the same fact as "tư vấn giúp mình X", "cho mình thông tin về X",
+        # or an imperative fragment; requiring a question mark/"what/how" made
+        # semantically identical requests take different retrieval paths.
+        #
+        # Safety is preserved by the conservative cross-signal confidence gate
+        # below: merely running semantic retrieval does not make an FAQ authoritative.
+        if skip_semantic:
             return [], {
                 "accepted": False,
                 "mode": "faq_skipped",
                 "candidate_count": len(entries),
-                "reason": "No exact FAQ match and request is not FAQ/question-like.",
+                "reason": "Broad discovery/planning request keeps normal catalog retrieval.",
             }
 
         # 2) Semantic + lexical matching. Both original multilingual wording and the
@@ -716,20 +753,62 @@ class FAQMatcher:
             )
 
         ranked.sort(key=lambda item: float(item["score"]), reverse=True)
-        best = ranked[0]
 
-        # Compare against the next *different question* so duplicate FAQ rows do not
-        # artificially make the confidence margin look ambiguous.
-        best_question_norm = entries[int(best["entry_index"])].normalized_question
-        second_different = next(
-            (
-                item for item in ranked[1:]
-                if entries[int(item["entry_index"])].normalized_question != best_question_norm
-            ),
-            None,
-        )
-        second_score = float(second_different["score"]) if second_different else 0.0
-        margin = float(best["score"]) - second_score
+        # Validate candidates in score order instead of validating only rank #1.
+        # Same-venue FAQ rows can score very close semantically; the top row may ask
+        # for a different predicate (e.g. operating hours) while rank #2 is the
+        # correct service/policy question.  We therefore reject invalid rows and
+        # continue to the next candidate.  The scan is bounded so a weak tail row can
+        # never become authoritative merely because everything above it failed.
+        max_validation_candidates = min(8, len(ranked))
+        selected_rank: int | None = None
+        selected_signal = "insufficient cross-signal alignment"
+        rejection_details: list[dict[str, Any]] = []
+
+        def candidate_margin(rank_index: int) -> float:
+            current = ranked[rank_index]
+            current_question_norm = entries[int(current["entry_index"])].normalized_question
+            second_different = next(
+                (
+                    item for item in ranked[rank_index + 1:]
+                    if entries[int(item["entry_index"])].normalized_question != current_question_norm
+                ),
+                None,
+            )
+            second_score = float(second_different["score"]) if second_different else 0.0
+            return max(0.0, float(current["score"]) - second_score)
+
+        for rank_index in range(max_validation_candidates):
+            candidate = ranked[rank_index]
+            margin = candidate_margin(rank_index)
+            accepted, signal = self._confidence_gate(
+                semantic=float(candidate.get("semantic_score") or 0.0),
+                lexical=float(candidate.get("lexical_score") or 0.0),
+                weighted_f1=float(candidate.get("weighted_f1") or 0.0),
+                query_coverage=float(candidate.get("query_coverage") or 0.0),
+                predicate_count=int(candidate.get("predicate_count") or 0),
+                predicate_ratio=float(candidate.get("predicate_ratio") or 0.0),
+                margin=margin,
+            )
+            if accepted:
+                selected_rank = rank_index
+                selected_signal = signal
+                break
+            rejection_details.append({
+                "rank": rank_index + 1,
+                "question": entries[int(candidate["entry_index"])].question,
+                "score": round(float(candidate.get("score") or 0.0), 4),
+                "predicate_count": int(candidate.get("predicate_count") or 0),
+                "predicate_ratio": round(float(candidate.get("predicate_ratio") or 0.0), 4),
+                "reason": signal,
+            })
+
+        # Diagnostics still expose the highest-scoring raw candidate when nothing
+        # passes, but when rank #2/#3 is the first valid candidate we report that row
+        # as the actual match.
+        best = ranked[selected_rank] if selected_rank is not None else ranked[0]
+        best_rank_index = selected_rank if selected_rank is not None else 0
+        margin = candidate_margin(best_rank_index)
 
         best_semantic = float(best["semantic_score"])
         best_enriched_semantic = float(best.get("enriched_semantic_score") or 0.0)
@@ -742,20 +821,7 @@ class FAQMatcher:
         best_predicate_count = int(best.get("predicate_count") or 0)
         best_predicate_ratio = float(best.get("predicate_ratio") or 0.0)
 
-        # Cross-signal confidence gate. Semantic similarity and candidate separation
-        # locate likely FAQs, but deterministic clear-pass also requires evidence
-        # that the selected row asks about the same predicate/object.
-        accepted, acceptance_signal = self._confidence_gate(
-            semantic=best_semantic,
-            lexical=best_lexical,
-            weighted_f1=best_weighted_f1,
-            query_coverage=best_query_coverage,
-            predicate_count=best_predicate_count,
-            predicate_ratio=best_predicate_ratio,
-            margin=margin,
-        )
-
-        if not accepted:
+        if selected_rank is None:
             return [], {
                 "accepted": False,
                 "mode": "faq_semantic_rejected",
@@ -774,12 +840,12 @@ class FAQMatcher:
                 "matched_question": entries[int(best["entry_index"])].question,
                 "matched_query_source": best["query_source"],
                 "candidate_count": len(entries),
-                "reason": (
-                    "Best FAQ candidate did not pass the conservative confidence gate "
-                    f"({acceptance_signal})."
-                ),
+                "validated_candidate_count": max_validation_candidates,
+                "rejected_candidates": rejection_details,
+                "reason": "No top FAQ candidate passed the conservative cross-signal confidence gate.",
             }
 
+        acceptance_signal = selected_signal
         # Once the confidence gate passes, use only the single best FAQ row. Feeding
         # several merely-similar FAQ answers to the generator creates unnecessary
         # ambiguity. Exact duplicate wording is already handled by the exact branch.
@@ -812,6 +878,8 @@ class FAQMatcher:
             "matched_question": matched_entry.question,
             "matched_query_source": best["query_source"],
             "candidate_count": len(entries),
+            "selected_candidate_rank": int(best_rank_index) + 1,
+            "rejected_higher_ranked_candidates": rejection_details,
             "reason": (
                 "High-confidence cross-signal match to canonical Vinpearl FAQ "
                 f"({acceptance_signal})."

@@ -35,6 +35,9 @@ class AgentState(TypedDict, total=False):
     context_resolution_reason: str
     context_resolution_confidence: float
     context_resolution_source: str
+    context_request_kind: str  # independent|factual_continuation|conversation_meta
+    excluded_destination_ids: list[str]
+    excluded_entity_names: list[str]
 
     original_language: str
     original_language_name: str
@@ -72,6 +75,8 @@ class AgentState(TypedDict, total=False):
     detected_destination_names: list[str]
     detected_intent: str | None          # backward-compatible primary intent
     detected_intents: list[str]          # all intents in the current turn
+    explicit_intents: list[str]          # intent words grounded in current user wording
+    intent_origin: str                   # current_explicit|generic_discovery|rewrite_inferred|none
     intent_results: dict[str, dict[str, Any]]
     keyword_candidate_count: int
     missing_destination_ids: list[str]

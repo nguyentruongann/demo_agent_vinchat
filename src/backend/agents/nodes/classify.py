@@ -56,6 +56,21 @@ def classify_input(state: AgentState) -> AgentState:
     user_message = effective_user_message(state)
     rag_query = state.get("rag_query", "")
 
+    # The semantic context resolver is the single authority for whether this turn
+    # needs conversation memory. A factual clarification/continuation must return to
+    # RAG even when an upstream coarse classifier called it conversation_context;
+    # conversation_context is reserved for answers ABOUT the chat record itself.
+    context_kind = str(state.get("context_request_kind") or "").strip()
+    if state.get("scope_action") == "allow":
+        if context_kind == "factual_continuation":
+            return {"route": "rag"}
+        if context_kind == "conversation_meta":
+            return {"route": "conversation_context"}
+        if context_kind == "independent" and str(state.get("route") or "") == "conversation_context":
+            # Resolver found no conversation-output dependency, so a coarse upstream
+            # conversation_context label must not suppress a substantive KB lookup.
+            return {"route": "rag"}
+
     # Deterministic guard for supported-destination travel consultation.
     # Example: "tư vấn du lịch Hà Nội" should be answered using the
     # Vinpearl/VinWonders knowledge base, not refused merely because the user did

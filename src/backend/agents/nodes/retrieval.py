@@ -61,32 +61,6 @@ def _dedupe_documents(documents: list[dict]) -> list[dict]:
     return output
 
 
-def _merge_intent_results(base: dict, extra: dict) -> dict:
-    merged = {key: dict(value) for key, value in (base or {}).items()}
-    for intent, result in (extra or {}).items():
-        result = dict(result or {})
-        if intent not in merged:
-            merged[intent] = result
-            continue
-        current = merged[intent]
-        if result.get("status") == "found":
-            current["status"] = "found"
-        current["document_count"] = int(current.get("document_count") or 0) + int(
-            result.get("document_count") or 0
-        )
-        current["candidate_count"] = int(current.get("candidate_count") or 0) + int(
-            result.get("candidate_count") or 0
-        )
-        current["best_score"] = max(
-            float(current.get("best_score") or 0.0),
-            float(result.get("best_score") or 0.0),
-        )
-        if result.get("faq_match"):
-            current["faq_match"] = True
-            current["matched_question"] = result.get("matched_question")
-        merged[intent] = current
-    return merged
-
 
 def retrieve_context(state: AgentState) -> AgentState:
     rag = get_rag_service()
@@ -94,13 +68,19 @@ def retrieve_context(state: AgentState) -> AgentState:
         query=state["rag_query"],
         user_message=effective_user_message(state),
         resolved_destinations=state.get("resolved_destinations"),
+        excluded_destination_ids=state.get("excluded_destination_ids") or [],
+        excluded_entity_names=state.get("excluded_entity_names") or [],
     )
 
     memory_turns = _select_memory_turns(state)
     memory_documents: list[dict] = []
     memory_queries: list[str] = []
-    merged_intent_results = dict(diagnostics.get("intent_results", {}) or {})
-    merged_intents = list(diagnostics.get("intents", []) or [])
+    # Memory retrieval augments evidence only.  The semantic intent of the CURRENT
+    # request must remain owned by current-query parsing; otherwise a previous turn
+    # can leak ``hotel``/``payment``/... into an unrelated follow-up and trigger the
+    # wrong assessment branch.
+    current_intent_results = dict(diagnostics.get("intent_results", {}) or {})
+    current_intents = list(diagnostics.get("intents", []) or [])
 
     for turn in memory_turns:
         previous_query = str(turn.get("rag_query") or "").strip()
@@ -118,13 +98,9 @@ def retrieve_context(state: AgentState) -> AgentState:
             copied = dict(item)
             copied["memory_retrieved"] = True
             memory_documents.append(copied)
-        merged_intent_results = _merge_intent_results(
-            merged_intent_results,
-            previous_diag.get("intent_results", {}),
-        )
-        for intent in previous_diag.get("intents", []) or []:
-            if intent and intent not in merged_intents:
-                merged_intents.append(intent)
+        # Do not merge previous_diag intents/status into the current turn.  Those
+        # diagnostics describe why an OLD query retrieved its documents, not what
+        # the user is asking now.
 
     if memory_documents:
         # For recap/synthesis, previously grounded branches are the most useful
@@ -141,7 +117,7 @@ def retrieve_context(state: AgentState) -> AgentState:
     else:
         retrieval_mode = diagnostics.get("mode")
 
-    primary_intent = merged_intents[0] if merged_intents else diagnostics.get("intent")
+    primary_intent = current_intents[0] if current_intents else diagnostics.get("intent")
 
     return {
         "retrieved_documents": documents,
@@ -153,8 +129,10 @@ def retrieve_context(state: AgentState) -> AgentState:
         "detected_destination_ids": diagnostics.get("destination_ids", []),
         "detected_destination_names": diagnostics.get("destination_names", []),
         "detected_intent": primary_intent,
-        "detected_intents": merged_intents,
-        "intent_results": merged_intent_results,
+        "detected_intents": current_intents,
+        "explicit_intents": list(diagnostics.get("explicit_intents", []) or []),
+        "intent_origin": str(diagnostics.get("intent_origin") or "none"),
+        "intent_results": current_intent_results,
         "keyword_candidate_count": int(diagnostics.get("keyword_candidate_count") or 0),
         "missing_destination_ids": diagnostics.get("missing_destination_ids", []),
         "memory_retrieval_queries": memory_queries,
@@ -260,9 +238,29 @@ def assess_information(state: AgentState) -> AgentState:
     # missing catalog branch must not erase the evidence from other branches. For
     # active support/troubleshooting, however, a missing requested branch means the
     # chatbot may not have enough guidance to resolve the user's problem safely.
-    if len(detected_intents) > 1 and intent_results:
-        found = [name for name, result in intent_results.items() if result.get("status") == "found"]
-        missing = [name for name, result in intent_results.items() if result.get("status") == "not_found"]
+    # Only CURRENT-user or deterministic generic-discovery intents may use the
+    # multi-intent fast-path.  Intents inferred solely from an LLM rewrite are
+    # retrieval hints and must still pass the evidence judge, because the rewrite
+    # may introduce category words the user never asked for.
+    intent_origin = str(state.get("intent_origin") or "none")
+    fast_path_intents_are_authoritative = intent_origin in {
+        "current_explicit",
+        "generic_discovery",
+    }
+    if len(detected_intents) > 1 and intent_results and fast_path_intents_are_authoritative:
+        def branch_is_confident(result: dict) -> bool:
+            if result.get("status") != "found":
+                return False
+            if result.get("faq_match"):
+                return True
+            try:
+                branch_score = float(result.get("best_score") or 0.0)
+            except (TypeError, ValueError):
+                branch_score = 0.0
+            return branch_score >= settings.min_relevance_score
+
+        found = [name for name, result in intent_results.items() if branch_is_confident(result)]
+        missing = [name for name, result in intent_results.items() if not branch_is_confident(result)]
         if found:
             scores = [float(item.get("score", 0.0) or 0.0) for item in documents]
             best_score = max(scores, default=0.0)
@@ -277,6 +275,7 @@ def assess_information(state: AgentState) -> AgentState:
                 print("\n===== RAG ASSESSMENT =====")
                 print(f"Question: {effective_user_message(state)}")
                 print(f"Detected intents: {detected_intents}")
+                print(f"Intent origin: {intent_origin}")
                 print(f"Intent results: {intent_results}")
                 print(f"Request mode: {request_mode}; resolution mode: {resolution_mode}")
                 print("Enough: True (partial informational answer allowed)")
@@ -403,6 +402,9 @@ Detected destinations:
 Detected intents:
 {', '.join(detected_intents) or state.get('detected_intent') or 'none'}
 
+Intent provenance:
+{state.get('intent_origin', 'none')}
+
 Support request mode:
 {state.get('request_mode', 'information')}
 
@@ -435,6 +437,7 @@ Return exactly:
     print(f"RAG query: {state.get('rag_query', '')}")
     print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
     print(f"Detected intents: {detected_intents or [state.get('detected_intent')]}")
+    print(f"Intent origin: {state.get('intent_origin', 'none')}")
     print(f"Intent results: {intent_results}")
     print(f"Best score: {best_score:.4f}")
     print(f"Enough: {enough}")

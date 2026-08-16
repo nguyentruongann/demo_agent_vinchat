@@ -207,12 +207,12 @@ def no_data_response(state: AgentState) -> AgentState:
     language = _get_language(state)
     group = _language_group(language)
     destinations = state.get("detected_destination_names", []) or []
+    # Only POSITIVE targets resolved for the current turn may appear in a no-data
+    # response. Session recency is not a target, and exclusion-only memory (e.g.
+    # "another place") must never make old destinations appear as if they were
+    # requested again.
     if not destinations:
-        destinations = [
-            item.get("name")
-            for item in state.get("recent_destinations", [])
-            if item.get("name")
-        ]
+        destinations = state.get("resolved_destination_names", []) or []
     destination_text = ", ".join(str(x) for x in destinations if x)
 
     if destination_text:

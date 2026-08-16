@@ -17,7 +17,13 @@ INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "hotel", "hotels", "resort", "resorts", "property", "properties",
         "khach san", "khách sạn", "khu nghi duong", "khu nghỉ dưỡng",
         "villa", "villas", "biet thu", "biệt thự", "room", "rooms",
-        "phong", "phòng",
+        # Keep the accented single-token form. The accentless token ``phong`` is
+        # ambiguous in Vietnamese (e.g. ``phong cảnh`` = scenery), so treating
+        # it as an authoritative room signal creates false hotel intents.
+        # Accentless room requests are still covered by unambiguous phrases and
+        # can fall back to the standalone rewrite when phrased differently.
+        "phòng", "dat phong", "book phong", "gia phong", "loai phong",
+        "con phong", "het phong", "phong nghi",
     ),
     "service": (
         "service", "services", "amenity", "amenities", "facility", "facilities",
@@ -87,7 +93,7 @@ INTENT_ENTITY_TYPES: dict[str, set[str]] = {
         "promotion_section", "promotion_term",
     },
     "attraction": {
-        "attraction", "destination_highlight", "complex",
+        "destination", "attraction", "destination_highlight", "complex",
     },
     "event": {"attraction", "destination_highlight", "complex"},
     "golf": {"golf_course", "golf_feature"},
@@ -123,23 +129,41 @@ _GENERIC_DISCOVERY_MARKERS: tuple[str, ...] = (
     "tham quan",
     "lich trinh",
     "muon di",
+    # Open-ended recommendation wording. These describe the *shape* of the
+    # request rather than a domain attribute such as forest/beach/greenery, so
+    # unseen preference wording is handled the same way.
+    "noi nao",
+    "cho nao",
+    "dia diem nao",
     "travel",
     "tourism",
     "travel guide",
     "travel advice",
     "trip",
-    "visit",
-    "visiting",
     "things to do",
     "what to do",
     "what is there",
     "what s there",
     "recommend",
     "recommendation",
+    "where should i go",
+    "which place",
+    "which destination",
+    "any place",
+    "anywhere",
     "explore",
     "itinerary",
     "vacation",
     "holiday",
+)
+
+# Weak navigation wording is useful only when a concrete destination is already
+# resolved.  Keeping it separate prevents specific requests such as "can I visit
+# with a wheelchair/pet?" from being reclassified as broad discovery merely
+# because the rewrite happens to contain the verb "visit".
+_GENERIC_DISCOVERY_DESTINATION_SCOPED_MARKERS: tuple[str, ...] = (
+    "visit",
+    "visiting",
 )
 
 # Scope is decided once, upstream, by the authoritative semantic guardrail.
@@ -168,6 +192,22 @@ def normalize_text(value: str | None) -> str:
     value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
     value = value.lower().replace("đ", "d")
     value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def normalize_intent_text(value: str | None) -> str:
+    """Normalize text for intent matching without collapsing Vietnamese homographs.
+
+    Destination/entity matching intentionally uses :func:`normalize_text` so
+    accented and accentless place names can resolve to the same canonical item.
+    Intent matching is different: stripping diacritics can change meaning
+    (``phòng`` = room, while ``phong cảnh`` = scenery). Keep Unicode letters and
+    diacritics here, while still normalizing case, punctuation and whitespace.
+    """
+    if not value:
+        return ""
+    value = unicodedata.normalize("NFC", str(value)).lower()
+    value = re.sub(r"[^\w]+", " ", value, flags=re.UNICODE).replace("_", " ")
     return re.sub(r"\s+", " ", value).strip()
 
 
@@ -290,7 +330,7 @@ def _intent_matches(text_value: str | None) -> list[tuple[int, int, str]]:
     Tuple = (first_position, -specificity_score, intent). This keeps multi-clause
     questions in roughly the same order as the user's wording.
     """
-    normalized = normalize_text(text_value)
+    normalized = normalize_intent_text(text_value)
     if not normalized:
         return []
 
@@ -299,7 +339,7 @@ def _intent_matches(text_value: str | None) -> list[tuple[int, int, str]]:
         positions: list[int] = []
         specificity = 0
         for keyword in keywords:
-            nk = normalize_text(keyword)
+            nk = normalize_intent_text(keyword)
             if not nk:
                 continue
             pattern = re.compile(rf"(?:^|\s)({re.escape(nk)})(?:$|\s)")
@@ -363,20 +403,34 @@ def _is_generic_destination_discovery(
     """Return True only for broad destination exploration/planning requests.
 
     This is deliberately a fallback: callers invoke it only after explicit
-    intents (hotel, golf, policy, payment, ...) have failed to match. The
-    destination requirement prevents generic phrases such as "gợi ý cho tôi"
-    from turning into a broad corpus search.
+    intents (hotel, golf, policy, payment, ...) have failed to match. Open-ended
+    discovery may happen before a destination exists (for example "where should
+    I go?"), so strong recommendation/travel wording is sufficient by itself.
+    Weak navigation verbs such as ``visit`` remain destination-scoped.
     """
-    if not destinations:
-        return False
-
     normalized_message = normalize_text(user_message)
     normalized_rag = normalize_text(rag_query)
     combined = f"{normalized_message} {normalized_rag}".strip()
     if not combined:
         return False
 
-    return any(marker in combined for marker in _GENERIC_DISCOVERY_MARKERS)
+    # A discovery/recommendation request does not require the user to have
+    # already named a destination.  In fact, "where should I go?" is exactly the
+    # turn where destination discovery is needed.  The previous destination
+    # requirement made these requests fall through to model-rewrite intents; a
+    # rewrite containing "resorts" could then incorrectly turn the whole request
+    # into a hotel lookup.
+    if any(marker in combined for marker in _GENERIC_DISCOVERY_MARKERS):
+        return True
+
+    # Very weak navigation wording is considered discovery only after a concrete
+    # destination has been resolved.
+    if destinations and any(
+        marker in combined for marker in _GENERIC_DISCOVERY_DESTINATION_SCOPED_MARKERS
+    ):
+        return True
+
+    return False
 
 def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
     # The LLM-created RAG query remains the canonical destination target because it
@@ -392,15 +446,26 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
     # Only use rewritten-query intents when the current message is neither explicit
     # nor a generic discovery request. This keeps multilingual specific requests
     # working while making broad travel consultation deterministic.
-    intents = detect_intents(user_message)
+    explicit_intents = detect_intents(user_message)
+    intents = list(explicit_intents)
+    intent_origin = "current_explicit" if intents else "none"
+
     if not intents and _is_generic_destination_discovery(
         user_message=user_message,
         rag_query=rag_query,
         destinations=destinations,
     ):
         intents = list(GENERIC_DISCOVERY_INTENTS)
+        intent_origin = "generic_discovery"
     elif not intents:
+        # The standalone English rewrite is useful as a multilingual retrieval
+        # hint, but its wording is model-generated.  Keep that provenance so a
+        # phrase introduced by the rewrite (for example ``resorts`` or
+        # ``VinWonders``) cannot silently become an authoritative user intent in
+        # downstream sufficiency fast-paths.
         intents = detect_intents(rag_query)
+        if intents:
+            intent_origin = "rewrite_inferred"
 
     primary_intent = intents[0] if intents else None
     return {
@@ -408,6 +473,8 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
         "destinations": destinations,
         "intent": primary_intent,  # backward-compatible field
         "intents": intents,
+        "explicit_intents": explicit_intents,
+        "intent_origin": intent_origin,
         "preferred_entity_types": sorted(INTENT_ENTITY_TYPES.get(primary_intent or "", set())),
         "preferred_entity_types_by_intent": {
             intent: sorted(INTENT_ENTITY_TYPES.get(intent, set())) for intent in intents
