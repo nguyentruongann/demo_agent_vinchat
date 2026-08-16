@@ -363,66 +363,101 @@ class MemoryService:
         turns: list[dict[str, Any]],
         limit: int = 4,
     ) -> list[dict[str, str]]:
-        """Return unique recently discussed destinations, newest first."""
+        """Return unique recently discussed destinations, newest first.
+
+        Destination focus can come from three structured surfaces, in order:
+        (1) destinations resolved for the user's request, (2) destinations detected
+        during retrieval, and (3) destination IDs attached to grounded entities that
+        the final answer actually named.  The third surface is important for broad
+        discovery answers: a user can naturally say "tell me more about these places"
+        even though none of those places appeared literally in the preceding user
+        message.
+        """
         recent: list[dict[str, str]] = []
         seen: set[str] = set()
 
-        for turn in reversed(turns):
-            structured = turn.get("detected_destinations") or []
-            if not structured and turn.get("detected_destination"):
-                structured = [
-                    {
-                        "id": turn.get("detected_destination"),
-                        "name": turn.get("detected_destination_name"),
-                    }
-                ]
+        def append_destination(destination_id: str, name: str | None = None) -> bool:
+            destination_id = str(destination_id or "").strip()
+            if not destination_id or destination_id in seen:
+                return False
 
-            if not structured:
-                # Only mine raw text as a legacy fallback for turns that were
-                # actually accepted into RAG. Out-of-scope/sensitive turns may
-                # contain prompt-injection destination names and must not poison
-                # future reference resolution.
-                if str(turn.get("route") or "") != "rag":
-                    continue
+            canonical_name = str(name or "").strip()
+            if not canonical_name:
                 try:
-                    from src.backend.services.query_parser import detect_destinations
+                    from src.backend.services.query_parser import load_destination_catalog
 
-                    # Conversation focus must come from what the USER asked
-                    # about (or from the retrieval query resolved for that user
-                    # request), never from places merely listed by the assistant.
-                    # Mining assistant_answer polluted memory for broad replies
-                    # such as "where are the golf courses?", where many locations
-                    # can be mentioned without becoming the user's new focus.
-                    searchable = " ".join(
-                        [
-                            str(turn.get("user_message") or ""),
-                            str(turn.get("rag_query") or ""),
-                        ]
-                    )
-                    structured = [
-                        {
-                            "id": item.get("id"),
-                            "name": item.get("name_vi") or item.get("name_en") or item.get("id"),
-                        }
-                        for item in detect_destinations(searchable)
-                    ]
+                    catalog_item = load_destination_catalog().get(destination_id) or {}
+                    canonical_name = str(
+                        catalog_item.get("name_vi")
+                        or catalog_item.get("name_en")
+                        or destination_id
+                    ).strip()
                 except Exception:
-                    structured = []
+                    canonical_name = destination_id
 
+            recent.append({"id": destination_id, "name": canonical_name or destination_id})
+            seen.add(destination_id)
+            return len(recent) >= limit
+
+        for turn in reversed(turns):
+            # Resolved destinations are stronger than raw retrieval detections because
+            # they already incorporate semantic reference resolution.
+            structured = (
+                turn.get("resolved_destinations")
+                or turn.get("detected_destinations")
+                or []
+            )
             for item in structured:
-                destination_id = str(item.get("id") or "").strip()
-                if not destination_id or destination_id in seen:
-                    continue
-                name = str(
-                    item.get("name")
-                    or item.get("name_vi")
-                    or item.get("name_en")
-                    or destination_id
-                ).strip()
-                recent.append({"id": destination_id, "name": name})
-                seen.add(destination_id)
-                if len(recent) >= limit:
+                if append_destination(
+                    str(item.get("id") or ""),
+                    str(
+                        item.get("name")
+                        or item.get("name_vi")
+                        or item.get("name_en")
+                        or ""
+                    ),
+                ):
                     return recent
+
+            # A grounded assistant answer may introduce several concrete options in
+            # response to a broad request.  Persist their canonical destination IDs
+            # as structured focus so plural follow-ups ("these places") do not lose
+            # one location simply because it was absent from the user's wording.
+            grounded_focus = turn.get("focus_entities") or []
+            added_grounded_destination = False
+            for entity in grounded_focus:
+                destination_id = str(entity.get("destination_id") or "").strip()
+                if not destination_id:
+                    continue
+                added_grounded_destination = True
+                if append_destination(destination_id):
+                    return recent
+
+            if structured or added_grounded_destination:
+                continue
+
+            # Legacy fallback for old rows that predate structured entity memory.
+            # Mine only user wording / resolved RAG query from accepted RAG turns;
+            # never mine arbitrary assistant prose.
+            if str(turn.get("route") or "") != "rag":
+                continue
+            try:
+                from src.backend.services.query_parser import detect_destinations
+
+                searchable = " ".join(
+                    [
+                        str(turn.get("user_message") or ""),
+                        str(turn.get("rag_query") or ""),
+                    ]
+                )
+                for item in detect_destinations(searchable):
+                    if append_destination(
+                        str(item.get("id") or ""),
+                        str(item.get("name_vi") or item.get("name_en") or ""),
+                    ):
+                        return recent
+            except Exception:
+                pass
 
         return recent
 
@@ -438,7 +473,7 @@ class MemoryService:
     @staticmethod
     def extract_recent_entities(
         turns: list[dict[str, Any]],
-        limit: int = 8,
+        limit: int = 12,
     ) -> list[dict[str, str]]:
         """Return grounded recent entities, newest first, across arbitrary types.
 
@@ -458,13 +493,15 @@ class MemoryService:
                 if not key[1] or key in seen:
                     continue
                 seen.add(key)
-                recent.append(
-                    {
-                        "name": name,
-                        "type": entity_type,
-                        "source": str(item.get("source") or "grounded_retrieval"),
-                    }
-                )
+                entity = {
+                    "name": name,
+                    "type": entity_type,
+                    "source": str(item.get("source") or "grounded_retrieval"),
+                }
+                destination_id = str(item.get("destination_id") or "").strip()
+                if destination_id:
+                    entity["destination_id"] = destination_id
+                recent.append(entity)
                 if len(recent) >= limit:
                     return recent
         return recent
@@ -480,14 +517,18 @@ class MemoryService:
         ) or "(none yet)"
 
     @staticmethod
-    def derive_focus_entities(state: dict[str, Any], limit: int = 6) -> list[dict[str, str]]:
-        """Derive current-turn entity focus from grounded retrieval metadata.
+    def derive_focus_entities(state: dict[str, Any], limit: int = 12) -> list[dict[str, str]]:
+        """Derive grounded entities that are safe to carry into later turns.
 
-        No entity names or topic keywords are hard-coded. Candidate names come from
-        the documents actually retrieved for this turn. A candidate is retained when
-        it is explicitly represented in the user's request/retrieval query or appears
-        in the grounded assistant answer. FAQ documents contribute their subcategory
-        rather than the full question text, which is an evidence record, not an entity.
+        The old implementation considered only entity names present in the first
+        handful of retrieved documents.  That loses options introduced by a grounded
+        broad answer (for example the third city in a three-place recommendation)
+        and makes plural anaphora brittle.
+
+        This version combines retrieval metadata with *exact canonical KB entities*
+        explicitly named in the final grounded answer.  Assistant prose is still not
+        trusted blindly: answer-derived entities must exactly match the current KB and
+        the turn must have passed grounding.
         """
         if str(state.get("route") or "") != "rag":
             return []
@@ -503,11 +544,11 @@ class MemoryService:
                 ]
             )
         )
-        answer_blob = normalize_text(state.get("answer") or "")
+        answer_text = str(state.get("answer") or "")
+        answer_blob = normalize_text(answer_text)
         documents = list(state.get("retrieved_documents") or [])
 
-        ranked: list[tuple[float, dict[str, str]]] = []
-        seen: set[tuple[str, str]] = set()
+        ranked: dict[tuple[str, str], tuple[float, dict[str, str]]] = {}
 
         def phrase_match(name: str, blob: str) -> float:
             name_norm = normalize_text(name)
@@ -521,9 +562,50 @@ class MemoryService:
                 return 0.0
             return len(name_tokens & blob_tokens) / len(name_tokens)
 
-        for position, doc in enumerate(documents[:12]):
+        def add_candidate(
+            *,
+            name: str,
+            entity_type: str,
+            source: str,
+            score: float,
+            destination_id: str | None = None,
+        ) -> None:
+            name = str(name or "").strip()
+            entity_type = str(entity_type or "entity").strip() or "entity"
+            normalized_name = normalize_text(name)
+            if not normalized_name:
+                return
+            key = (entity_type.casefold(), normalized_name)
+            item: dict[str, str] = {
+                "name": name,
+                "type": entity_type,
+                "source": source,
+            }
+            destination_id = str(destination_id or "").strip()
+            if destination_id:
+                item["destination_id"] = destination_id
+            current = ranked.get(key)
+            if current is None or score > current[0]:
+                # If a lower-scored copy knew the destination but the stronger copy
+                # does not, preserve that structural relationship.
+                if current and not destination_id and current[1].get("destination_id"):
+                    item["destination_id"] = current[1]["destination_id"]
+                ranked[key] = (score, item)
+            elif destination_id and not current[1].get("destination_id"):
+                current[1]["destination_id"] = destination_id
+
+        # Retrieval metadata remains useful, but inspect more than the first 12 rows
+        # because memory is a compact structure and answer context may include a
+        # round-robin set of entities from several branches/destinations.
+        for position, doc in enumerate(documents[:32]):
             metadata = dict(doc.get("metadata") or {})
-            entity_type = str(metadata.get("entity_type") or metadata.get("source_table") or "entity").strip() or "entity"
+            entity_type = str(
+                metadata.get("entity_type")
+                or metadata.get("source_table")
+                or "entity"
+            ).strip() or "entity"
+            destination_id = str(metadata.get("destination_id") or "").strip()
+
             names: list[tuple[str, str]] = []
             if entity_type == "faq":
                 subcategory = str(metadata.get("subcategory") or "").strip()
@@ -535,40 +617,71 @@ class MemoryService:
                     names.append((entity_name, entity_type))
 
             for name, candidate_type in names:
-                normalized_name = normalize_text(name)
-                if not normalized_name:
-                    continue
-                key = (candidate_type.casefold(), normalized_name)
-                if key in seen:
-                    continue
-
                 user_match = phrase_match(name, user_blob)
                 answer_match = phrase_match(name, answer_blob)
-                # Require strong evidence that the entity was actually part of this
-                # conversational turn, not merely a nearby retrieval candidate.
-                if user_match < 0.60 and answer_match < 0.85:
+                if user_match < 0.60 and answer_match < 0.82:
                     continue
-
-                seen.add(key)
                 try:
                     doc_score = float(doc.get("score") or 0.0)
                 except (TypeError, ValueError):
                     doc_score = 0.0
                 source = "user_or_query" if user_match >= 0.60 else "grounded_answer"
-                score = 2.0 * user_match + answer_match + min(1.0, max(0.0, doc_score)) - position * 0.01
-                ranked.append(
-                    (
-                        score,
-                        {
-                            "name": name,
-                            "type": candidate_type,
-                            "source": source,
-                        },
-                    )
+                score = (
+                    2.0 * user_match
+                    + 1.25 * answer_match
+                    + min(1.0, max(0.0, doc_score))
+                    - position * 0.005
+                )
+                add_candidate(
+                    name=name,
+                    entity_type=candidate_type,
+                    source=source,
+                    score=score,
+                    destination_id=destination_id,
                 )
 
-        ranked.sort(key=lambda item: item[0], reverse=True)
-        return [item for _, item in ranked[: max(1, limit)]]
+        # Exact KB probing closes the gap where the answer names an entity that was
+        # supported compositionally by retrieved context but that entity's canonical
+        # row was not among the top retrieved documents.  This is safe only after
+        # grounding has passed, hence the guard at the top of the function.
+        try:
+            from src.backend.services.kb_scope_probe import probe_kb_scope_evidence
+
+            user_matches = probe_kb_scope_evidence(
+                " ".join(
+                    [
+                        str(state.get("user_message") or ""),
+                        str(state.get("rag_query") or ""),
+                    ]
+                ),
+                limit=max(24, limit * 3),
+            )
+            for position, item in enumerate(user_matches):
+                add_candidate(
+                    name=str(item.get("entity_name") or ""),
+                    entity_type=str(item.get("entity_type") or "entity"),
+                    source="user_or_query_kb",
+                    score=4.0 - position * 0.001,
+                    destination_id=str(item.get("destination_id") or ""),
+                )
+
+            answer_matches = probe_kb_scope_evidence(
+                answer_text,
+                limit=max(24, limit * 3),
+            )
+            for position, item in enumerate(answer_matches):
+                add_candidate(
+                    name=str(item.get("entity_name") or ""),
+                    entity_type=str(item.get("entity_type") or "entity"),
+                    source="grounded_answer_kb",
+                    score=3.0 - position * 0.001,
+                    destination_id=str(item.get("destination_id") or ""),
+                )
+        except Exception as exc:
+            print(f"[MEMORY] canonical grounded-entity probe unavailable: {exc}")
+
+        ordered = sorted(ranked.values(), key=lambda pair: pair[0], reverse=True)
+        return [item for _, item in ordered[: max(1, limit)]]
 
     def append_turn(
         self,
@@ -635,14 +748,16 @@ class MemoryService:
                 if not key[1] or key in seen_entities:
                     continue
                 seen_entities.add(key)
-                compact.append(
-                    {
-                        "name": name[:220],
-                        "type": entity_type[:100],
-                        "source": str(item.get("source") or "grounded_retrieval")[:80],
-                    }
-                )
-            return compact[:8]
+                entity = {
+                    "name": name[:220],
+                    "type": entity_type[:100],
+                    "source": str(item.get("source") or "grounded_retrieval")[:80],
+                }
+                destination_id = str(item.get("destination_id") or "").strip()
+                if destination_id:
+                    entity["destination_id"] = destination_id[:120]
+                compact.append(entity)
+            return compact[:12]
 
         compact_focus_entities = _compact_entity_list(focus_entities)
 

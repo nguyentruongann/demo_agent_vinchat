@@ -182,6 +182,29 @@ def _build_sources(state: dict) -> list[SourceItem]:
         print(f"[SOURCE RERANK] fallback because of error: {exc}")
         documents = list(retrieved_documents)
 
+    excluded_destination_ids = {
+        normalize_text(str(value or ""))
+        for value in state.get("excluded_destination_ids", [])
+        if normalize_text(str(value or ""))
+    }
+    excluded_entity_names = {
+        normalize_text(str(value or ""))
+        for value in state.get("excluded_entity_names", [])
+        if normalize_text(str(value or ""))
+    }
+    if excluded_destination_ids or excluded_entity_names:
+        filtered_documents = []
+        for item in documents:
+            metadata = item.get("metadata", {}) or {}
+            destination_norm = normalize_text(str(metadata.get("destination_id") or ""))
+            entity_norm = normalize_text(str(metadata.get("entity_name") or ""))
+            if destination_norm and destination_norm in excluded_destination_ids:
+                continue
+            if entity_norm and entity_norm in excluded_entity_names:
+                continue
+            filtered_documents.append(item)
+        documents = filtered_documents
+
     # Safety guard: even a reranked source must not contradict the hard
     # destination. If reranking found fewer than five trustworthy sources, return
     # fewer sources instead of padding with unrelated pages.
@@ -262,6 +285,8 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
             "detected_destinations": state.get("detected_destination_names", []),
             "detected_intent": state.get("detected_intent"),
             "detected_intents": state.get("detected_intents", []),
+            "explicit_intents": state.get("explicit_intents", []),
+            "intent_origin": state.get("intent_origin", "none"),
             "intent_results": state.get("intent_results", {}),
             "request_mode": state.get("request_mode"),
             "resolution_mode": state.get("resolution_mode"),

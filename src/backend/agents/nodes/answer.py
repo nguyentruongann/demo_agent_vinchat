@@ -79,6 +79,12 @@ Detected destinations:
 Detected intents (in current-message order):
 {', '.join(state.get('detected_intents', [])) or state.get('detected_intent') or 'none'}
 
+Excluded destinations for this turn (do not recommend as results):
+{', '.join(state.get('excluded_destination_ids', [])) or 'none'}
+
+Excluded entities for this turn (do not recommend as results):
+{', '.join(state.get('excluded_entity_names', [])) or 'none'}
+
 REQUEST_MODE: {state.get('request_mode', 'information')}
 RESOLUTION_MODE: {state.get('resolution_mode', 'information_only')}
 
@@ -98,6 +104,7 @@ Rules for this answer:
 - not_found => state only that the CURRENT KNOWLEDGE BASE lacks enough evidence for that intent.
 - Never turn not_found into a real-world non-existence claim.
 - Never use previous assistant answers as evidence.
+- Respect the system-generated exclusions above: do not present an excluded destination/entity as a recommendation or answer candidate.
 - Use TARGET_RESPONSE_LANGUAGE for every explanatory sentence, heading, caveat, and KB-not-found statement.
 - Keep proper nouns, IDs, URLs, emails, numbers, and official names as needed; those do not count as a language switch.
 - For self_serve support, give only grounded steps; do not pretend to perform account-specific actions.
