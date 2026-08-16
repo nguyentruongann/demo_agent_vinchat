@@ -30,6 +30,51 @@ import '../styles/pages/Chatbot.css'
 
 const CHAT_DRAFT_KEY = 'vinpearl_chat_draft_v2'
 
+// Only frontend-generated/system messages should follow the current UI locale.
+// Real user/assistant conversation history must stay in the language it was sent in.
+const LOCAL_SYSTEM_MESSAGE_KEYS = {
+  'msg-welcome': 'chatbotWelcome',
+  'msg-reset': 'chatbotReset',
+  'msg-logout': 'chatbotWelcome',
+  'msg-empty-history': 'chatbotWelcome',
+  'msg-login': 'chatbotWelcome',
+}
+
+function localSystemMessageKey(message) {
+  if (message?.localizationKey) return message.localizationKey
+  if (LOCAL_SYSTEM_MESSAGE_KEYS[message?.id]) return LOCAL_SYSTEM_MESSAGE_KEYS[message.id]
+  if (message?.isError || String(message?.id || '').startsWith('error-')) return 'assistantUnavailable'
+  if (String(message?.id || '').startsWith('err-')) return 'chatError'
+  return null
+}
+
+function localizeSystemMessages(messages, translations, language) {
+  let changed = false
+  const nextMessages = messages.map((message) => {
+    const localizationKey = localSystemMessageKey(message)
+    if (!localizationKey || !translations[localizationKey]) return message
+
+    const nextText = translations[localizationKey]
+    if (
+      message.text === nextText
+      && message.language === language
+      && message.localizationKey === localizationKey
+    ) {
+      return message
+    }
+
+    changed = true
+    return {
+      ...message,
+      text: nextText,
+      language,
+      localizationKey,
+    }
+  })
+
+  return changed ? nextMessages : messages
+}
+
 function displayTime(value) {
   const date = value ? new Date(value) : new Date()
   if (Number.isNaN(date.getTime())) return ''
@@ -113,13 +158,14 @@ function Chatbot() {
   const messagesContainerRef = useRef(null)
   const previousUserIdRef = useRef(undefined)
 
-  function createSystemMessage(id, text = t.chatbotWelcome) {
+  function createSystemMessage(id, localizationKey = 'chatbotWelcome') {
     return {
       id,
       sender: 'assistant',
-      text,
+      text: t[localizationKey] || t.chatbotWelcome,
       timestamp: displayTime(),
       language,
+      localizationKey,
     }
   }
 
@@ -128,15 +174,7 @@ function Chatbot() {
     if (Array.isArray(storedMessages) && storedMessages.length > 0) {
       return storedMessages
     }
-    return [
-      {
-        id: 'msg-welcome',
-        sender: 'assistant',
-        text: t.chatbotWelcome,
-        timestamp: displayTime(),
-        language,
-      },
-    ]
+    return [createSystemMessage('msg-welcome')]
   })
   const [input, setInput] = useState(() => loadStoredDraft())
   const [loading, setLoading] = useState(false)
@@ -145,29 +183,6 @@ function Chatbot() {
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(() => getChatSessionId())
   const [conversationReady, setConversationReady] = useState(false)
-
-  const suggestedPrompts = [
-    {
-      icon: '🏝',
-      title: t.chatSuggestPhuQuoc,
-      prompt: t.chatPromptPhuQuoc,
-    },
-    {
-      icon: '🎢',
-      title: t.chatSuggestNhaTrang,
-      prompt: t.chatPromptNhaTrang,
-    },
-    {
-      icon: '👶',
-      title: t.chatSuggestFamily,
-      prompt: t.chatPromptFamily,
-    },
-    {
-      icon: '⛳',
-      title: t.chatSuggestHoiAn,
-      prompt: t.chatPromptHoiAn,
-    },
-  ]
 
   useEffect(() => {
     const messagesContainer = messagesContainerRef.current
@@ -178,6 +193,12 @@ function Chatbot() {
       behavior: messages.length > 1 ? 'smooth' : 'auto',
     })
   }, [messages, loading])
+
+  // Keep only local/system UI messages synchronized with the selected language.
+  // This also upgrades old sessionStorage messages created before localizationKey existed.
+  useEffect(() => {
+    setMessages((current) => localizeSystemMessages(current, t, language))
+  }, [language, t.chatbotWelcome, t.chatbotReset, t.assistantUnavailable, t.chatError])
 
   // Guest chats may be restored from sessionStorage. Authenticated chats are
   // restored from PostgreSQL instead, which prevents account A's visible chat
@@ -355,6 +376,7 @@ function Chatbot() {
           text: t.assistantUnavailable,
           timestamp: displayTime(),
           language,
+          localizationKey: 'assistantUnavailable',
           isError: true,
           errorDetail: error instanceof Error ? error.message : String(error),
         },
@@ -376,7 +398,7 @@ function Chatbot() {
     setHistoryOpen(false)
     clearStoredDraft()
     setInput('')
-    setMessages([createSystemMessage('msg-reset', t.chatbotReset)])
+    setMessages([createSystemMessage('msg-reset', 'chatbotReset')])
   }
 
   return (
@@ -447,21 +469,6 @@ function Chatbot() {
                 <span>{t.createTicket}</span>
               </Link>
             </div>
-          </section>
-
-          <section className="chatbot-page__suggestions" aria-label={t.suggestedPrompts}>
-            {suggestedPrompts.map((prompt) => (
-              <button
-                className="chatbot-page__suggestion"
-                key={prompt.title}
-                type="button"
-                disabled={!conversationReady}
-                onClick={() => handleSendPrompt(prompt.prompt)}
-              >
-                <span className="chatbot-page__suggestion-icon">{prompt.icon}</span>
-                <span className="chatbot-page__suggestion-title">{prompt.title}</span>
-              </button>
-            ))}
           </section>
 
           <section

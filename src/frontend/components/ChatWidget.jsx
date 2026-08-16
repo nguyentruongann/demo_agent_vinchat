@@ -30,6 +30,28 @@ function ChatWidget() {
     }
   }, [messages, loading, isOpen])
 
+  // Frontend-generated error messages should follow the selected UI language.
+  // Real chat history remains untouched.
+  useEffect(() => {
+    setMessages((current) => {
+      let changed = false
+      const next = current.map((message) => {
+        const isLocalError = message.localizationKey === 'chatError'
+          || String(message.id || '').startsWith('err-')
+        if (!isLocalError) return message
+        if (message.text === t.chatError && message.language === language) return message
+        changed = true
+        return {
+          ...message,
+          text: t.chatError,
+          language,
+          localizationKey: 'chatError',
+        }
+      })
+      return changed ? next : current
+    })
+  }, [language, t.chatError])
+
   useEffect(() => {
     if (authLoading || user) return
     if (messages.length > 0) {
@@ -92,6 +114,8 @@ function ChatWidget() {
           sender: 'assistant',
           text: t.chatError,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          language,
+          localizationKey: 'chatError',
         },
       ])
     } finally {
