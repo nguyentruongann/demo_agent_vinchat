@@ -432,6 +432,34 @@ def _is_generic_destination_discovery(
 
     return False
 
+def detect_supported_destination_discovery(
+    user_message: str,
+    rag_query: str = "",
+) -> list[dict[str, Any]]:
+    """Return catalog destinations for broad travel/discovery requests.
+
+    This helper is intentionally narrow: a destination must resolve against the
+    official destination catalog AND the current request must have broad
+    discovery/planning shape (for example ``có gì chơi ở Hà Nội`` or
+    ``tư vấn du lịch Hà Nội``).  It is used upstream as deterministic evidence
+    that the request may be answered as *Vinpearl-KB-bounded* destination
+    discovery even when the user does not repeat the Vinpearl brand name.
+
+    It does not authorize unrelated deliverables and it does not bypass safety or
+    prompt-injection checks.
+    """
+    destinations = detect_destinations(user_message, rag_query)
+    if not destinations:
+        return []
+    if not _is_generic_destination_discovery(
+        user_message=user_message,
+        rag_query=rag_query,
+        destinations=destinations,
+    ):
+        return []
+    return destinations
+
+
 def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
     # The LLM-created RAG query remains the canonical destination target because it
     # resolves references/complaints from memory. Current-message intents, however,

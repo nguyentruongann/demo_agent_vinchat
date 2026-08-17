@@ -62,6 +62,7 @@ class AgentState(TypedDict, total=False):
     sanitized_user_request: str
     guardrail_reason: str
     guardrail_confidence: float
+    supported_destination_discovery_ids: list[str]
 
     retrieved_documents: list[dict[str, Any]]
     context: str

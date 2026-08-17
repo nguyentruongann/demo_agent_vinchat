@@ -2,53 +2,17 @@ from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.llm import LLMService
 from src.backend.agents.scope_policy import scope_policy_prompt
-from src.backend.services.query_parser import detect_destinations, normalize_text
+from src.backend.services.query_parser import detect_supported_destination_discovery
 
-
-_GENERIC_DESTINATION_TRAVEL_MARKERS = (
-    "du lich",
-    "di choi",
-    "nghi duong",
-    "travel",
-    "travel advice",
-    "travel guide",
-    "trip",
-    "visit",
-    "visiting",
-    "things to do",
-    "what to do",
-)
 
 def _is_supported_destination_travel_request(message: str, rag_query: str) -> bool:
-    """Keep generic travel-consulting requests for known destinations in scope.
+    """Keep broad discovery for official catalog destinations on the RAG path.
 
-    The LLM scope classifier was inconsistent for messages such as
-    "tư vấn du lịch Hà Nội": the same semantic request could be marked
-    out_of_scope for Hanoi but rag for Nha Trang. Destination membership is
-    deterministic data, so use it as a guard before asking the LLM.
-
-    This helper is not a scope gate. Production calls reach it only after the
-    authoritative semantic guardrail has allowed the turn, so it must not maintain
-    a second keyword deny-list that can contradict the knowledge base.
+    Scope itself is still owned by the upstream guardrail.  This downstream check
+    only prevents a later classifier from undoing an already-allowed destination
+    discovery request.
     """
-    destinations = detect_destinations(message, rag_query)
-    if not destinations:
-        return False
-
-    normalized_message = normalize_text(message)
-    normalized_rag = normalize_text(rag_query)
-
-    asks_generic_travel_advice = any(
-        marker in normalized_message for marker in _GENERIC_DESTINATION_TRAVEL_MARKERS
-    )
-    rewritten_for_vinpearl = (
-        "vinpearl" in normalized_rag
-        or "vinwonders" in normalized_rag
-        or "vinpearl" in normalized_message
-        or "vinwonders" in normalized_message
-    )
-
-    return asks_generic_travel_advice or rewritten_for_vinpearl
+    return bool(detect_supported_destination_discovery(message, rag_query))
 
 
 def classify_input(state: AgentState) -> AgentState:
