@@ -3,7 +3,6 @@ from __future__ import annotations
 from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.llm import LLMService
-from src.backend.services.query_parser import normalize_text
 
 
 def _get_language(state: AgentState) -> str:

@@ -70,6 +70,12 @@ function StructuredMessage({ text, sources, isUser, onAction, showActions = true
         </div>
       )}
 
+
+      {/* Closing / follow-up sentence kept outside the topic card */}
+      {parsed.closing && (
+        <p className="structured-msg__closing"><InlineMarkdown>{parsed.closing}</InlineMarkdown></p>
+      )}
+
       {/* Source pills */}
       {mergedSources && mergedSources.length > 0 && (
         <SourcePills sources={mergedSources} />

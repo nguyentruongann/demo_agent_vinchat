@@ -2,14 +2,7 @@ from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.config import get_settings
 from src.backend.services.llm import LLMService
-from src.backend.services.query_parser import normalize_text
 from src.backend.services.rag import get_rag_service
-
-
-CATALOG_INTENTS = {
-    "hotel", "service", "dining", "promotion", "attraction", "event", "golf", "mice"
-}
-
 
 def _select_memory_turns(state: AgentState, limit: int = 6) -> list[dict]:
     """Select prior factual turns chosen by the semantic context resolver.
@@ -39,7 +32,6 @@ def _select_memory_turns(state: AgentState, limit: int = 6) -> list[dict]:
     # Preserve conversational order, not resolver output order.
     return turns[-max(1, limit):]
 
-
 def _dedupe_documents(documents: list[dict]) -> list[dict]:
     output: list[dict] = []
     seen: set[tuple[str, str]] = set()
@@ -59,8 +51,6 @@ def _dedupe_documents(documents: list[dict]) -> list[dict]:
         seen.add(key)
         output.append(item)
     return output
-
-
 
 def retrieve_context(state: AgentState) -> AgentState:
     rag = get_rag_service()
@@ -88,7 +78,7 @@ def retrieve_context(state: AgentState) -> AgentState:
         if not previous_query:
             continue
         memory_queries.append(previous_query)
-        previous_docs, previous_diag = rag.hybrid_search(
+        previous_docs, _ = rag.hybrid_search(
             query=previous_query,
             user_message=previous_message,
             top_k=min(3, max(1, get_settings().top_k)),
@@ -98,7 +88,7 @@ def retrieve_context(state: AgentState) -> AgentState:
             copied = dict(item)
             copied["memory_retrieved"] = True
             memory_documents.append(copied)
-        # Do not merge previous_diag intents/status into the current turn.  Those
+        # Do not merge previous-turn diagnostics into the current turn. Those
         # diagnostics describe why an OLD query retrieved its documents, not what
         # the user is asking now.
 
@@ -139,35 +129,6 @@ def retrieve_context(state: AgentState) -> AgentState:
         "memory_augmented": bool(memory_documents),
     }
 
-
-def _is_catalog_existence_question(message: str) -> bool:
-    normalized = normalize_text(message)
-    if not normalized:
-        return False
-
-    english_markers = (
-        "is there ", "are there ", "do you have ", "does it have ",
-        "does this place have ", "any golf",
-    )
-    if any(marker in f"{normalized} " for marker in english_markers):
-        return True
-
-    if "co " in f"{normalized} " and any(
-        marker in f" {normalized} "
-        for marker in (" khong ", " ko ", " k ", " hong ", " khong vay ")
-    ):
-        return True
-
-    return False
-
-
-def _is_catalog_query(state: AgentState) -> bool:
-    intents = set(state.get("detected_intents", []) or [])
-    if not intents and state.get("detected_intent"):
-        intents.add(str(state.get("detected_intent")))
-    return bool(intents) and intents.issubset(CATALOG_INTENTS)
-
-
 def _insufficiency_action(state: AgentState) -> str:
     """Choose what to do when RAG cannot safely resolve the current request.
 
@@ -176,7 +137,6 @@ def _insufficiency_action(state: AgentState) -> str:
     answer. A user who is actively troubleshooting gets a ticket only when RAG
     cannot provide grounded self-service guidance.
     """
-    request_mode = state.get("request_mode", "information")
     resolution_mode = state.get("resolution_mode", "information_only")
 
     if resolution_mode == "human_required":
@@ -189,7 +149,6 @@ def _insufficiency_action(state: AgentState) -> str:
     # tickets unexpectedly.
     return "no_data"
 
-
 def _insufficient(state: AgentState, reason: str, best_score: float) -> AgentState:
     return {
         "enough_information": False,
@@ -197,7 +156,6 @@ def _insufficient(state: AgentState, reason: str, best_score: float) -> AgentSta
         "best_relevance_score": best_score,
         "insufficiency_action": _insufficiency_action(state),
     }
-
 
 def assess_information(state: AgentState) -> AgentState:
     documents = state.get("retrieved_documents", [])

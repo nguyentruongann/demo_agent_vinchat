@@ -17,7 +17,6 @@ from src.backend.services.query_parser import (
     parse_retrieval_query,
 )
 
-
 class RAGService:
     """Hybrid retriever: destination/entity keywords first, embeddings second.
 
@@ -85,43 +84,12 @@ class RAGService:
             return np.empty((0, 384), dtype=np.float32)
         return self.model.encode([f"query: {query}" for query in cleaned])
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        return self.embed_documents(texts)
-
     def _ensure_not_empty(self) -> None:
         if self.collection.count() == 0:
             raise RuntimeError(
                 "Vector database is empty. Run: "
                 "python -m src.backend.services.ingest_postgres --reset"
             )
-
-    def semantic_search(self, query: str, top_k: int | None = None) -> list[dict[str, Any]]:
-        self._ensure_not_empty()
-        query_embedding = self.embed_query(query)
-        result = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k or self.settings.top_k,
-            include=["documents", "metadatas", "distances"],
-        )
-
-        output: list[dict[str, Any]] = []
-        documents = result.get("documents", [[]])[0]
-        metadatas = result.get("metadatas", [[]])[0]
-        distances = result.get("distances", [[]])[0]
-
-        for text, metadata, distance in zip(documents, metadatas, distances):
-            score = max(0.0, 1.0 - float(distance))
-            output.append(
-                {
-                    "text": text,
-                    "metadata": metadata or {},
-                    "score": round(score, 4),
-                    "semantic_score": round(score, 4),
-                    "keyword_score": 0.0,
-                    "retrieval_mode": "semantic",
-                }
-            )
-        return output
 
     def semantic_search_many(
         self,
@@ -1246,19 +1214,6 @@ class RAGService:
         )
         return documents, diagnostics
 
-    def search(
-        self,
-        query: str,
-        top_k: int | None = None,
-        user_message: str = "",
-    ) -> list[dict[str, Any]]:
-        documents, _ = self.hybrid_search(
-            query=query,
-            user_message=user_message,
-            top_k=top_k,
-        )
-        return documents
-
     def build_context(self, documents: list[dict[str, Any]]) -> str:
         blocks: list[str] = []
         total = 0
@@ -1284,7 +1239,6 @@ class RAGService:
             total += len(block)
 
         return "\n---\n".join(blocks)
-
 
 @lru_cache(maxsize=1)
 def get_rag_service() -> RAGService:

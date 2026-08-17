@@ -10,6 +10,12 @@ class ChatRequest(BaseModel):
     user_id: str | None = None
 
 
+class AskRequest(BaseModel):
+    """Request body for the API-key protected compatibility endpoint."""
+
+    question: str = Field(min_length=1, max_length=5000)
+
+
 class SourceItem(BaseModel):
     source_file: str
     category: str | None = None
