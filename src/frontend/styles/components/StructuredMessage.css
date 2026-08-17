@@ -26,6 +26,17 @@
   line-height: 1.7;
 }
 
+
+/* ── Closing / follow-up paragraph ── */
+
+.structured-msg__closing {
+  margin: 0;
+  color: var(--vt-ink);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.7;
+}
+
 /* ── Topics container ── */
 
 .structured-msg__topics {

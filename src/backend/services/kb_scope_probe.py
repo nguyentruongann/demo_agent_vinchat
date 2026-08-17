@@ -303,9 +303,3 @@ def probe_recent_kb_entities(
     return matches
 
 
-def clear_kb_scope_probe_cache() -> None:
-    """Clear process-local cache (primarily for tests/maintenance)."""
-    global _INDEX_CACHE, _INDEX_COLLECTION_NAME, _INDEX_COLLECTION_COUNT
-    _INDEX_CACHE = None
-    _INDEX_COLLECTION_NAME = None
-    _INDEX_COLLECTION_COUNT = -1

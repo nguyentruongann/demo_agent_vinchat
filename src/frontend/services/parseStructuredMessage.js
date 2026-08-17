@@ -18,6 +18,12 @@ const NUMBERED_HEADING_RE = /^(?:#{1,4}\s+)?(?:\d+[.)]\s*)?(?:\*\*)?(.+?)(?:\*\*
 const BULLET_RE = /^[\s]*[•●◆▸▹►–—*-]\s+/
 const LOCATION_RE = /(?:cách|gần|nằm\s+(?:tại|ở|trên)|located|distance|khoảng\s+cách|km\s+từ)/i
 const EMOJI_RE = /^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u
+const FOLLOW_UP_RE = /(?:(?:anh\/chị|bạn|quý khách).*?(?:quan tâm|muốn|cần|dự định|mong muốn|chia sẻ|cho biết|hỗ trợ)|(?:would you like|which option|what would you like|let me know|tell me which|are you interested in))/iu
+
+function isFollowUpText(value) {
+  const plain = stripMarkdownBold(String(value || '')).trim()
+  return Boolean(plain && FOLLOW_UP_RE.test(plain))
+}
 
 const TOPIC_ICONS = [
   { pattern: /golf/i, icon: '⛳' },
@@ -175,7 +181,7 @@ function normalizeTopics(rawTopics, sourceText) {
 
 export function parseStructuredMessage(text) {
   if (!text || typeof text !== 'string') {
-    return { plainText: text || '', lead: '', context: null, topics: [], sources: [], actions: [] }
+    return { plainText: text || '', lead: '', closing: '', context: null, topics: [], sources: [], actions: [] }
   }
 
   // ── 0. Check if input is structured JSON (from backend Gemini output) ──
@@ -189,9 +195,22 @@ export function parseStructuredMessage(text) {
       if (rawObj && typeof rawObj === 'object' && !Array.isArray(rawObj)) {
         const obj = sanitizeTypos(rawObj)
         const topics = normalizeTopics(obj.topics, text)
+
+        // Some model outputs put a customer-facing CTA/follow-up sentence in
+        // `context`. ContextStrip is rendered above the cards, so that makes the
+        // closing sentence appear in the wrong place. Move CTA-like context to
+        // `closing`; StructuredMessage renders `closing` after all TopicCards.
+        let closing = obj.closing || obj.followUp || obj.follow_up || ''
+        let context = obj.context && typeof obj.context === 'object' ? obj.context : null
+        if (context?.text && isFollowUpText(context.text)) {
+          closing = closing ? `${closing} ${context.text}` : String(context.text)
+          context = null
+        }
+
         return {
           lead: obj.lead || '',
-          context: obj.context && typeof obj.context === 'object' ? obj.context : null,
+          closing,
+          context,
           topics,
           sources: Array.isArray(obj.sources) ? obj.sources : [],
           actions: Array.isArray(obj.actions) ? obj.actions : [],
@@ -207,10 +226,11 @@ export function parseStructuredMessage(text) {
 
   // Too short — just return as plain text
   if (lines.length < 3 && text.length < 200) {
-    return { plainText: text, lead: text, context: null, topics: [], sources: [], actions: [] }
+    return { plainText: text, lead: text, closing: '', context: null, topics: [], sources: [], actions: [] }
   }
 
   let lead = ''
+  let closing = ''
   let context = null
   const topics = []
   let currentTopic = null
@@ -228,6 +248,15 @@ export function parseStructuredMessage(text) {
       const heading = isHeadingLine(trimmed)
       if (!heading && !isBullet(trimmed)) {
         const cleaned = trimmed
+
+        // If an intro already exists and the next prose line is a customer CTA,
+        // it belongs at the END of the answer, not inside the lead above cards.
+        if (lead && isFollowUpText(cleaned)) {
+          closing = closing ? `${closing} ${cleaned}` : cleaned
+          leadDone = true
+          continue
+        }
+
         if (lead) {
           lead += ' ' + cleaned
           leadDone = true // 2 sentences max for lead
@@ -242,6 +271,15 @@ export function parseStructuredMessage(text) {
       } else {
         leadDone = true
       }
+    }
+
+    // ── Capture customer-facing follow-up/CTA wherever the model placed it ──
+    // The model may emit a sentence such as "Nếu bạn cần tư vấn chi tiết hơn..."
+    // BEFORE the bullet list. It is semantically the closing sentence, so store
+    // it now and let StructuredMessage render it after the TopicCards.
+    if (!isBullet(trimmed) && isFollowUpText(trimmed)) {
+      closing = closing ? `${closing} ${trimmed}` : trimmed
+      continue
     }
 
     // ── Detect context strip (location / distance info) ──
@@ -271,13 +309,29 @@ export function parseStructuredMessage(text) {
         subtitle: '',
         stops: [],
         items: [],
+        implicit: false,
       }
       continue
     }
 
     // ── Process bullet / content lines under a topic ──
     if (currentTopic) {
-      const bulletText = isBullet(trimmed) ? cleanBulletText(trimmed) : trimmed
+      // A natural follow-up sentence after an implicit bullet list (for example
+      // "Anh/chị đang quan tâm địa điểm nào...?") is closing prose, not another
+      // list item. Keep it outside the TopicCard so the UI reads like a consultant
+      // response instead of turning the CTA into a bullet.
+      const candidateText = isBullet(trimmed) ? cleanBulletText(trimmed) : trimmed
+      const candidatePlainText = stripMarkdownBold(candidateText)
+
+      if (
+        (currentTopic.items.length > 0 || currentTopic.stops.length > 0) &&
+        isFollowUpText(candidatePlainText)
+      ) {
+        closing = closing ? `${closing} ${candidateText}` : candidateText
+        continue
+      }
+
+      const bulletText = candidateText
       const parsingText = stripMarkdownBold(bulletText)
       const time = parseTimeFromLine(parsingText)
 
@@ -321,6 +375,7 @@ export function parseStructuredMessage(text) {
           subtitle: '',
           stops: [],
           items: [],
+          implicit: true,
         }
       }
 
@@ -344,11 +399,12 @@ export function parseStructuredMessage(text) {
 
   // If we got nothing useful, return plainText fallback
   if (!normalizedTopics.length && !lead) {
-    return { plainText: text, lead: text, context: null, topics: [] }
+    return { plainText: text, lead: text, closing: '', context: null, topics: [] }
   }
 
   return sanitizeTypos({
     lead: lead || '',
+    closing: closing || '',
     context,
     topics: normalizedTopics,
     plainText: normalizedTopics.length === 0 ? text : '',

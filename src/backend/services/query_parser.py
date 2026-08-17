@@ -9,7 +9,6 @@ from sqlalchemy import create_engine, text
 
 from src.backend.config import get_settings
 
-
 # Keep intents semantic and non-overlapping where practical. Generic "event/su kien"
 # is treated as leisure/event content, while conference/meeting terminology remains MICE.
 INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -102,8 +101,6 @@ INTENT_ENTITY_TYPES: dict[str, set[str]] = {
     "payment": {"policy_document", "policy_section", "policy_block", "faq"},
 }
 
-
-
 # Generic destination discovery is intentionally mapped to several existing
 # catalog intents instead of adding a synthetic entity type. This keeps
 # retrieval branch-specific and gives the answerer a balanced set of grounded
@@ -184,7 +181,6 @@ INTENT_QUERY_LABELS: dict[str, str] = {
     "payment": "payment guidance policies",
 }
 
-
 def normalize_text(value: str | None) -> str:
     if not value:
         return ""
@@ -193,7 +189,6 @@ def normalize_text(value: str | None) -> str:
     value = value.lower().replace("đ", "d")
     value = re.sub(r"[^a-z0-9]+", " ", value)
     return re.sub(r"\s+", " ", value).strip()
-
 
 def normalize_intent_text(value: str | None) -> str:
     """Normalize text for intent matching without collapsing Vietnamese homographs.
@@ -209,7 +204,6 @@ def normalize_intent_text(value: str | None) -> str:
     value = unicodedata.normalize("NFC", str(value)).lower()
     value = re.sub(r"[^\w]+", " ", value, flags=re.UNICODE).replace("_", " ")
     return re.sub(r"\s+", " ", value).strip()
-
 
 @lru_cache(maxsize=1)
 def load_destination_catalog() -> dict[str, dict[str, Any]]:
@@ -271,13 +265,6 @@ def load_destination_catalog() -> dict[str, dict[str, Any]]:
 
     return catalog
 
-
-def _contains_phrase(haystack: str, needle: str) -> bool:
-    if not haystack or not needle:
-        return False
-    return re.search(rf"(?:^|\s){re.escape(needle)}(?:$|\s)", haystack) is not None
-
-
 def detect_destinations(*texts: str | None) -> list[dict[str, Any]]:
     """Detect every distinct destination mentioned, in textual order."""
     combined = normalize_text(" ".join(str(t or "") for t in texts))
@@ -318,12 +305,6 @@ def detect_destinations(*texts: str | None) -> list[dict[str, Any]]:
         )
     return output
 
-
-def detect_destination(*texts: str | None) -> dict[str, Any] | None:
-    destinations = detect_destinations(*texts)
-    return destinations[0] if destinations else None
-
-
 def _intent_matches(text_value: str | None) -> list[tuple[int, int, str]]:
     """Return intent matches ordered by where the user mentioned them.
 
@@ -352,7 +333,6 @@ def _intent_matches(text_value: str | None) -> list[tuple[int, int, str]]:
     found.sort(key=lambda item: (item[0], item[1], item[2]))
     return found
 
-
 def detect_intents(*texts: str | None, max_intents: int = 8) -> list[str]:
     """Detect every distinct intent instead of collapsing a multi-clause query to one.
 
@@ -371,12 +351,6 @@ def detect_intents(*texts: str | None, max_intents: int = 8) -> list[str]:
                 return output
     return output
 
-
-def detect_intent(*texts: str | None) -> str | None:
-    intents = detect_intents(*texts, max_intents=1)
-    return intents[0] if intents else None
-
-
 def build_intent_query(
     intent: str,
     destinations: list[dict[str, Any]],
@@ -392,8 +366,6 @@ def build_intent_query(
     if destination_part:
         return f"Vinpearl VinWonders {destination_part} {intent_part}".strip()
     return f"{fallback_query} {intent_part}".strip()
-
-
 
 def _is_generic_destination_discovery(
     user_message: str,
@@ -458,7 +430,6 @@ def detect_supported_destination_discovery(
     ):
         return []
     return destinations
-
 
 def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
     # The LLM-created RAG query remains the canonical destination target because it

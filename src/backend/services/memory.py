@@ -889,15 +889,3 @@ class MemoryService:
             db.commit()
             return deleted_turns
 
-    def clear(self, session_id: str) -> int:
-        """Internal unconditional delete kept for maintenance/backward compatibility."""
-        if not session_id:
-            return 0
-
-        with open_session() as db:
-            chat_session = db.get(ChatSession, session_id)
-            if chat_session is None:
-                return 0
-            deleted_turns = self._delete_session_rows(db, chat_session)
-            db.commit()
-            return deleted_turns

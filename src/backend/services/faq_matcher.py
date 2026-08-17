@@ -18,18 +18,6 @@ from src.backend.services.query_parser import normalize_text
 # cross-domain concept such as flights, passports, pets, shuttle buses, weather,
 # baggage, pregnancy, or payment.
 
-_QUESTION_MARKERS = (
-    "?",
-    " can ", " may ", " do ", " does ", " is ", " are ", " what ", " where ",
-    " when ", " why ", " how ", " which ", " who ", " should ", " could ",
-    " co ", " duoc khong ", " khong ", " nhu the nao ", " bao nhieu ", " may gio ",
-    " o dau ", " khi nao ", " tai sao ", " lam sao ", " cach ", " quy dinh ",
-    " chinh sach ", " phi ", " gia ", " dieu kien ", " can gi ", " co the ",
-    " policy ", " regulation ", " rules ", " fee ", " price ", " ticket ",
-    " opening ", " contact ", " allowed ", " allow ", " luggage ", " baggage ",
-    " voucher ", " card ", " refund ", " cancel ", " change ", " reschedule ",
-)
-
 _STOPWORDS = {
     "a", "an", "the", "i", "me", "my", "we", "our", "you", "your", "it",
     "to", "for", "of", "in", "on", "at", "and", "or", "with", "from", "by",
@@ -524,19 +512,6 @@ class FAQMatcher:
 
         score = 0.52 * recall + 0.28 * precision + 0.20 * context_recall + containment_bonus
         return max(0.0, min(1.0, score))
-
-    @staticmethod
-    def _question_like(*queries: str) -> bool:
-        for raw in queries:
-            text = str(raw or "").strip()
-            if not text:
-                continue
-            normalized = f" {normalize_text(text)} "
-            if "?" in text:
-                return True
-            if any(marker in normalized for marker in _QUESTION_MARKERS if marker != "?"):
-                return True
-        return False
 
     def _ensure_vectors(self) -> None:
         if self._question_vectors is not None and self._enriched_vectors is not None:
