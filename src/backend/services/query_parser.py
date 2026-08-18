@@ -210,7 +210,25 @@ def _has_budget_constraint(user_message: str, rag_query: str = "") -> bool:
         "duoi", "tren duoi", "tam", "khoang", "under", "within",
         "up to", "maximum",
     )
-    return any(marker in combined for marker in comparative_markers)
+    if any(marker in combined for marker in comparative_markers):
+        return True
+
+    # Natural Vietnamese recommendation requests often express affordability as
+    # "tôi/mình/em có 3 triệu" without saying the literal word "ngân sách".
+    # Treat that possession wording as a budget only when the same turn is clearly
+    # about travel/leisure discovery. This avoids misreading unrelated amounts
+    # such as "tôi có 3 triệu tiền cọc, muốn hoàn tiền" as a travel budget.
+    possession_markers = ("toi co", "minh co", "em co", "co tam", "co khoang")
+    travel_context_markers = (
+        "du lich", "di choi", "muon di", "di dau", "nen di dau",
+        "nghi duong", "xa stress", "thu gian", "vui choi",
+        "vinpearl", "vinwonders", "hotel", "resort", "spa",
+        "travel", "trip", "vacation", "holiday", "relax", "where should i go",
+    )
+    return (
+        any(marker in combined for marker in possession_markers)
+        and any(marker in combined for marker in travel_context_markers)
+    )
 
 
 def extract_budget_vnd(user_message: str, rag_query: str = "") -> int | None:
