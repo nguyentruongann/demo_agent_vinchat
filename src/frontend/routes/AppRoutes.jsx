@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import ChatWidget from '../components/ChatWidget'
 import Footer from '../components/Footer'
 import Header from '../components/Header'
@@ -19,12 +19,15 @@ import { useAuth } from '../context/AuthContext'
 import '../styles/routes/AppRoutes.css'
 
 function AppLayout({ children }) {
+  const { pathname } = useLocation()
+  const hideFloatingChat = pathname === '/chat' || pathname === '/chatbot'
+
   return (
     <div className="app-routes">
       <Header />
       <main className="app-routes__main">{children}</main>
       <Footer />
-      <ChatWidget />
+      {!hideFloatingChat && <ChatWidget />}
     </div>
   )
 }
