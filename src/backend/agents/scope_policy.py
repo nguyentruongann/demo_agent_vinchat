@@ -35,6 +35,13 @@ VINPEARL_SCOPE_POLICY = (
     "official Vinpearl destination catalog. In that case, interpret the deliverable as Vinpearl-KB-bounded discovery: "
     "answer only with grounded Vinpearl/VinWonders/partnered content available in the knowledge base, not as an "
     "unrestricted general-city guide. The user does not need to repeat the Vinpearl brand in that request. "
+    "OPEN-ENDED VINPEARL TRAVEL DISCOVERY: because this is specifically a Vinpearl/VinWonders travel assistant, "
+    "broad travel recommendation or trip-planning requests are also IN SCOPE when the user has not named a destination "
+    "yet. This includes requests driven by budget, relaxation, family/couple needs, children, trip purpose, preferences, "
+    "or desired experiences, such as 'Tôi có 3 triệu, muốn đi đâu đó xả stress?', 'với ngân sách này nên đi đâu?', "
+    "or 'where should I go to relax?'. Interpret these requests strictly as Vinpearl-KB-bounded discovery: recommend "
+    "only destinations, properties, attractions, services, dining, or promotions grounded in the Vinpearl knowledge base. "
+    "Do NOT turn them into unrestricted general travel advice and do NOT require the user to say Vinpearl explicitly. "
     "Conversation-memory meta questions are also IN SCOPE when they ask to recall, repeat, or summarize the user's "
     "own immediately preceding in-scope Vinpearl conversation (for example 'what did I just ask?', 'do you remember "
     "what we were discussing?', or 'summarize what we just discussed?'). These are conversation-context requests, "
@@ -64,7 +71,9 @@ SCOPE_DECISION_EXAMPLES = (
     "(6) 'What is the weather in Phu Quoc tomorrow?' => out of scope because it asks for a live external forecast; "
     "(7) 'Find the cheapest Vietjet flight tomorrow' => out of scope because it asks for independent live flight search; "
     "(8) 'Explain Vinpearl's hotel policy and also write Python code' => block the whole turn under strict mixed scope; "
-    "(9) after an in-scope Vinpearl discussion, 'What was my last question?' => in scope as conversation memory."
+    "(9) after an in-scope Vinpearl discussion, 'What was my last question?' => in scope as conversation memory; "
+    "(10) 'Tôi có 3 triệu, muốn đi đâu đó xả stress?' => in scope/RAG as open-ended Vinpearl-KB-bounded "
+    "travel discovery; use the budget and relaxation preference to retrieve grounded Vinpearl options."
 )
 
 

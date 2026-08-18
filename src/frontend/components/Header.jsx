@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   ChevronDown,
@@ -23,6 +23,8 @@ function Header() {
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
   const [authDropdownOpen, setAuthDropdownOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const langCloseTimer = useRef(null)
+  const authCloseTimer = useRef(null)
 
   const isHomePage = location.pathname === '/'
 
@@ -35,6 +37,21 @@ function Header() {
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [isHomePage, location.pathname])
+
+  useEffect(() => () => {
+    if (langCloseTimer.current) clearTimeout(langCloseTimer.current)
+    if (authCloseTimer.current) clearTimeout(authCloseTimer.current)
+  }, [])
+
+  function openDropdown(setOpen, timerRef) {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setOpen(true)
+  }
+
+  function closeDropdownSoon(setOpen, timerRef) {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setOpen(false), 180)
+  }
 
   const languages = [
     { code: 'en', label: 'English' },
@@ -112,9 +129,9 @@ function Header() {
           <div className="header__actions">
             <div
               className={`header__language ${langDropdownOpen ? 'header__language--open' : ''}`}
-              onMouseEnter={() => setLangDropdownOpen(true)}
-              onMouseLeave={() => setLangDropdownOpen(false)}
-              onFocus={() => setLangDropdownOpen(true)}
+              onMouseEnter={() => openDropdown(setLangDropdownOpen, langCloseTimer)}
+              onMouseLeave={() => closeDropdownSoon(setLangDropdownOpen, langCloseTimer)}
+              onFocus={() => openDropdown(setLangDropdownOpen, langCloseTimer)}
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget)) {
                   setLangDropdownOpen(false)
@@ -125,6 +142,11 @@ function Header() {
                 className="header__language-trigger"
                 type="button"
                 aria-haspopup="true"
+                aria-expanded={langDropdownOpen}
+                onClick={() => {
+                  setAuthDropdownOpen(false)
+                  setLangDropdownOpen((open) => !open)
+                }}
               >
                 <Globe className="header__language-icon" />
                 <span>{currentLang.code.toUpperCase()}</span>
@@ -169,9 +191,9 @@ function Header() {
             ) : (
               <div
                 className={`header__language ${authDropdownOpen ? 'header__language--open' : ''}`}
-                onMouseEnter={() => setAuthDropdownOpen(true)}
-                onMouseLeave={() => setAuthDropdownOpen(false)}
-                onFocus={() => setAuthDropdownOpen(true)}
+                onMouseEnter={() => openDropdown(setAuthDropdownOpen, authCloseTimer)}
+                onMouseLeave={() => closeDropdownSoon(setAuthDropdownOpen, authCloseTimer)}
+                onFocus={() => openDropdown(setAuthDropdownOpen, authCloseTimer)}
                 onBlur={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget)) {
                     setAuthDropdownOpen(false)
@@ -182,6 +204,11 @@ function Header() {
                   className="header__language-trigger"
                   type="button"
                   aria-haspopup="true"
+                  aria-expanded={authDropdownOpen}
+                  onClick={() => {
+                    setLangDropdownOpen(false)
+                    setAuthDropdownOpen((open) => !open)
+                  }}
                 >
                   <User className="header__language-icon" />
                   <span>{t.signIn || 'Tài khoản'}</span>
