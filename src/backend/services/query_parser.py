@@ -83,21 +83,22 @@ INTENT_ENTITY_TYPES: dict[str, set[str]] = {
         "property", "room",
     },
     "service": {
-        "amenity", "dining_service", "golf_feature", "mice_venue", "mice_room",
+        "booking_product", "amenity", "dining_service", "golf_feature",
+        "mice_venue", "mice_room",
     },
-    "dining": {"dining_service", "property", "amenity"},
+    "dining": {"booking_product", "dining_service", "property", "amenity"},
     "promotion": {
-        "promotion", "promotion_benefit", "promotion_block", "promotion_code",
+        "booking_product", "promotion", "promotion_benefit", "promotion_block", "promotion_code",
         "promotion_destination", "promotion_property_raw", "promotion_relation",
         "promotion_section", "promotion_term",
     },
     "attraction": {
-        "destination", "attraction", "destination_highlight", "complex",
+        "booking_product", "destination", "attraction", "destination_highlight", "complex",
     },
-    "event": {"attraction", "destination_highlight", "complex"},
+    "event": {"booking_product", "attraction", "destination_highlight", "complex"},
     "golf": {"golf_course", "golf_feature"},
     "mice": {"mice_venue", "mice_room", "mice_room_capacity"},
-    "policy": {"policy_document", "policy_section", "policy_block", "faq"},
+    "policy": {"booking_product", "policy_document", "policy_section", "policy_block", "faq"},
     "payment": {"policy_document", "policy_section", "policy_block", "faq"},
 }
 
@@ -305,6 +306,24 @@ INTENT_QUERY_LABELS: dict[str, str] = {
     "payment": "payment guidance policies",
 }
 
+# Price/package/ticket wording is a cross-cutting retrieval facet, not a catalog
+# intent.  Keep it separate from INTENT_KEYWORDS so a request such as
+# "Aquafield service prices" still has the user's semantic intents (service +
+# attraction), while retrieval may additionally prefer price-bearing booking
+# products without replacing either branch.
+_PRICE_REQUEST_MARKERS: tuple[str, ...] = (
+    "price", "prices", "pricing", "ticket price", "service price", "cost",
+    "costs", "fare", "fares", "how much", "giá", "muc gia",
+    "mức giá", "gia ve", "giá vé", "gia bao nhieu", "gia ra sao",
+    "gia ca", "bao nhieu tien", "bao nhiêu tiền",
+)
+
+_BOOKING_EVIDENCE_MARKERS: tuple[str, ...] = (
+    "ticket", "tickets", "package", "packages", "combo", "membership",
+    "pass", "voucher", "booking", "book", "vé", "gói",
+    "goi dich vu", "goi ve", "the hoi vien", "thẻ",
+)
+
 def normalize_text(value: str | None) -> str:
     if not value:
         return ""
@@ -328,6 +347,41 @@ def normalize_intent_text(value: str | None) -> str:
     value = unicodedata.normalize("NFC", str(value)).lower()
     value = re.sub(r"[^\w]+", " ", value, flags=re.UNICODE).replace("_", " ")
     return re.sub(r"\s+", " ", value).strip()
+
+def _contains_intent_phrase(text_value: str | None, markers: tuple[str, ...]) -> bool:
+    normalized = normalize_intent_text(text_value)
+    if not normalized:
+        return False
+    padded = f" {normalized} "
+    for marker in markers:
+        token = normalize_intent_text(marker)
+        if token and f" {token} " in padded:
+            return True
+    return False
+
+def detect_retrieval_facets(user_message: str, rag_query: str) -> dict[str, bool]:
+    """Detect cross-cutting facts that should shape evidence selection.
+
+    The current user message is authoritative.  The standalone rewrite is used
+    only as a multilingual fallback so these flags cannot become a replacement
+    for the user's intents or destination constraints.
+    """
+    price_requested = _contains_intent_phrase(user_message, _PRICE_REQUEST_MARKERS)
+    if not price_requested:
+        price_requested = _contains_intent_phrase(rag_query, _PRICE_REQUEST_MARKERS)
+
+    booking_evidence_preferred = price_requested or _contains_intent_phrase(
+        user_message, _BOOKING_EVIDENCE_MARKERS
+    )
+    if not booking_evidence_preferred:
+        booking_evidence_preferred = _contains_intent_phrase(
+            rag_query, _BOOKING_EVIDENCE_MARKERS
+        )
+
+    return {
+        "price_requested": bool(price_requested),
+        "booking_evidence_preferred": bool(booking_evidence_preferred),
+    }
 
 @lru_cache(maxsize=1)
 def load_destination_catalog() -> dict[str, dict[str, Any]]:
@@ -604,6 +658,7 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
                 intent_origin = "constraint_derived"
 
     budget_vnd = extract_budget_vnd(user_message, rag_query)
+    facets = detect_retrieval_facets(user_message, rag_query)
     primary_intent = intents[0] if intents else None
     return {
         "destination": destinations[0] if destinations else None,
@@ -614,6 +669,8 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
         "constraint_derived_intents": constraint_derived_intents,
         "has_budget_constraint": budget_vnd is not None,
         "budget_vnd": budget_vnd,
+        "price_requested": bool(facets.get("price_requested")),
+        "booking_evidence_preferred": bool(facets.get("booking_evidence_preferred")),
         "intent_origin": intent_origin,
         "preferred_entity_types": sorted(INTENT_ENTITY_TYPES.get(primary_intent or "", set())),
         "preferred_entity_types_by_intent": {

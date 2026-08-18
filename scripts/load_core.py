@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from src.backend.config import get_settings
 from src.data_postgre.db import Base, CORE_TABLES, DataQualityIssue, IngestRun
 from src.data_postgre.db.errors import describe, sqlstate
-from src.data_postgre.normalize.adapters import entertainment, hotels, promotions, simple
+from src.data_postgre.normalize.adapters import booking, entertainment, hotels, promotions, simple
 from src.data_postgre.normalize.context import BRANDS, Context, Issue
 from src.data_postgre.normalize.text import normalize_alias
 YAML_PATH = (
@@ -58,6 +58,7 @@ def build_context() -> Context:
 def run_adapters(ctx: Context) -> None:
     # Thu tu quan trong: mice va about doi chieu ten khach san nen phai chay sau hotels.
     hotels.parse(ctx)
+    booking.parse(ctx)
     promotions.parse(ctx)
     entertainment.parse(ctx)
     simple.parse(ctx)

@@ -80,6 +80,8 @@ class AgentState(TypedDict, total=False):
     constraint_derived_intents: list[str]  # deterministic evidence branches added from constraints (e.g. budget -> promotion)
     has_budget_constraint: bool          # current turn contains an explicit affordability ceiling
     budget_vnd: int | None               # parsed affordability ceiling in VND
+    price_requested: bool                # user explicitly asks for a numeric price/cost/fare
+    booking_evidence_preferred: bool     # ticket/package/price wording should prefer booking_product evidence
     intent_origin: str                   # current_explicit|generic_discovery|rewrite_inferred|constraint_derived|none
     intent_results: dict[str, dict[str, Any]]
     keyword_candidate_count: int
