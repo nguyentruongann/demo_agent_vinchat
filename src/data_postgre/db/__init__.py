@@ -20,6 +20,7 @@ from src.data_postgre.db.core import (
     Amenity,
     Attraction,
     Brand,
+    BookingProduct,
     Complex,
     DataQualityIssue,
     Destination,
@@ -72,6 +73,7 @@ __all__ = [
     "DataQualityIssue",
     # trục dùng chung
     "Brand",
+    "BookingProduct",
     "Source",
     "Destination",
     "DestinationAlias",

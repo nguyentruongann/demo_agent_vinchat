@@ -2,7 +2,7 @@ from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.config import get_settings
 from src.backend.services.llm import LLMService
-from src.backend.services.rag import get_rag_service
+from src.backend.services.rag import get_rag_service, text_has_price_evidence
 
 def _select_memory_turns(state: AgentState, limit: int = 6) -> list[dict]:
     """Select prior factual turns chosen by the semantic context resolver.
@@ -124,6 +124,8 @@ def retrieve_context(state: AgentState) -> AgentState:
         "constraint_derived_intents": list(diagnostics.get("constraint_derived_intents", []) or []),
         "has_budget_constraint": bool(diagnostics.get("has_budget_constraint", False)),
         "budget_vnd": diagnostics.get("budget_vnd"),
+        "price_requested": bool(diagnostics.get("price_requested", False)),
+        "booking_evidence_preferred": bool(diagnostics.get("booking_evidence_preferred", False)),
         "intent_origin": str(diagnostics.get("intent_origin") or "none"),
         "intent_results": current_intent_results,
         "keyword_candidate_count": int(diagnostics.get("keyword_candidate_count") or 0),
@@ -165,6 +167,26 @@ def assess_information(state: AgentState) -> AgentState:
     settings = get_settings()
     intent_results = state.get("intent_results", {}) or {}
     detected_intents = state.get("detected_intents", []) or []
+
+    # Price is a requested fact/constraint, not merely another intent label.
+    # Multi-intent partial-answer logic must not declare success when the user
+    # explicitly asked for a price but none of the selected chunks contains an
+    # actual numeric price. This check is deterministic and leaves all existing
+    # partial-answer behavior unchanged for non-price questions.
+    if state.get("price_requested") and documents:
+        price_documents = [
+            item for item in documents if text_has_price_evidence(item.get("text", ""))
+        ]
+        if not price_documents:
+            best_price_score = max(
+                (float(item.get("score", 0.0) or 0.0) for item in documents),
+                default=0.0,
+            )
+            return _insufficient(
+                state,
+                "The user explicitly requested pricing, but the retrieved context contains no numeric price evidence.",
+                best_price_score,
+            )
 
     # FAQ-first retrieval is already a high-confidence evidence decision against
     # the canonical FAQ file. Do not send it through the generic LLM sufficiency

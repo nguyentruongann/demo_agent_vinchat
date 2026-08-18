@@ -56,6 +56,7 @@ EXCLUDED_TABLES = TECHNICAL_TABLES | APP_RUNTIME_TABLES
 
 # Prefer human-readable fields in this order when naming a row/reference.
 LABEL_COLUMNS = (
+    "product_name",
     "name",
     "title",
     "question",
@@ -72,11 +73,14 @@ LABEL_COLUMNS = (
 
 # URL-like fields are useful as citation metadata.
 URL_COLUMNS = (
+    "source_url",
     "url",
     "canonical_url",
     "page_url",
     "detail_url",
     "booking_url",
+    "booking_search_url",
+    "cart_url",
     "terms_url",
     "room_page_url",
     "dining_page_url",
@@ -260,21 +264,28 @@ def _row_to_documents(
         f"Bản ghi: {entity_name}",
     ]
 
-    # Every non-null column is emitted. This is the "full data" guarantee.
-    for column in table.columns:
-        value = row.get(column.name)
-        if value is None:
-            continue
+    # booking_product is intentionally denormalized and already contains a
+    # curated semantic representation in rag_content.  Do NOT stringify every
+    # column for this table: that would duplicate the same facts through
+    # raw_payload/source_data/validation and produce noisy, oversized chunks.
+    if table_name == "booking_product" and row.get("rag_content"):
+        lines.append(_format_value(row["rag_content"]))
+    else:
+        # Every non-null column is emitted for the normal normalized CORE tables.
+        for column in table.columns:
+            value = row.get(column.name)
+            if value is None:
+                continue
 
-        rendered = _format_value(value)
-        if rendered == "":
-            continue
+            rendered = _format_value(value)
+            if rendered == "":
+                continue
 
-        ref_label = _resolve_fk_label(column, value, labels)
-        if ref_label:
-            rendered = f"{rendered} ({ref_label})"
+            ref_label = _resolve_fk_label(column, value, labels)
+            if ref_label:
+                rendered = f"{rendered} ({ref_label})"
 
-        lines.append(f"{_humanize(column.name)}: {rendered}")
+            lines.append(f"{_humanize(column.name)}: {rendered}")
 
     # Polymorphic tables don't have a normal FK for entity_id.
     poly_label = _polymorphic_label(table_name, row, labels)
@@ -328,7 +339,11 @@ def _row_to_documents(
             metadata["source_url"] = urls[0]
 
         # Helpful common filters, while keeping Chroma metadata scalar-only.
-        for field in ("destination_id", "property_id", "promotion_id", "content_language", "category", "kind"):
+        for field in (
+            "destination_id", "destination_name", "property_id", "promotion_id",
+            "content_language", "category", "kind", "product_type",
+            "availability_status", "currency", "ticket_code", "booking_code",
+        ):
             value = row.get(field)
             if value is not None:
                 metadata[field] = _format_value(value)

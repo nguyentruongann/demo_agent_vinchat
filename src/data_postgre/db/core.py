@@ -1044,3 +1044,167 @@ class OrgHighlight(Base, Sourced):
             name="kind_valid",
         ),
     )
+# --------------------------------------------------------------------------
+# Booking products (RAG-friendly, denormalized)
+# --------------------------------------------------------------------------
+
+
+class BookingProduct(Base, Timestamped):
+    """Sản phẩm booking gom phẳng thành MỘT bảng để phục vụ agent/RAG.
+
+    Mỗi dòng = một sản phẩm trên booking.vinwonders.com. Các trường hay lọc/tìm
+    được kéo thành cột riêng; các cấu trúc lồng (price variants, policy, điều
+    kiện khách, dịch vụ kèm theo...) giữ nguyên bằng JSONB để không mất dữ liệu.
+
+    Bảng cố ý KHÔNG có FK sang destination/source: nhánh booking có thể nạp và
+    chunk độc lập, không phải JOIN thêm bảng khác trước khi đưa sang vector DB.
+    """
+
+    __tablename__ = "booking_product"
+
+    # Định danh / nguồn
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    product_id: Mapped[str] = mapped_column(Text, nullable=False)
+    ticket_code: Mapped[str | None] = mapped_column(Text)
+    booking_code: Mapped[str | None] = mapped_column(Text)
+    source_url: Mapped[str | None] = mapped_column(Text)
+    source_language: Mapped[str | None] = mapped_column(String(10))
+    source_currency: Mapped[str | None] = mapped_column(String(3))
+    source_style: Mapped[str | None] = mapped_column(Text)
+    source_tab: Mapped[str | None] = mapped_column(Text)
+    source_domain: Mapped[str | None] = mapped_column(Text)
+    source_page_type: Mapped[str | None] = mapped_column(Text)
+
+    # Địa điểm — destination_id là canonical slug để filter RAG/Chroma.
+    # Chỉ lưu Text, KHÔNG FK/JOIN sang bảng destination để booking vẫn độc lập.
+    destination_id: Mapped[str | None] = mapped_column(Text)
+    destination_name: Mapped[str | None] = mapped_column(Text)
+    city: Mapped[str | None] = mapped_column(Text)
+    province: Mapped[str | None] = mapped_column(Text)
+    country: Mapped[str | None] = mapped_column(Text)
+    venue_name: Mapped[str | None] = mapped_column(Text)
+    service_group: Mapped[str | None] = mapped_column(Text)
+
+    # Sản phẩm / card
+    product_name: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_product_name: Mapped[str | None] = mapped_column(Text)
+    product_type: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(Text)
+    sub_category: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str | None] = mapped_column(Text)
+    card_title: Mapped[str | None] = mapped_column(Text)
+    short_description: Mapped[str | None] = mapped_column(Text)
+    badges: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    highlights: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    view_detail_available: Mapped[bool | None] = mapped_column(Boolean)
+    select_available: Mapped[bool | None] = mapped_column(Boolean)
+
+    # Media
+    thumbnail_url: Mapped[str | None] = mapped_column(Text)
+    images: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+
+    # Nội dung chi tiết
+    overview: Mapped[str | None] = mapped_column(Text)
+    detail_included: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    detail_excluded: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    benefits: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    experience_description: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    usage_instructions: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    important_notes: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    detail_terms_and_conditions: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    surcharge_conditions: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    restrictions: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    service_locations: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    operating_information: Mapped[dict[str, Any] | None] = mapped_column(JSONB_NULL)
+
+    # Giá
+    currency: Mapped[str | None] = mapped_column(String(3))
+    pricing_status: Mapped[str | None] = mapped_column(Text)
+    price_type: Mapped[str | None] = mapped_column(Text)
+    is_dynamic_price: Mapped[bool | None] = mapped_column(Boolean)
+    is_from_price: Mapped[bool | None] = mapped_column(Boolean)
+    is_approximate_price: Mapped[bool | None] = mapped_column(Boolean)
+    display_price: Mapped[str | None] = mapped_column(Text)
+    display_original_price: Mapped[str | None] = mapped_column(Text)
+    display_discount_text: Mapped[str | None] = mapped_column(Text)
+    minimum_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    maximum_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    price_variants: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+
+    # Khuyến mãi
+    is_promotional: Mapped[bool | None] = mapped_column(Boolean)
+    promotion_badges: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    promotion_name: Mapped[str | None] = mapped_column(Text)
+    promotion_code: Mapped[str | None] = mapped_column(Text)
+    promotion_description: Mapped[str | None] = mapped_column(Text)
+    discount_percent: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    promotion_start_date: Mapped[str | None] = mapped_column(Text)
+    promotion_end_date: Mapped[str | None] = mapped_column(Text)
+
+    # Điều kiện khách / số lượng — giữ nguyên object nguồn để không làm mất
+    # height/age/gender/nationality/membership và các rule phát sinh sau này.
+    customer_conditions: Mapped[dict[str, Any] | None] = mapped_column(JSONB_NULL)
+    quantity_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB_NULL)
+
+    # Cách sử dụng
+    valid_from: Mapped[str | None] = mapped_column(Text)
+    valid_until: Mapped[str | None] = mapped_column(Text)
+    validity_text: Mapped[str | None] = mapped_column(Text)
+    duration: Mapped[str | None] = mapped_column(Text)
+    duration_minutes: Mapped[int | None] = mapped_column(Integer)
+    duration_hours: Mapped[int | None] = mapped_column(Integer)
+    duration_days: Mapped[int | None] = mapped_column(Integer)
+    number_of_uses: Mapped[int | None] = mapped_column(Integer)
+    usage_type: Mapped[str | None] = mapped_column(Text)
+    same_day_use: Mapped[bool | None] = mapped_column(Boolean)
+    time_slot_required: Mapped[bool | None] = mapped_column(Boolean)
+    time_slot: Mapped[str | None] = mapped_column(Text)
+    entry_time: Mapped[str | None] = mapped_column(Text)
+
+    # Availability
+    availability_status: Mapped[str | None] = mapped_column(Text)
+    availability_text: Mapped[str | None] = mapped_column(Text)
+    sold_out: Mapped[bool | None] = mapped_column(Boolean)
+    booking_open: Mapped[bool | None] = mapped_column(Boolean)
+
+    # Booking action
+    booking_search_url: Mapped[str | None] = mapped_column(Text)
+    detail_url: Mapped[str | None] = mapped_column(Text)
+    booking_url: Mapped[str | None] = mapped_column(Text)
+    cart_url: Mapped[str | None] = mapped_column(Text)
+    booking_type: Mapped[str | None] = mapped_column(Text)
+    button_text: Mapped[str | None] = mapped_column(Text)
+    select_button_available: Mapped[bool | None] = mapped_column(Boolean)
+
+    # Chính sách + dịch vụ kèm theo
+    inclusions: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    exclusions: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    policies: Mapped[dict[str, Any] | None] = mapped_column(JSONB_NULL)
+    surcharges: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    transportation: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    food_and_beverage: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+    spa_and_wellness: Mapped[list[Any] | None] = mapped_column(JSONB_NULL)
+
+    # Dấu vết crawl/kiểm tra
+    source_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB_NULL)
+    validation: Mapped[dict[str, Any] | None] = mapped_column(JSONB_NULL)
+
+    # Chuỗi đã được định dạng sẵn để bước sau chunk/embed không phải JOIN hay
+    # tự stringify JSON thô. raw_payload vẫn giữ toàn bộ product gốc để đối soát.
+    rag_content: Mapped[str | None] = mapped_column(Text)
+    raw_payload: Mapped[dict[str, Any]] = mapped_column(JSONB_NULL, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "product_id", name="uq_booking_product_provider_product_id"
+        ),
+        Index("ix_booking_product_ticket_code", "ticket_code"),
+        Index("ix_booking_product_booking_code", "booking_code"),
+        Index("ix_booking_product_destination_id", "destination_id"),
+        Index("ix_booking_product_destination_name", "destination_name"),
+        Index("ix_booking_product_product_type", "product_type"),
+        Index("ix_booking_product_minimum_price", "minimum_price"),
+        Index("ix_booking_product_availability_status", "availability_status"),
+        Index("ix_booking_product_raw_payload", "raw_payload", postgresql_using="gin"),
+    )

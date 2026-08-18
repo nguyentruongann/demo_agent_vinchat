@@ -87,6 +87,39 @@ def _affordable_prices(text_value: str, budget_vnd: int | None) -> list[int]:
     return sorted(set(output))
 
 
+def text_has_price_evidence(text_value: str) -> bool:
+    """Return True only when a retrieved chunk contains an explicit numeric price.
+
+    Product-level metadata such as ``currency`` is intentionally insufficient:
+    one booking product can be split into several chunks and only some of them
+    actually carry the numeric price variants.
+    """
+    text = str(text_value or "")
+    if not text.strip():
+        return False
+
+    price_labels = (
+        "price", "prices", "pricing", "cost", "fare", "amount",
+        "sale price", "original price", "minimum price", "maximum price",
+        "display price", "price variants",
+    )
+    for raw_line in text.splitlines():
+        normalized_line = normalize_text(raw_line)
+        if not normalized_line or not any(label in normalized_line for label in price_labels):
+            continue
+        if re.search(r"\d", raw_line) and (
+            re.search(r"[$€£₫]", raw_line)
+            or re.search(r"\b(?:usd|vnd|vnđ|dong|đồng)\b", raw_line, re.IGNORECASE)
+            or ":" in raw_line
+        ):
+            return True
+
+    return bool(
+        re.search(r"[$€£₫]\s*~?\s*\d", text)
+        or re.search(r"\d[\d.,]*\s*(?:usd|vnd|vnđ|dong|đồng)\b", text, re.IGNORECASE)
+    )
+
+
 class RAGService:
     """Hybrid retriever: destination/entity keywords first, embeddings second.
 
@@ -455,6 +488,7 @@ class RAGService:
             return 0.0
         if intent == "attraction":
             return {
+                "booking_product": 0.19,
                 "complex": 0.18,
                 "destination_highlight": 0.15,
                 "destination": 0.14,
@@ -463,6 +497,7 @@ class RAGService:
             }.get(entity_type, 0.0)
         if intent == "service":
             return {
+                "booking_product": 0.18,
                 "property": 0.16,
                 "complex": 0.15,
                 "destination_highlight": 0.14,
@@ -508,7 +543,7 @@ class RAGService:
         # First pass: favor broad/parent entities and keep entity/type coverage.
         broad_types = {
             "destination", "complex", "destination_highlight", "property",
-            "attraction", "dining_service", "amenity",
+            "booking_product", "attraction", "dining_service", "amenity",
         }
         for item in ranked:
             metadata = item.get("metadata", {}) or {}
@@ -825,6 +860,8 @@ class RAGService:
         except (TypeError, ValueError):
             budget_vnd = None
         has_budget_constraint = bool(parsed.get("has_budget_constraint") and budget_vnd)
+        price_requested = bool(parsed.get("price_requested"))
+        booking_evidence_preferred = bool(parsed.get("booking_evidence_preferred"))
 
         # When the semantic context resolver has run, its closed/validated
         # destination set is authoritative. This prevents a later text parser from
@@ -952,6 +989,11 @@ class RAGService:
                 "intents": intents or ["faq"],
                 "explicit_intents": list(parsed.get("explicit_intents") or []),
                 "constraint_derived_intents": list(parsed.get("constraint_derived_intents") or []),
+                "has_budget_constraint": has_budget_constraint,
+                "budget_vnd": budget_vnd,
+                "price_requested": price_requested,
+                "booking_evidence_preferred": booking_evidence_preferred,
+                "booking_focus_document_count": 0,
                 "intent_origin": str(parsed.get("intent_origin") or "none"),
                 "intent_results": intent_results,
                 "keyword_candidate_count": int(faq_diagnostics.get("candidate_count") or 0),
@@ -1011,6 +1053,35 @@ class RAGService:
                     filtered_named_entities.append(item)
             named_entities = filtered_named_entities
 
+        # Destination-aware retrieval already owns resolved destinations. Avoid
+        # retrieving the same destination/destination_alias again as a named entity:
+        # those duplicate generic chunks can consume context ahead of a specific
+        # booking product. Other named entities (property/product/promotion/...)
+        # keep the existing independent branch behavior unchanged.
+        if destinations and named_entities:
+            destination_aliases: set[str] = set()
+            for destination in destinations:
+                values = [
+                    destination.get("id"),
+                    destination.get("name_en"),
+                    destination.get("name_vi"),
+                    *(destination.get("aliases") or []),
+                ]
+                for value in values:
+                    normalized_value = normalize_text(str(value or ""))
+                    if normalized_value:
+                        destination_aliases.add(normalized_value)
+            named_entities = [
+                item
+                for item in named_entities
+                if not (
+                    normalize_text(str(item.get("type") or ""))
+                    in {"destination", "destination alias", "destination_alias"}
+                    and normalize_text(str(item.get("normalized_name") or item.get("name") or ""))
+                    in destination_aliases
+                )
+            ]
+
         named_entity_documents = self._retrieve_named_entity_branches(
             named_entities,
             query=query,
@@ -1022,6 +1093,56 @@ class RAGService:
                 f"entities={[item.get('name') for item in named_entities]} "
                 f"documents={len(named_entity_documents)}"
             )
+
+        booking_focus_documents: list[dict[str, Any]] = []
+        if destinations and booking_evidence_preferred:
+            # Keep the existing destination+intent focused branches exactly as they
+            # are, and add a supplemental booking-only lane that uses the faithful
+            # standalone query. This preserves specific entity/price/package/ticket
+            # terms without removing the generic branch isolation that broad
+            # destination discovery relies on.
+            per_destination_groups: list[list[dict[str, Any]]] = []
+            booking_focus_k = max(1, min(3, k))
+            for destination in destinations:
+                candidates = self.keyword_candidates(
+                    destination=destination,
+                    intent=None,
+                    preferred_entity_types={"booking_product"},
+                    max_candidates=300,
+                    strict_entity_types=True,
+                )
+                if not candidates:
+                    per_destination_groups.append([])
+                    continue
+                booking_rerank_k = (
+                    min(20, len(candidates))
+                    if price_requested
+                    else max(booking_focus_k, 3)
+                )
+                ranked = self._rerank_candidates(
+                    query=str(query or user_message or ""),
+                    candidates=candidates,
+                    top_k=booking_rerank_k,
+                    preferred_entity_types={"booking_product"},
+                    intent=None,
+                )
+                if price_requested:
+                    price_ranked = [
+                        item for item in ranked if text_has_price_evidence(item.get("text", ""))
+                    ]
+                    if price_ranked:
+                        ranked = price_ranked
+                for item in ranked[:booking_focus_k]:
+                    item["booking_focus"] = True
+                    item["intent_query"] = str(query or user_message or "")
+                per_destination_groups.append(ranked[:booking_focus_k])
+
+            max_booking_len = max((len(group) for group in per_destination_groups), default=0)
+            for index in range(max_booking_len):
+                for group in per_destination_groups:
+                    if index < len(group):
+                        booking_focus_documents.append(group[index])
+            booking_focus_documents = self._dedupe_documents(booking_focus_documents)[:booking_focus_k]
 
         if destinations:
             # Allocate a useful minimum to each intent. The final merged context is
@@ -1148,6 +1269,9 @@ class RAGService:
             )
             if any(result.get("status") == "not_found" for result in intent_results.values()):
                 mode += "_partial"
+            if booking_focus_documents:
+                documents = self._dedupe_documents(booking_focus_documents + documents)
+                mode += "+booking_focus"
         else:
             # No destination was resolved. Preserve the user's original wording as
             # retrieval evidence instead of relying only on the LLM-rewritten query.
@@ -1189,6 +1313,17 @@ class RAGService:
                         semantic_queries.append((f"intent:{intent}", focused_query))
                         seen_queries.add(normalized_focused)
 
+            if booking_evidence_preferred and focused_base_query:
+                booking_query = (
+                    f"{focused_base_query} booking tickets packages prices"
+                    if price_requested
+                    else f"{focused_base_query} booking tickets packages"
+                ).strip()
+                normalized_booking = normalize_text(booking_query)
+                if normalized_booking and normalized_booking not in seen_queries:
+                    semantic_queries.append(("booking_focus", booking_query))
+                    seen_queries.add(normalized_booking)
+
             # Pull a wider candidate pool only for intent-aware corpus search. The
             # final returned evidence is still capped to the configured top-k after
             # strict entity-type branch filtering below.
@@ -1206,6 +1341,14 @@ class RAGService:
                 candidate = dict(item)
                 candidate["query_source"] = query_source
                 metadata = candidate.get("metadata", {}) or {}
+                if query_source == "booking_focus":
+                    entity_type = str(
+                        metadata.get("entity_type") or metadata.get("source_table") or ""
+                    ).strip()
+                    if entity_type != "booking_product":
+                        return
+                    if price_requested and not text_has_price_evidence(candidate.get("text", "")):
+                        return
                 key = (
                     str(metadata.get("entity_type") or ""),
                     str(
@@ -1392,6 +1535,9 @@ class RAGService:
             "constraint_derived_intents": list(parsed.get("constraint_derived_intents") or []),
             "has_budget_constraint": has_budget_constraint,
             "budget_vnd": budget_vnd,
+            "price_requested": price_requested,
+            "booking_evidence_preferred": booking_evidence_preferred,
+            "booking_focus_document_count": len(booking_focus_documents),
             "intent_origin": str(parsed.get("intent_origin") or "none"),
             "intent_results": intent_results,
             "keyword_candidate_count": all_candidates,
