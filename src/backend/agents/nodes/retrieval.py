@@ -121,6 +121,9 @@ def retrieve_context(state: AgentState) -> AgentState:
         "detected_intent": primary_intent,
         "detected_intents": current_intents,
         "explicit_intents": list(diagnostics.get("explicit_intents", []) or []),
+        "constraint_derived_intents": list(diagnostics.get("constraint_derived_intents", []) or []),
+        "has_budget_constraint": bool(diagnostics.get("has_budget_constraint", False)),
+        "budget_vnd": diagnostics.get("budget_vnd"),
         "intent_origin": str(diagnostics.get("intent_origin") or "none"),
         "intent_results": current_intent_results,
         "keyword_candidate_count": int(diagnostics.get("keyword_candidate_count") or 0),
@@ -204,24 +207,76 @@ def assess_information(state: AgentState) -> AgentState:
     fast_path_intents_are_authoritative = intent_origin in {
         "current_explicit",
         "generic_discovery",
+        "constraint_derived",
     }
-    if len(detected_intents) > 1 and intent_results and fast_path_intents_are_authoritative:
-        def branch_is_confident(result: dict) -> bool:
-            if result.get("status") != "found":
-                return False
-            if result.get("faq_match"):
-                return True
-            try:
-                branch_score = float(result.get("best_score") or 0.0)
-            except (TypeError, ValueError):
-                branch_score = 0.0
-            return branch_score >= settings.min_relevance_score
+    def branch_is_confident(result: dict) -> bool:
+        if result.get("status") != "found":
+            return False
+        if result.get("faq_match"):
+            return True
+        try:
+            branch_score = float(result.get("best_score") or 0.0)
+        except (TypeError, ValueError):
+            branch_score = 0.0
+        return branch_score >= settings.min_relevance_score
 
+    # Cross-cutting constraints must be satisfied, not merely accompanied by some
+    # other useful branch. For example, a generic destination article cannot rescue
+    # a "2 million VND" recommendation if the derived promotion branch found no
+    # explicit offer/ticket price within that ceiling. Retrieval already filters the
+    # derived budget branch to price-fitting evidence, so this remains deterministic.
+    derived_constraints = list(state.get("constraint_derived_intents", []) or [])
+    if state.get("has_budget_constraint") and derived_constraints and intent_results:
+        missing_constraints = [
+            name
+            for name in derived_constraints
+            if not branch_is_confident(intent_results.get(name, {}))
+            or intent_results.get(name, {}).get("constraint_satisfied") is False
+        ]
+        if missing_constraints:
+            best_constraint_score = max(
+                (float(intent_results.get(name, {}).get("best_score") or 0.0) for name in derived_constraints),
+                default=0.0,
+            )
+            budget_vnd = state.get("budget_vnd")
+            budget_text = f"{int(budget_vnd):,} VND" if budget_vnd else "the requested budget"
+            return _insufficient(
+                state,
+                (
+                    f"Budget constraint is not grounded: no price-bearing evidence within {budget_text} "
+                    f"was found for {', '.join(missing_constraints)}."
+                ),
+                best_constraint_score,
+            )
+
+    # For authoritative current-turn intents, retrieval metadata is the source of
+    # truth about whether matching evidence exists. Do not let unrelated global or
+    # memory-augmented documents rescue an intent that the retriever marked missing.
+    # This is the invariant that prevents identical near-threshold runs from
+    # flipping solely because the LLM sufficiency judge interpreted stray context.
+    if detected_intents and intent_results and fast_path_intents_are_authoritative:
+        confident_branches = [
+            name for name, result in intent_results.items() if branch_is_confident(result)
+        ]
+        if not confident_branches:
+            best_branch_score = max(
+                (float(result.get("best_score") or 0.0) for result in intent_results.values()),
+                default=0.0,
+            )
+            return _insufficient(
+                state,
+                "No requested intent branch has grounded evidence above the configured relevance threshold.",
+                best_branch_score,
+            )
+
+    if len(detected_intents) > 1 and intent_results and fast_path_intents_are_authoritative:
         found = [name for name, result in intent_results.items() if branch_is_confident(result)]
         missing = [name for name, result in intent_results.items() if not branch_is_confident(result)]
         if found:
-            scores = [float(item.get("score", 0.0) or 0.0) for item in documents]
-            best_score = max(scores, default=0.0)
+            best_score = max(
+                (float(intent_results[name].get("best_score") or 0.0) for name in found),
+                default=0.0,
+            )
             request_mode = state.get("request_mode", "information")
             resolution_mode = state.get("resolution_mode", "information_only")
 
@@ -396,6 +451,8 @@ Return exactly:
     print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
     print(f"Detected intents: {detected_intents or [state.get('detected_intent')]}")
     print(f"Intent origin: {state.get('intent_origin', 'none')}")
+    if state.get("has_budget_constraint"):
+        print(f"Budget constraint: {state.get('budget_vnd')} VND")
     print(f"Intent results: {intent_results}")
     print(f"Best score: {best_score:.4f}")
     print(f"Enough: {enough}")

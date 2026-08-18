@@ -4,13 +4,14 @@ from src.backend.agents.nodes import context_resolver, classify
 
 
 class _FakeLLM:
-    def __init__(self, response):
-        self.response = response
+    def __init__(self, *responses):
+        self.responses = [dict(item) for item in responses]
         self.calls = 0
 
     def json(self, **_kwargs):
+        index = min(self.calls, len(self.responses) - 1)
         self.calls += 1
-        return dict(self.response)
+        return dict(self.responses[index])
 
 
 def _memory_state(*, route: str, current_message: str):
@@ -50,37 +51,83 @@ def _memory_state(*, route: str, current_message: str):
     }
 
 
-def _patch_catalog(monkeypatch):
-    monkeypatch.setattr(context_resolver, "detect_destinations", lambda _text: [])
+def _patch_catalog(monkeypatch, *, explicit_ids=None):
+    explicit_ids = list(explicit_ids or [])
+    catalog = {
+        "phu-quoc": {
+            "id": "phu-quoc",
+            "name_vi": "Phú Quốc",
+            "name_en": "Phu Quoc",
+            "normalized_aliases": ["phu quoc"],
+        },
+        "ha-noi": {
+            "id": "ha-noi",
+            "name_vi": "Hà Nội",
+            "name_en": "Hanoi",
+            "normalized_aliases": ["ha noi", "hanoi"],
+        },
+        "nha-trang": {
+            "id": "nha-trang",
+            "name_vi": "Nha Trang",
+            "name_en": "Nha Trang",
+            "normalized_aliases": ["nha trang"],
+        },
+    }
     monkeypatch.setattr(
         context_resolver,
-        "load_destination_catalog",
-        lambda: {
-            "phu-quoc": {
-                "id": "phu-quoc",
-                "name_vi": "Phú Quốc",
-                "name_en": "Phu Quoc",
-                "normalized_aliases": ["phu quoc"],
-            }
-        },
+        "detect_destinations",
+        lambda _text: [catalog[item] for item in explicit_ids],
     )
+    monkeypatch.setattr(context_resolver, "load_destination_catalog", lambda: catalog)
+
+
+def _dependency(
+    kind: str,
+    *,
+    needs_memory: bool,
+    targets=None,
+    exclusions=None,
+    reason="test dependency",
+):
+    return {
+        "request_kind": kind,
+        "needs_memory": needs_memory,
+        "current_target_destination_ids": list(targets or []),
+        "current_excluded_destination_ids": list(exclusions or []),
+        "reason": reason,
+        "confidence": 0.99,
+    }
+
+
+def _selection(
+    *,
+    destinations=None,
+    entities=None,
+    turns=None,
+    excluded_destinations=None,
+    excluded_entities=None,
+    rag_query="resolved continuation query",
+):
+    return {
+        "selected_memory_destination_ids": list(destinations or []),
+        "selected_memory_entity_refs": list(entities or []),
+        "selected_turn_refs": list(turns or []),
+        "excluded_memory_destination_ids": list(excluded_destinations or []),
+        "excluded_memory_entity_refs": list(excluded_entities or []),
+        "rag_query": rag_query,
+        "reason": "minimal prior context selected",
+        "confidence": 0.98,
+    }
 
 
 def test_factual_clarification_can_recover_from_conversation_context_route(monkeypatch):
     _patch_catalog(monkeypatch)
     fake = _FakeLLM(
-        {
-            "request_kind": "factual_continuation",
-            "selected_destination_ids": [],
-            "selected_entity_refs": [],
-            "selected_turn_refs": ["turn:5"],
-            "excluded_destination_ids": [],
-            "excluded_entity_refs": [],
-            "uses_memory": True,
-            "rag_query": "Which Vinpearl locations have natural forests, mountains, and greenery?",
-            "reason": "The user is clarifying the scope of the previous factual request.",
-            "confidence": 0.98,
-        }
+        _dependency("factual_continuation", needs_memory=True),
+        _selection(
+            turns=["turn:5"],
+            rag_query="Which Vinpearl locations have natural forests, mountains, and greenery?",
+        ),
     )
     monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
 
@@ -99,18 +146,11 @@ def test_factual_clarification_can_recover_from_conversation_context_route(monke
 def test_other_option_uses_memory_as_exclusion_not_positive_target(monkeypatch):
     _patch_catalog(monkeypatch)
     fake = _FakeLLM(
-        {
-            "request_kind": "factual_continuation",
-            "selected_destination_ids": [],
-            "selected_entity_refs": [],
-            "selected_turn_refs": [],
-            "excluded_destination_ids": [],
-            "excluded_entity_refs": ["entity:1"],
-            "uses_memory": True,
-            "rag_query": "Which other Vinpearl locations have forests, mountains, trees, and natural scenery, excluding Vinpearl Wonderworld Phu Quoc?",
-            "reason": "The user asks for another option, so the prior recommendation must be excluded.",
-            "confidence": 0.99,
-        }
+        _dependency("factual_continuation", needs_memory=True),
+        _selection(
+            excluded_entities=["entity:1"],
+            rag_query="Which other Vinpearl locations have forests, mountains, trees, and natural scenery, excluding Vinpearl Wonderworld Phu Quoc?",
+        ),
     )
     monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
 
@@ -128,21 +168,10 @@ def test_other_option_uses_memory_as_exclusion_not_positive_target(monkeypatch):
     assert resolved["excluded_entity_names"] == ["Vinpearl Wonderworld Phu Quoc"]
 
 
-def test_independent_turn_discards_stale_memory_refs(monkeypatch):
+def test_independent_turn_never_calls_memory_selector_or_keeps_stale_refs(monkeypatch):
     _patch_catalog(monkeypatch)
     fake = _FakeLLM(
-        {
-            "request_kind": "independent",
-            "selected_destination_ids": ["phu-quoc"],
-            "selected_entity_refs": ["entity:1"],
-            "selected_turn_refs": ["turn:5"],
-            "excluded_destination_ids": [],
-            "excluded_entity_refs": [],
-            "uses_memory": True,
-            "rag_query": "stale memory contaminated query",
-            "reason": "The current question is independent.",
-            "confidence": 0.99,
-        }
+        _dependency("independent", needs_memory=False),
     )
     monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
 
@@ -150,9 +179,127 @@ def test_independent_turn_discards_stale_memory_refs(monkeypatch):
     state["rag_query"] = "What is the Vinpearl refund policy?"
     resolved = context_resolver.resolve_conversation_context(state)
 
+    assert fake.calls == 1
     assert resolved["context_request_kind"] == "independent"
     assert resolved["context_uses_memory"] is False
     assert resolved["selected_memory_turn_refs"] == []
     assert resolved["resolved_entity_names"] == []
     assert resolved["excluded_entity_names"] == []
     assert resolved["rag_query"] == "What is the Vinpearl refund policy?"
+
+
+def test_current_explicit_destination_is_never_dropped_on_independent_turn(monkeypatch):
+    _patch_catalog(monkeypatch, explicit_ids=["ha-noi"])
+    fake = _FakeLLM(
+        # Deliberately omit the current target to reproduce the Railway failure:
+        # the invariant must restore current explicit Hanoi instead of returning [].
+        _dependency("independent", needs_memory=False, targets=[]),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="rag", current_message="ở hà nội có gì chơi không")
+    state["rag_query"] = "What attractions and entertainment options are available in Hanoi?"
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["context_request_kind"] == "independent"
+    assert resolved["context_uses_memory"] is False
+    assert resolved["resolved_destination_ids"] == ["ha-noi"]
+    assert resolved["context_resolution_source"] == "current_explicit"
+    assert resolved["rag_query"] == state["rag_query"]
+
+
+def test_new_explicit_destination_overrides_old_destination_without_memory(monkeypatch):
+    _patch_catalog(monkeypatch, explicit_ids=["ha-noi"])
+    fake = _FakeLLM(
+        _dependency("independent", needs_memory=False, targets=["ha-noi"]),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="rag", current_message="ở hà nội có gì chơi không")
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["resolved_destination_ids"] == ["ha-noi"]
+    assert "phu-quoc" not in resolved["resolved_destination_ids"]
+    assert resolved["context_uses_memory"] is False
+
+
+def test_current_explicit_exclusion_is_respected_without_using_memory(monkeypatch):
+    _patch_catalog(monkeypatch, explicit_ids=["phu-quoc", "nha-trang"])
+    fake = _FakeLLM(
+        _dependency(
+            "independent",
+            needs_memory=False,
+            targets=["nha-trang"],
+            exclusions=["phu-quoc"],
+        ),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="rag", current_message="không phải Phú Quốc, Nha Trang cơ")
+    state["rag_query"] = "Vinpearl options in Nha Trang, not Phu Quoc"
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["context_uses_memory"] is False
+    assert resolved["resolved_destination_ids"] == ["nha-trang"]
+    assert resolved["excluded_destination_ids"] == ["phu-quoc"]
+
+
+def test_followup_with_new_explicit_destination_keeps_current_target_and_uses_only_needed_turn(monkeypatch):
+    _patch_catalog(monkeypatch, explicit_ids=["ha-noi"])
+    fake = _FakeLLM(
+        _dependency(
+            "factual_continuation",
+            needs_memory=True,
+            targets=["ha-noi"],
+        ),
+        _selection(
+            turns=["turn:5"],
+            rag_query="What Vinpearl locations in Hanoi have natural landscapes with forests, mountains, and trees?",
+        ),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="rag", current_message="ở Hà Nội thì sao?")
+    state["rag_query"] = "What about Hanoi?"
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["context_request_kind"] == "factual_continuation"
+    assert resolved["context_uses_memory"] is True
+    assert resolved["resolved_destination_ids"] == ["ha-noi"]
+    assert resolved["selected_memory_turn_refs"] == ["turn:5"]
+    assert "phu-quoc" not in resolved["resolved_destination_ids"]
+
+
+def test_nominal_continuation_without_selected_memory_downgrades_to_independent(monkeypatch):
+    _patch_catalog(monkeypatch, explicit_ids=["ha-noi"])
+    fake = _FakeLLM(
+        _dependency("factual_continuation", needs_memory=True, targets=["ha-noi"]),
+        _selection(),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="rag", current_message="ở hà nội có gì chơi không")
+    state["rag_query"] = "What attractions are available in Hanoi?"
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["context_request_kind"] == "independent"
+    assert resolved["context_uses_memory"] is False
+    assert resolved["resolved_destination_ids"] == ["ha-noi"]
+    assert resolved["selected_memory_turn_refs"] == []
+    assert resolved["rag_query"] == state["rag_query"]
+
+
+def test_conversation_meta_uses_memory_but_does_not_produce_rag_query(monkeypatch):
+    _patch_catalog(monkeypatch)
+    fake = _FakeLLM(
+        _dependency("conversation_meta", needs_memory=True),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="conversation_context", current_message="câu trước mình hỏi gì?")
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["context_request_kind"] == "conversation_meta"
+    assert resolved["context_uses_memory"] is True
+    assert resolved["rag_query"] == ""
+    assert fake.calls == 1

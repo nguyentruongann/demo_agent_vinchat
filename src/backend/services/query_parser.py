@@ -144,6 +144,11 @@ _GENERIC_DISCOVERY_MARKERS: tuple[str, ...] = (
     "recommend",
     "recommendation",
     "where should i go",
+    "where can i go",
+    "where to go",
+    "go where",
+    "di dau",
+    "nen di dau",
     "which place",
     "which destination",
     "any place",
@@ -167,6 +172,107 @@ _GENERIC_DISCOVERY_DESTINATION_SCOPED_MARKERS: tuple[str, ...] = (
 # This parser deliberately does not maintain an external-topic keyword deny-list:
 # terms such as flight, shuttle, transfer, rain, passport, or payment can be valid
 # Vinpearl FAQ/service content and must not suppress retrieval after scope was allowed.
+
+
+# Budget/affordability is a cross-cutting constraint rather than a standalone
+# catalog noun. When a user asks for Vinpearl experiences/services/hotels within
+# a concrete budget, promotion/offer evidence is directly relevant even if the
+# literal words "promotion" or "ưu đãi" are absent. Keep this deliberately
+# conservative so arbitrary monetary amounts (for example a refund amount) do
+# not silently become promotion intent.
+_BUDGET_CONSTRAINT_MARKERS: tuple[str, ...] = (
+    "ngan sach", "tai chinh", "budget", "financial limit", "spending limit",
+    "afford", "affordable", "within budget", "under budget", "price range",
+)
+
+_BUDGET_AMOUNT_RE = re.compile(
+    r"(?:^|\s)\d+(?:[.,]\d+)?\s*(?:tr|trieu|million|k|nghin|ngan|vnd|dong)(?:$|\s)"
+)
+
+def _has_budget_constraint(user_message: str, rag_query: str = "") -> bool:
+    """Detect an affordability constraint without treating every price as a deal.
+
+    Strong affordability wording is sufficient on its own. Generic comparative
+    wording such as ``duoi``/``under`` is accepted only when a currency-like
+    amount is also present. Both the current message and faithful rewrite are
+    checked to support arbitrary input languages.
+    """
+    combined = normalize_text(f"{user_message} {rag_query}")
+    if not combined:
+        return False
+    if any(marker in combined for marker in _BUDGET_CONSTRAINT_MARKERS):
+        return True
+    has_amount = bool(_BUDGET_AMOUNT_RE.search(f" {combined} "))
+    if not has_amount:
+        return False
+    comparative_markers = (
+        "chi co", "toi da", "khong qua", "tam gia", "muc gia",
+        "duoi", "tren duoi", "tam", "khoang", "under", "within",
+        "up to", "maximum",
+    )
+    return any(marker in combined for marker in comparative_markers)
+
+
+def extract_budget_vnd(user_message: str, rag_query: str = "") -> int | None:
+    """Return the user's affordability ceiling in VND when one is explicit.
+
+    Budget is modeled as a constraint, not a catalog intent. We intentionally
+    parse it only after :func:`_has_budget_constraint` succeeds so unrelated
+    monetary values (refund amount, deposit, invoice value, etc.) do not become
+    travel-budget constraints. The current user wording is preferred over the
+    LLM rewrite; the rewrite is only a multilingual fallback.
+    """
+    if not _has_budget_constraint(user_message, rag_query):
+        return None
+
+    def parse_one(text_value: str) -> list[int]:
+        text = str(text_value or "")
+        values: list[int] = []
+
+        # Compact human forms: 2tr, 2 trieu, 2 million, 500k, 500 nghin.
+        compact = re.compile(
+            r"(?<![\w])(?P<num>\d+(?:[.,]\d+)?)\s*"
+            r"(?P<unit>tr|tri[eệ]u|million|k|ngh[iì]n|ng[aà]n)\b",
+            flags=re.IGNORECASE,
+        )
+        for match in compact.finditer(text):
+            raw_num = match.group("num").replace(",", ".")
+            try:
+                number = float(raw_num)
+            except ValueError:
+                continue
+            unit = normalize_text(match.group("unit"))
+            multiplier = 1_000_000 if unit in {"tr", "trieu", "million"} else 1_000
+            value = int(round(number * multiplier))
+            if value > 0:
+                values.append(value)
+
+        # Fully written currency forms: 2.000.000 VND / 2,000,000 VNĐ / 2000000 đồng.
+        full = re.compile(
+            r"(?<!\d)(?P<num>\d{1,3}(?:[.,]\d{3}){1,3}|\d{4,10})\s*"
+            r"(?:vnd|vnđ|đ|đồng|dong)\b",
+            flags=re.IGNORECASE,
+        )
+        for match in full.finditer(text):
+            digits = re.sub(r"[^0-9]", "", match.group("num"))
+            if not digits:
+                continue
+            value = int(digits)
+            if value > 0:
+                values.append(value)
+        return values
+
+    # User text is authoritative. Only fall back to the standalone rewrite when
+    # the current message's budget wording could not be numerically parsed.
+    values = parse_one(user_message)
+    if not values:
+        values = parse_one(rag_query)
+    if not values:
+        return None
+
+    # If the same ceiling is repeated in the rewrite this stays stable; for a
+    # genuine range such as 1-2 million, the upper bound is the useful ceiling.
+    return max(values)
 
 INTENT_QUERY_LABELS: dict[str, str] = {
     "hotel": "hotels resorts rooms accommodation",
@@ -466,6 +572,20 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
         if intents:
             intent_origin = "rewrite_inferred"
 
+    # A concrete affordability constraint means promotion/offer evidence can
+    # materially answer the request even when the user says only "service" or
+    # "travel". Add it as a deterministic secondary branch instead of relying on
+    # the LLM rewrite to happen to include words such as "deal" or "promotion".
+    constraint_derived_intents: list[str] = []
+    if _has_budget_constraint(user_message, rag_query) and "promotion" not in intents:
+        budget_compatible_intents = {"hotel", "service", "attraction"}
+        if not intents or any(intent in budget_compatible_intents for intent in intents):
+            intents.append("promotion")
+            constraint_derived_intents.append("promotion")
+            if intent_origin == "none":
+                intent_origin = "constraint_derived"
+
+    budget_vnd = extract_budget_vnd(user_message, rag_query)
     primary_intent = intents[0] if intents else None
     return {
         "destination": destinations[0] if destinations else None,
@@ -473,6 +593,9 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
         "intent": primary_intent,  # backward-compatible field
         "intents": intents,
         "explicit_intents": explicit_intents,
+        "constraint_derived_intents": constraint_derived_intents,
+        "has_budget_constraint": budget_vnd is not None,
+        "budget_vnd": budget_vnd,
         "intent_origin": intent_origin,
         "preferred_entity_types": sorted(INTENT_ENTITY_TYPES.get(primary_intent or "", set())),
         "preferred_entity_types_by_intent": {
