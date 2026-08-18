@@ -34,6 +34,8 @@ class LLMService:
         self,
         system_prompt: str,
         user_prompt: str,
+        *,
+        temperature: float | None = None,
     ) -> str:
         last_error: Exception | None = None
 
@@ -72,7 +74,9 @@ class LLMService:
                                 "content": user_prompt,
                             },
                         ],
-                        "temperature": self.temperature,
+                        "temperature": (
+                            self.temperature if temperature is None else float(temperature)
+                        ),
                         "max_tokens": self.max_tokens,
                         "timeout": self.timeout,
                         "api_key": api_key,
@@ -138,7 +142,16 @@ class LLMService:
         self,
         system_prompt: str,
         user_prompt: str,
+        *,
+        temperature: float = 0.0,
     ) -> dict[str, Any]:
+        """Run a structured control/judgement call deterministically by default.
+
+        Free-form answer generation still uses ``self.temperature`` through
+        :meth:`text`. JSON calls in this project are routing, intent, memory,
+        sufficiency, triage, or grounding decisions; letting them inherit the
+        creative answer temperature makes the agent graph non-deterministic.
+        """
         raw = self.text(
             system_prompt=(
                 system_prompt
@@ -146,6 +159,7 @@ class LLMService:
                 + "Do not use Markdown code fences."
             ),
             user_prompt=user_prompt,
+            temperature=temperature,
         )
 
         try:

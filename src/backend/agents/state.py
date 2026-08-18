@@ -77,7 +77,10 @@ class AgentState(TypedDict, total=False):
     detected_intent: str | None          # backward-compatible primary intent
     detected_intents: list[str]          # all intents in the current turn
     explicit_intents: list[str]          # intent words grounded in current user wording
-    intent_origin: str                   # current_explicit|generic_discovery|rewrite_inferred|none
+    constraint_derived_intents: list[str]  # deterministic evidence branches added from constraints (e.g. budget -> promotion)
+    has_budget_constraint: bool          # current turn contains an explicit affordability ceiling
+    budget_vnd: int | None               # parsed affordability ceiling in VND
+    intent_origin: str                   # current_explicit|generic_discovery|rewrite_inferred|constraint_derived|none
     intent_results: dict[str, dict[str, Any]]
     keyword_candidate_count: int
     missing_destination_ids: list[str]

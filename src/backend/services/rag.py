@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from math import ceil
+import re
 from typing import Any
 
 import chromadb
@@ -16,6 +17,75 @@ from src.backend.services.query_parser import (
     normalize_text,
     parse_retrieval_query,
 )
+
+_PRICE_FULL_VND_RE = re.compile(
+    r"(?<!\d)(?P<num>\d{1,3}(?:[.,]\d{3}){1,3}|\d{4,10})\s*"
+    r"(?:vnd|vnđ|đ|đồng|dong)(?!\w)",
+    flags=re.IGNORECASE,
+)
+_PRICE_COMPACT_VND_RE = re.compile(
+    r"(?<![\w])(?P<num>\d+(?:[.,]\d+)?)\s*"
+    r"(?P<unit>tr|tri[eệ]u|million|k|ngh[iì]n|ng[aà]n)(?!\w)",
+    flags=re.IGNORECASE,
+)
+_PRICE_IGNORE_BEFORE_MARKERS = (
+    "tri gia", "qua tang", "gift value", "gift worth", "merchandise worth",
+    "cashback", "hoan tien", "deposit", "dat coc",
+)
+
+def _vnd_price_mentions(text_value: str) -> list[tuple[int, int, int]]:
+    """Extract explicit VND-like prices as ``(amount, start, end)`` tuples."""
+    text = str(text_value or "")
+    mentions: list[tuple[int, int, int]] = []
+
+    for match in _PRICE_FULL_VND_RE.finditer(text):
+        digits = re.sub(r"[^0-9]", "", match.group("num"))
+        if not digits:
+            continue
+        amount = int(digits)
+        if amount > 0:
+            mentions.append((amount, match.start(), match.end()))
+
+    for match in _PRICE_COMPACT_VND_RE.finditer(text):
+        raw_num = match.group("num").replace(",", ".")
+        try:
+            number = float(raw_num)
+        except ValueError:
+            continue
+        unit = normalize_text(match.group("unit"))
+        multiplier = 1_000_000 if unit in {"tr", "trieu", "million"} else 1_000
+        amount = int(round(number * multiplier))
+        if amount > 0:
+            mentions.append((amount, match.start(), match.end()))
+
+    # Same printed price may be caught by more than one regex in edge cases.
+    output: list[tuple[int, int, int]] = []
+    seen: set[tuple[int, int, int]] = set()
+    for item in sorted(mentions, key=lambda value: (value[1], value[0])):
+        if item in seen:
+            continue
+        seen.add(item)
+        output.append(item)
+    return output
+
+def _affordable_prices(text_value: str, budget_vnd: int | None) -> list[int]:
+    """Return offer/ticket prices in the evidence that are within the ceiling.
+
+    We ignore obvious gift/deposit/refund monetary values so an expensive package
+    is not declared affordable merely because its copy mentions a small gift value.
+    """
+    if not budget_vnd or budget_vnd <= 0:
+        return []
+    text = str(text_value or "")
+    output: list[int] = []
+    for amount, start, _end in _vnd_price_mentions(text):
+        before = normalize_text(text[max(0, start - 90):start])
+        if any(marker in before for marker in _PRICE_IGNORE_BEFORE_MARKERS):
+            continue
+        if amount <= budget_vnd:
+            output.append(amount)
+    return sorted(set(output))
+
 
 class RAGService:
     """Hybrid retriever: destination/entity keywords first, embeddings second.
@@ -749,6 +819,12 @@ class RAGService:
             )
 
         parsed = parse_retrieval_query(user_message=user_message, rag_query=query)
+        budget_vnd = parsed.get("budget_vnd")
+        try:
+            budget_vnd = int(budget_vnd) if budget_vnd is not None else None
+        except (TypeError, ValueError):
+            budget_vnd = None
+        has_budget_constraint = bool(parsed.get("has_budget_constraint") and budget_vnd)
 
         # When the semantic context resolver has run, its closed/validated
         # destination set is authoritative. This prevents a later text parser from
@@ -875,6 +951,7 @@ class RAGService:
                 "intent": primary_intent or "faq",
                 "intents": intents or ["faq"],
                 "explicit_intents": list(parsed.get("explicit_intents") or []),
+                "constraint_derived_intents": list(parsed.get("constraint_derived_intents") or []),
                 "intent_origin": str(parsed.get("intent_origin") or "none"),
                 "intent_results": intent_results,
                 "keyword_candidate_count": int(faq_diagnostics.get("candidate_count") or 0),
@@ -988,13 +1065,31 @@ class RAGService:
                         per_destination_docs.append([])
                         continue
 
+                    rerank_k = per_destination_k
+                    if has_budget_constraint and intent == "promotion":
+                        # Price-fit is a hard constraint, so inspect a wider semantic
+                        # shortlist before cutting to the normal per-destination top-k.
+                        rerank_k = max(per_destination_k, min(20, len(candidates)))
                     ranked = self._rerank_candidates(
                         query=focused_query,
                         candidates=candidates,
-                        top_k=per_destination_k,
+                        top_k=rerank_k,
                         preferred_entity_types=preferred_entity_types,
                         intent=intent,
                     )
+                    if has_budget_constraint and intent == "promotion":
+                        affordable_ranked: list[dict[str, Any]] = []
+                        for item in ranked:
+                            prices = _affordable_prices(item.get("text", ""), budget_vnd)
+                            if not prices:
+                                continue
+                            copied = dict(item)
+                            copied["budget_constraint_vnd"] = budget_vnd
+                            copied["budget_matched_prices"] = prices
+                            affordable_ranked.append(copied)
+                        ranked = affordable_ranked[:per_destination_k]
+                    else:
+                        ranked = ranked[:per_destination_k]
                     for item in ranked:
                         item["matched_intent"] = intent
                         item["intent_query"] = focused_query
@@ -1020,6 +1115,15 @@ class RAGService:
                     "best_score": round(best_score, 4),
                     "query": focused_query,
                     "missing_destination_ids": branch_missing,
+                    "budget_constraint_vnd": budget_vnd if intent == "promotion" else None,
+                    "budget_matched_prices": sorted({
+                        price
+                        for item in branch_docs
+                        for price in (item.get("budget_matched_prices") or [])
+                    }) if intent == "promotion" else [],
+                    "constraint_satisfied": (
+                        bool(branch_docs) if has_budget_constraint and intent == "promotion" else None
+                    ),
                 }
                 documents.extend(branch_docs)
 
@@ -1071,9 +1175,29 @@ class RAGService:
                 semantic_queries.append(("rewritten", rewritten_query))
                 seen_queries.add(normalized_rewritten)
 
+            # For corpus-wide retrieval, add one focused query per detected intent
+            # in the SAME embedding/Chroma batch. This prevents a strong but wrong
+            # entity type in the global top-k from crowding out valid evidence for
+            # another requested branch (for example budget/service requests where
+            # promotion rows are the useful evidence).
+            focused_base_query = rewritten_query or original_query
+            if intents and focused_base_query:
+                for intent in intents:
+                    focused_query = build_intent_query(intent, [], focused_base_query)
+                    normalized_focused = normalize_text(focused_query)
+                    if normalized_focused and normalized_focused not in seen_queries:
+                        semantic_queries.append((f"intent:{intent}", focused_query))
+                        seen_queries.add(normalized_focused)
+
+            # Pull a wider candidate pool only for intent-aware corpus search. The
+            # final returned evidence is still capped to the configured top-k after
+            # strict entity-type branch filtering below.
+            semantic_pool_k = (
+                max(search_k, min(30, search_k * 6)) if intents else search_k
+            )
             semantic_groups = self.semantic_search_many(
                 [item[1] for item in semantic_queries],
-                top_k=search_k,
+                top_k=semantic_pool_k,
             ) if semantic_queries else []
 
             merged_by_key: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1107,10 +1231,14 @@ class RAGService:
                 merged_by_key.values(),
                 key=lambda item: float(item.get("score", 0.0) or 0.0),
                 reverse=True,
-            )[:search_k]
+            )
+            if not intents:
+                documents = documents[:semantic_pool_k]
 
             if exact_faq:
                 mode = "semantic_fallback_exact_faq"
+            elif len(semantic_queries) > 2:
+                mode = "semantic_multi_query"
             elif len(semantic_queries) > 1:
                 mode = "semantic_dual_query"
             else:
@@ -1128,29 +1256,55 @@ class RAGService:
             mode = f"{prefix}:{mode}"
 
         if has_exclusions:
-            documents = [item for item in documents if not document_is_excluded(item)][:k]
+            documents = [item for item in documents if not document_is_excluded(item)]
+            # No-destination intent filtering below needs the widened semantic
+            # pool; cap immediately only on paths that will not run that filter.
+            if destinations or not intents:
+                documents = documents[:k]
 
-        # With no resolved destination the semantic search is corpus-wide.  A
-        # non-empty document list therefore cannot be used as proof that *every*
-        # detected intent was found.  Score each intent only from entity types that
-        # are valid evidence for that branch.  This prevents an attraction article
-        # from making a rewrite-inferred ``hotel`` branch look found (and vice
-        # versa), while still allowing the same document to support multiple
-        # branches when the type map explicitly permits it.
+        # With no resolved destination the semantic search is corpus-wide. A raw
+        # global top-k is not evidence for a detected intent. Build strict branch
+        # evidence from the allowed entity types, then return ONLY the union of
+        # those branch documents. This keeps retrieval diagnostics, the assessor,
+        # answer context, and source citations on the same evidence set.
         if not destinations and intents:
+            candidate_pool = list(documents)
+            candidate_count = len(candidate_pool)
             intent_results = {}
+            evidence_groups: list[list[dict[str, Any]]] = []
+            per_intent_k = max(1, ceil(k / max(1, len(intents))))
+
             for intent in intents:
                 allowed_types = set(INTENT_ENTITY_TYPES.get(intent, set()))
-                branch_docs = []
-                for item in documents:
+                branch_docs: list[dict[str, Any]] = []
+                for item in candidate_pool:
                     metadata = item.get("metadata", {}) or {}
                     entity_type = str(
                         metadata.get("entity_type")
                         or metadata.get("source_table")
                         or ""
                     ).strip()
-                    if not allowed_types or entity_type in allowed_types:
-                        branch_docs.append(item)
+                    if allowed_types and entity_type not in allowed_types:
+                        continue
+                    copied = dict(item)
+                    copied["matched_intent"] = intent
+                    copied["intent_query"] = build_intent_query(
+                        intent, [], str(query or user_message or "")
+                    )
+                    if has_budget_constraint and intent == "promotion":
+                        prices = _affordable_prices(copied.get("text", ""), budget_vnd)
+                        if not prices:
+                            continue
+                        copied["budget_constraint_vnd"] = budget_vnd
+                        copied["budget_matched_prices"] = prices
+                    branch_docs.append(copied)
+
+                branch_docs.sort(
+                    key=lambda item: float(item.get("score", 0.0) or 0.0),
+                    reverse=True,
+                )
+                branch_docs = self._dedupe_documents(branch_docs)[:per_intent_k]
+                evidence_groups.append(branch_docs)
 
                 best_score = max(
                     (float(item.get("score", 0.0) or 0.0) for item in branch_docs),
@@ -1159,10 +1313,19 @@ class RAGService:
                 intent_results[intent] = {
                     "status": "found" if branch_docs else "not_found",
                     "document_count": len(branch_docs),
-                    "candidate_count": len(documents),
+                    "candidate_count": candidate_count,
                     "best_score": round(best_score, 4),
-                    "query": query,
+                    "query": build_intent_query(intent, [], str(query or user_message or "")),
                     "missing_destination_ids": [],
+                    "budget_constraint_vnd": budget_vnd if intent == "promotion" else None,
+                    "budget_matched_prices": sorted({
+                        price
+                        for item in branch_docs
+                        for price in (item.get("budget_matched_prices") or [])
+                    }) if intent == "promotion" else [],
+                    "constraint_satisfied": (
+                        bool(branch_docs) if has_budget_constraint and intent == "promotion" else None
+                    ),
                     "evidence_entity_types": sorted(
                         {
                             str((item.get("metadata", {}) or {}).get("entity_type") or "")
@@ -1171,6 +1334,41 @@ class RAGService:
                         }
                     ),
                 }
+
+            # Round-robin prevents the strongest branch from consuming the entire
+            # final top-k and preserves useful partial-answer evidence for every
+            # found intent. Keep branch identity in the dedupe key.
+            selected: list[dict[str, Any]] = []
+            seen_evidence: set[tuple[str, str, str]] = set()
+            max_group_len = max((len(group) for group in evidence_groups), default=0)
+            for index in range(max_group_len):
+                for group in evidence_groups:
+                    if index >= len(group):
+                        continue
+                    item = group[index]
+                    metadata = item.get("metadata", {}) or {}
+                    key = (
+                        str(item.get("matched_intent") or ""),
+                        str(metadata.get("entity_type") or ""),
+                        str(
+                            metadata.get("entity_id")
+                            or metadata.get("entity_name")
+                            or item.get("text", "")[:120]
+                        ),
+                    )
+                    if key in seen_evidence:
+                        continue
+                    seen_evidence.add(key)
+                    selected.append(item)
+                    if len(selected) >= k:
+                        break
+                if len(selected) >= k:
+                    break
+
+            documents = selected
+            mode += "_intent_filtered"
+            if any(result.get("status") == "not_found" for result in intent_results.values()):
+                mode += "_partial"
 
         primary = destinations[0] if destinations else None
         destination_names = [
@@ -1191,6 +1389,9 @@ class RAGService:
             "intent": primary_intent,
             "intents": intents,
             "explicit_intents": list(parsed.get("explicit_intents") or []),
+            "constraint_derived_intents": list(parsed.get("constraint_derived_intents") or []),
+            "has_budget_constraint": has_budget_constraint,
+            "budget_vnd": budget_vnd,
             "intent_origin": str(parsed.get("intent_origin") or "none"),
             "intent_results": intent_results,
             "keyword_candidate_count": all_candidates,
