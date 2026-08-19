@@ -8,6 +8,10 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10000)
     session_id: str | None = None
     user_id: str | None = None
+    # Optional frontend page context. Example:
+    # {"destination_id": "nha-trang", "property_id": "...", "page_url": "...", "page_title": "..."}
+    # Used for natural requests like "estimate it here" without guessing from RAG.
+    page_context: dict[str, Any] | None = None
 
 
 class AskRequest(BaseModel):

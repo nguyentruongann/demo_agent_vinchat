@@ -57,6 +57,28 @@ CHILD_PAGE_HINTS = {
     "quintessence",
 }
 
+_IMAGE_URL_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".avif")
+_BLOCKED_SOURCE_HOST_PARTS = ("booking-static", "static.vinpearl", "cdn.vinpearl")
+
+
+def _is_displayable_web_url(url: str | None) -> bool:
+    """Return True only for customer-facing web pages, not images/static assets."""
+    raw = str(url or "").strip()
+    if not raw.startswith(("http://", "https://")):
+        return False
+    parsed = urlparse(raw)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    if not host:
+        return False
+    if any(part in host for part in _BLOCKED_SOURCE_HOST_PARTS):
+        return False
+    if path.endswith(_IMAGE_URL_EXTENSIONS):
+        return False
+    if "/room_types/" in path and any(path.endswith(ext) for ext in _IMAGE_URL_EXTENSIONS):
+        return False
+    return True
+
 
 class SourceReranker:
     """Choose citations *after* answer generation.
@@ -175,12 +197,12 @@ class SourceReranker:
         urls: list[str] = []
         for key in URL_KEYS:
             value = str(metadata.get(key) or "").strip()
-            if value.startswith(("http://", "https://")) and value not in urls:
+            if _is_displayable_web_url(value) and value not in urls:
                 urls.append(value)
 
         for value in re.findall(r"https?://[^\s<>\]\)\}]+", str(item.get("text") or "")):
             cleaned = value.rstrip(".,;:'\"")
-            if cleaned and cleaned not in urls:
+            if _is_displayable_web_url(cleaned) and cleaned not in urls:
                 urls.append(cleaned)
         return urls
 
@@ -556,10 +578,12 @@ class SourceReranker:
                 answer_entities=answer_entities,
                 target_destination_ids=destination_ids,
             )
-            # URL is optional citation metadata. A source can still directly
-            # support the answer even when the crawl/database has no canonical URL.
-            # Keep strong no-URL evidence instead of pretending the knowledge is absent.
-            minimum_score = 65.0 if best_url else 85.0
+            # Customer-visible sources must be clickable web pages. Evidence without
+            # a displayable URL can still ground the answer internally, but it should
+            # not appear in the frontend source list.
+            if not best_url:
+                continue
+            minimum_score = 65.0
             if score < minimum_score:
                 continue
             ranked.append(

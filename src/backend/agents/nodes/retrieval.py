@@ -3,6 +3,10 @@ from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.config import get_settings
 from src.backend.services.llm import LLMService
 from src.backend.services.rag import get_rag_service, text_has_price_evidence
+from src.backend.services.retrieval_enrichment import (
+    enrich_retrieved_documents,
+    preferred_currency_for_language,
+)
 
 def _select_memory_turns(state: AgentState, limit: int = 6) -> list[dict]:
     """Select prior factual turns chosen by the semantic context resolver.
@@ -52,14 +56,67 @@ def _dedupe_documents(documents: list[dict]) -> list[dict]:
         output.append(item)
     return output
 
+def _answer_mode(state: AgentState, diagnostics: dict) -> str:
+    intents = set(diagnostics.get("intents") or [])
+    input_task_type = str(state.get("input_task_type") or "general")
+    if int(state.get("request_task_count") or 0) > 1:
+        return "MULTI_INTENT"
+    if input_task_type == "place_structure_clarification":
+        return "PLACE_STRUCTURE_QA"
+    if input_task_type == "property_detail":
+        return "PROPERTY_DETAIL"
+    if input_task_type == "brand_detail":
+        return "BRAND_DETAIL"
+    if input_task_type == "comparison":
+        return "ENTITY_COMPARISON"
+    if diagnostics.get("cost_estimate_requested"):
+        return "PRICE_ESTIMATE"
+    if diagnostics.get("price_requested"):
+        return "PRICE_LOOKUP"
+    if str(state.get("context_request_kind") or "") == "conversation_meta":
+        return "MEMORY_RECALL"
+    if "policy" in intents or "payment" in intents:
+        return "POLICY_QA"
+    if len(intents) > 1:
+        return "MULTI_INTENT"
+    if "hotel" in intents:
+        return "HOTEL_RECOMMENDATION"
+    if "attraction" in intents or str(diagnostics.get("intent_origin") or "") == "generic_discovery":
+        return "DESTINATION_RECOMMENDATION"
+    return "GENERAL_QA"
+
+
+def _planned_retrieval_requirements(state: AgentState) -> tuple[list[str], bool, bool]:
+    intents: list[str] = []
+    price_requested = False
+    cost_estimate_requested = False
+    for task in state.get("request_tasks") or []:
+        if not isinstance(task, dict):
+            continue
+        for value in task.get("retrieval_intents") or []:
+            intent = str(value or "").strip().lower()
+            if intent and intent not in intents:
+                intents.append(intent)
+        task_type = str(task.get("task_type") or "").strip().lower()
+        if task_type in {"price_lookup", "price_estimate"}:
+            price_requested = True
+        if task_type == "price_estimate":
+            cost_estimate_requested = True
+    return intents, price_requested, cost_estimate_requested
+
+
 def retrieve_context(state: AgentState) -> AgentState:
     rag = get_rag_service()
+    planned_intents, planned_price, planned_cost_estimate = _planned_retrieval_requirements(state)
     documents, diagnostics = rag.hybrid_search(
         query=state["rag_query"],
         user_message=effective_user_message(state),
         resolved_destinations=state.get("resolved_destinations"),
         excluded_destination_ids=state.get("excluded_destination_ids") or [],
         excluded_entity_names=state.get("excluded_entity_names") or [],
+        planned_intents=planned_intents,
+        force_price_requested=planned_price,
+        force_cost_estimate_requested=planned_cost_estimate,
     )
 
     memory_turns = _select_memory_turns(state)
@@ -107,6 +164,24 @@ def retrieve_context(state: AgentState) -> AgentState:
     else:
         retrieval_mode = diagnostics.get("mode")
 
+    # Second-stage structured retrieval: Chroma decides *which* entities are
+    # relevant; PostgreSQL then re-hydrates their non-null fields. Money requests
+    # also receive destination-scoped room/booking price rows so the final model
+    # can produce a grounded estimate instead of redirecting to the website.
+    preferred_output_currency = preferred_currency_for_language(
+        state.get("original_language"),
+        state.get("original_language_name"),
+    )
+    documents, enrichment = enrich_retrieved_documents(
+        documents,
+        destination_ids=list(diagnostics.get("destination_ids", []) or []),
+        price_requested=bool(diagnostics.get("price_requested", False)),
+        cost_estimate_requested=bool(diagnostics.get("cost_estimate_requested", False)),
+        preferred_output_currency=preferred_output_currency,
+    )
+    if int(enrichment.get("structured_price_document_count") or 0) > 0:
+        retrieval_mode = f"{retrieval_mode}+structured_price"
+
     primary_intent = current_intents[0] if current_intents else diagnostics.get("intent")
 
     return {
@@ -126,6 +201,16 @@ def retrieve_context(state: AgentState) -> AgentState:
         "budget_vnd": diagnostics.get("budget_vnd"),
         "price_requested": bool(diagnostics.get("price_requested", False)),
         "booking_evidence_preferred": bool(diagnostics.get("booking_evidence_preferred", False)),
+        "cost_estimate_requested": bool(diagnostics.get("cost_estimate_requested", False)),
+        "price_data_as_of": enrichment.get("price_data_as_of"),
+        "price_evidence_summary": str(enrichment.get("price_evidence_summary") or ""),
+        "price_estimate_packet": enrichment.get("price_estimate_packet") or {},
+        "price_estimate_destination_ids": list(enrichment.get("price_estimate_destination_ids") or []),
+        "preferred_output_currency": str(enrichment.get("preferred_output_currency") or preferred_output_currency),
+        "currency_conversion_guidance": str(enrichment.get("currency_conversion_guidance") or ""),
+        "answer_mode": _answer_mode(state, diagnostics),
+        "structured_enrichment_count": int(enrichment.get("structured_enrichment_count") or 0),
+        "structured_price_document_count": int(enrichment.get("structured_price_document_count") or 0),
         "intent_origin": str(diagnostics.get("intent_origin") or "none"),
         "intent_results": current_intent_results,
         "keyword_candidate_count": int(diagnostics.get("keyword_candidate_count") or 0),
@@ -193,7 +278,9 @@ def assess_information(state: AgentState) -> AgentState:
     # judge again: that adds latency/rate-limit pressure and can incorrectly reject
     # an authoritative FAQ answer that the deterministic matcher already identified.
     retrieval_mode = str(state.get("retrieval_mode") or "")
-    if retrieval_mode.startswith("faq_") and documents:
+    input_task_type = str(state.get("input_task_type") or "general")
+
+    if retrieval_mode.startswith("faq_") and documents and input_task_type not in {"property_detail", "brand_detail", "place_structure_clarification"}:
         scores = [float(item.get("score", 0.0) or 0.0) for item in documents]
         best_score = max(scores, default=0.0)
         if best_score >= settings.min_relevance_score:
@@ -241,6 +328,93 @@ def assess_information(state: AgentState) -> AgentState:
         except (TypeError, ValueError):
             branch_score = 0.0
         return branch_score >= settings.min_relevance_score
+
+    # Aggregate cost estimates are allowed to be synthesized from structured
+    # component prices. They do not require a pre-written package or an exact
+    # "solo 3D2N" offer row. If the enrichment lane produced any structured
+    # price evidence, the final answerer can produce a grounded estimate with
+    # assumptions and destination-level breakdowns.
+    if state.get("cost_estimate_requested") and int(state.get("structured_price_document_count") or 0) > 0:
+        best_score = max(
+            (float(item.get("score", 0.0) or 0.0) for item in documents),
+            default=0.0,
+        )
+        reason = (
+            "Cost-estimate clear-pass: structured PostgreSQL price evidence is available, "
+            "so the answerer can build a grounded destination-level estimate from components rather than requiring an exact package row."
+        )
+        print("\n===== RAG ASSESSMENT =====")
+        print(f"Question: {effective_user_message(state)}")
+        print(f"RAG query: {state.get('rag_query', '')}")
+        print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
+        print(f"Detected intents: {detected_intents or [state.get('detected_intent')]}")
+        print(f"Intent origin: {state.get('intent_origin', 'none')}")
+        print(f"Structured price docs: {state.get('structured_price_document_count')}")
+        print(f"Estimate destinations: {state.get('price_estimate_destination_ids') or []}")
+        print(f"Best score: {best_score:.4f}")
+        print("Enough: True (cost-estimate structured clear-pass)")
+        print(f"Reason: {reason}")
+        print("==========================\n")
+        return {
+            "enough_information": True,
+            "assessment_reason": reason,
+            "best_relevance_score": best_score,
+            "insufficiency_action": "no_data",
+        }
+
+    # Current-task clear-passes. These protect against an LLM sufficiency judge
+    # rejecting usable entity evidence just because the customer's wording contained
+    # a mistaken assumption (for example "2 nơi hả?") or because it expected a
+    # pre-written review. Retrieval evidence by entity type is enough for the final
+    # answerer to clarify/review without hallucinating.
+    entity_types = {
+        str((item.get("metadata", {}) or {}).get("entity_type") or "").strip()
+        for item in documents
+    }
+    if input_task_type == "property_detail" and entity_types & {"property", "room"}:
+        best_score = max((float(item.get("score", 0.0) or 0.0) for item in documents), default=0.0)
+        reason = "Property-detail clear-pass: retrieved evidence contains property/room records for the named entity."
+        print("\n===== RAG ASSESSMENT =====")
+        print(f"Question: {effective_user_message(state)}")
+        print(f"RAG query: {state.get('rag_query', '')}")
+        print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
+        print(f"Answer mode: {state.get('answer_mode', '')}")
+        print(f"Entity types: {sorted(entity_types)}")
+        print(f"Best score: {best_score:.4f}")
+        print("Enough: True (property-detail clear-pass)")
+        print(f"Reason: {reason}")
+        print("==========================\n")
+        return {
+            "enough_information": True,
+            "assessment_reason": reason,
+            "best_relevance_score": best_score,
+            "insufficiency_action": "no_data",
+        }
+
+    if input_task_type == "place_structure_clarification" and documents:
+        best_score = max((float(item.get("score", 0.0) or 0.0) for item in documents), default=0.0)
+        useful_types = {"property", "room", "complex", "attraction", "booking_product", "destination"}
+        if entity_types & useful_types or state.get("context_uses_memory"):
+            reason = (
+                "Place-structure clear-pass: current turn asks to clarify/group previously mentioned items; "
+                "retrieved or memory evidence is sufficient to answer as one place with components unless distinct places are grounded."
+            )
+            print("\n===== RAG ASSESSMENT =====")
+            print(f"Question: {effective_user_message(state)}")
+            print(f"RAG query: {state.get('rag_query', '')}")
+            print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
+            print(f"Answer mode: {state.get('answer_mode', '')}")
+            print(f"Entity types: {sorted(entity_types)}")
+            print(f"Best score: {best_score:.4f}")
+            print("Enough: True (place-structure clear-pass)")
+            print(f"Reason: {reason}")
+            print("==========================\n")
+            return {
+                "enough_information": True,
+                "assessment_reason": reason,
+                "best_relevance_score": best_score,
+                "insufficiency_action": "no_data",
+            }
 
     # Cross-cutting constraints must be satisfied, not merely accompanied by some
     # other useful branch. For example, a generic destination article cannot rescue

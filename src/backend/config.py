@@ -1,4 +1,5 @@
 from functools import lru_cache
+from decimal import Decimal
 from pathlib import Path
 
 from pydantic import field_validator
@@ -46,6 +47,12 @@ class Settings(BaseSettings):
     top_k: int = 10
     max_context_chars: int = 18000
     min_relevance_score: float = 0.35
+
+    # Price/currency presentation. This is not a live FX feed; it is a
+    # configurable approximation used only to present grounded USD evidence in
+    # the customer language/currency. Override USD_TO_VND_RATE in production if
+    # Finance/Content updates the approved rate.
+    usd_to_vnd_rate: Decimal = Decimal("26000")
 
     # Authentication / compatibility API
     auth_session_days: int = 7

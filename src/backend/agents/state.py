@@ -1,7 +1,13 @@
 from typing import Any, Literal, TypedDict
 
 
-RouteName = Literal["greeting", "out_of_scope", "conversation_context", "rag"]
+RouteName = Literal[
+    "greeting",
+    "out_of_scope",
+    "conversation_context",
+    "rag",
+    "invalid_request",
+]
 InsufficiencyAction = Literal["no_data", "ticket"]
 RequestMode = Literal["information", "support_action"]
 ResolutionMode = Literal["information_only", "self_serve", "human_required"]
@@ -13,11 +19,14 @@ class AgentState(TypedDict, total=False):
     user_message: str
     session_id: str | None
     user_id: str | None
+    page_context: dict[str, Any] | None  # optional frontend page/location context for deictic "here/this" requests
 
     conversation_turns: list[dict[str, Any]]
     conversation_history: str
     recent_destinations: list[dict[str, str]]
     recent_destination_summary: str
+    recent_discussed_destinations: list[dict[str, str]]
+    recent_discussed_destination_summary: str
     recent_entities: list[dict[str, str]]
     recent_entity_summary: str
 
@@ -36,6 +45,24 @@ class AgentState(TypedDict, total=False):
     context_resolution_confidence: float
     context_resolution_source: str
     context_request_kind: str  # independent|factual_continuation|conversation_meta
+    # Current-turn semantic intent identified after raw guardrail pass and before retrieval.
+    # These fields help downstream nodes distinguish a customer's actual task from
+    # wording assumptions/errors such as "there are two places, right?".
+    input_task_type: str  # property_detail|place_structure_clarification|brand_detail|comparison|general
+    current_user_intent: str
+    memory_resolution_strategy: str
+    place_grouping_hint: dict[str, Any]
+
+    # Current-request task plan. A single user turn may contain any number of
+    # customer-visible clauses; each clause becomes an atomic task that must be
+    # resolved/answered rather than being collapsed into one primary intent.
+    request_tasks: list[dict[str, Any]]
+    request_task_count: int
+    request_requires_memory: bool
+    request_understanding_summary: str
+    request_understanding_confidence: float
+    request_understanding_source: str
+    context_destination_provenance: list[dict[str, str]]
     excluded_destination_ids: list[str]
     excluded_entity_names: list[str]
 
@@ -64,6 +91,16 @@ class AgentState(TypedDict, total=False):
     guardrail_confidence: float
     supported_destination_discovery_ids: list[str]
 
+    # Semantic/logical coherence gate. Unlike safety/scope, this rejects requests
+    # whose own constraints cannot reasonably be true at the same time (for
+    # example a 2-day trip containing 4 overnight stays). The input LLM owns this
+    # classification so it can generalize beyond hard-coded examples.
+    logic_action: Literal["allow", "reject"]
+    logic_category: str
+    logic_reason: str
+    logic_confidence: float
+    logic_response: str
+
     retrieved_documents: list[dict[str, Any]]
     context: str
 
@@ -82,6 +119,16 @@ class AgentState(TypedDict, total=False):
     budget_vnd: int | None               # parsed affordability ceiling in VND
     price_requested: bool                # user explicitly asks for a numeric price/cost/fare
     booking_evidence_preferred: bool     # ticket/package/price wording should prefer booking_product evidence
+    cost_estimate_requested: bool        # aggregate trip/service budgeting rather than a single item lookup
+    price_data_as_of: str | None          # provenance label for customer-facing money answers
+    price_evidence_summary: str           # compact structured price evidence for the final answerer
+    price_estimate_packet: dict[str, Any]  # deterministic grouped price/estimate evidence for final LLM
+    price_estimate_destination_ids: list[str]
+    preferred_output_currency: str         # derived from input language; e.g. VND for Vietnamese, USD for English
+    currency_conversion_guidance: str      # system-provided conversion rule when evidence currency differs
+    answer_mode: str                       # PRICE_ESTIMATE|PRICE_LOOKUP|POLICY_QA|...
+    structured_enrichment_count: int
+    structured_price_document_count: int
     intent_origin: str                   # current_explicit|generic_discovery|rewrite_inferred|constraint_derived|none
     intent_results: dict[str, dict[str, Any]]
     keyword_candidate_count: int

@@ -100,6 +100,9 @@ INTENT_ENTITY_TYPES: dict[str, set[str]] = {
     "mice": {"mice_venue", "mice_room", "mice_room_capacity"},
     "policy": {"booking_product", "policy_document", "policy_section", "policy_block", "faq"},
     "payment": {"policy_document", "policy_section", "policy_block", "faq"},
+    # Pseudo intent used only for price/estimate retrieval. It maps directly to
+    # booking products instead of being exposed as a customer-facing category.
+    "booking_product": {"booking_product"},
 }
 
 # Generic destination discovery is intentionally mapped to several existing
@@ -112,6 +115,18 @@ GENERIC_DISCOVERY_INTENTS: tuple[str, ...] = (
     "hotel",
     "dining",
     "service",
+)
+
+# Aggregate price estimates need a pricing/combo lane as well as catalog lanes.
+# Keep this separate from broad discovery so non-money itinerary questions do
+# not get over-weighted toward offers.
+COST_ESTIMATE_INTENTS: tuple[str, ...] = (
+    "hotel",
+    "booking_product",
+    "attraction",
+    "dining",
+    "service",
+    "promotion",
 )
 
 # These markers are evaluated only when no explicit supported intent was found.
@@ -304,6 +319,7 @@ INTENT_QUERY_LABELS: dict[str, str] = {
     "mice": "meetings conferences weddings MICE venues",
     "policy": "policies regulations terms",
     "payment": "payment guidance policies",
+    "booking_product": "booking tickets packages combo prices",
 }
 
 # Price/package/ticket wording is a cross-cutting retrieval facet, not a catalog
@@ -315,7 +331,23 @@ _PRICE_REQUEST_MARKERS: tuple[str, ...] = (
     "price", "prices", "pricing", "ticket price", "service price", "cost",
     "costs", "fare", "fares", "how much", "giá", "muc gia",
     "mức giá", "gia ve", "giá vé", "gia bao nhieu", "gia ra sao",
-    "gia ca", "bao nhieu tien", "bao nhiêu tiền",
+    "gia ca", "bao nhieu tien", "bao nhiêu tiền", "chi phí", "chi phi",
+    "tổng tiền", "tong tien", "dự toán", "du toan", "dự trù", "du tru",
+)
+
+# Aggregate/itinerary budgeting needs broader retrieval than a single-item price
+# lookup. This stays a *facet* (not a catalog intent) so queries like "estimate a
+# 3-day Nha Trang trip" can still retrieve hotel/attraction/service branches while
+# the post-retrieval layer supplements price-bearing rows for a real estimate.
+_COST_ESTIMATE_MARKERS: tuple[str, ...] = (
+    "estimate", "estimated cost", "estimate cost", "estimate price",
+    "estimated price", "trip cost", "vacation cost", "holiday cost",
+    "total cost", "total price", "travel budget", "budget estimate",
+    "cost breakdown", "price breakdown", "how much for the trip",
+    "how much would the trip cost", "ước tính", "uoc tinh", "ước chừng",
+    "uoc chung", "chi phí chuyến đi", "chi phi chuyen di", "tổng chi phí",
+    "tong chi phi", "dự trù", "du tru", "dự toán", "du toan",
+    "ngân sách chuyến đi", "ngan sach chuyen di",
 )
 
 _BOOKING_EVIDENCE_MARKERS: tuple[str, ...] = (
@@ -378,9 +410,37 @@ def detect_retrieval_facets(user_message: str, rag_query: str) -> dict[str, bool
             rag_query, _BOOKING_EVIDENCE_MARKERS
         )
 
+    cost_estimate_requested = _contains_intent_phrase(
+        user_message, _COST_ESTIMATE_MARKERS
+    )
+    if not cost_estimate_requested:
+        cost_estimate_requested = _contains_intent_phrase(
+            rag_query, _COST_ESTIMATE_MARKERS
+        )
+
+    # A clearly trip/vacation-shaped money question should be treated as an
+    # estimate request even when the user simply asks "how much" without the
+    # literal word "estimate".
+    if price_requested and not cost_estimate_requested:
+        combined = normalize_text(f"{user_message} {rag_query}")
+        trip_markers = (
+            "trip", "vacation", "holiday", "travel", "itinerary",
+            "chuyen di", "ky nghi", "ki nghi", "du lich", "lich trinh",
+            "days", "nights", "ngay", "dem",
+        )
+        cost_estimate_requested = any(marker in combined for marker in trip_markers)
+
+    # An aggregate estimate is necessarily a money request even when the user's
+    # language says only "ước tính/dự trù" and never uses a literal price word.
+    # It also benefits from booking-product evidence by definition.
+    if cost_estimate_requested:
+        price_requested = True
+        booking_evidence_preferred = True
+
     return {
         "price_requested": bool(price_requested),
         "booking_evidence_preferred": bool(booking_evidence_preferred),
+        "cost_estimate_requested": bool(cost_estimate_requested),
     }
 
 @lru_cache(maxsize=1)
@@ -626,8 +686,16 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
     explicit_intents = detect_intents(user_message)
     intents = list(explicit_intents)
     intent_origin = "current_explicit" if intents else "none"
+    facets = detect_retrieval_facets(user_message, rag_query)
 
-    if not intents and _is_generic_destination_discovery(
+    # Aggregate trip-cost requests need a broad evidence bundle even when the user
+    # says only "ước tính chi phí 3 ngày 2 đêm" without an explicit noun such as
+    # hotel/ticket/restaurant. This is a retrieval expansion, not a claim that all
+    # four categories must appear in the final answer.
+    if not intents and facets.get("cost_estimate_requested"):
+        intents = list(COST_ESTIMATE_INTENTS)
+        intent_origin = "cost_estimate"
+    elif not intents and _is_generic_destination_discovery(
         user_message=user_message,
         rag_query=rag_query,
         destinations=destinations,
@@ -658,7 +726,12 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
                 intent_origin = "constraint_derived"
 
     budget_vnd = extract_budget_vnd(user_message, rag_query)
-    facets = detect_retrieval_facets(user_message, rag_query)
+    if budget_vnd is not None:
+        # A concrete affordability ceiling is inherently price-sensitive even when
+        # the user never says the literal word "price". Enable structured price
+        # enrichment so recommendations can be justified with real amounts.
+        facets["price_requested"] = True
+        facets["booking_evidence_preferred"] = True
     primary_intent = intents[0] if intents else None
     return {
         "destination": destinations[0] if destinations else None,
@@ -671,6 +744,7 @@ def parse_retrieval_query(user_message: str, rag_query: str) -> dict[str, Any]:
         "budget_vnd": budget_vnd,
         "price_requested": bool(facets.get("price_requested")),
         "booking_evidence_preferred": bool(facets.get("booking_evidence_preferred")),
+        "cost_estimate_requested": bool(facets.get("cost_estimate_requested")),
         "intent_origin": intent_origin,
         "preferred_entity_types": sorted(INTENT_ENTITY_TYPES.get(primary_intent or "", set())),
         "preferred_entity_types_by_intent": {

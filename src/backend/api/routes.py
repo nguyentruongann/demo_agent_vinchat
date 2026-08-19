@@ -1,5 +1,6 @@
 import re
 from uuid import uuid4
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -34,6 +35,28 @@ URL_KEYS = (
     "to_url",
     "path",
 )
+
+_IMAGE_URL_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".avif")
+_BLOCKED_SOURCE_HOST_PARTS = ("booking-static", "static.vinpearl", "cdn.vinpearl")
+
+
+def _is_displayable_web_url(url: str | None) -> bool:
+    """Only show customer-facing web links as sources; hide images/static/context-only rows."""
+    raw = str(url or "").strip()
+    if not raw.startswith(("http://", "https://")):
+        return False
+    parsed = urlparse(raw)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    if not host:
+        return False
+    if any(part in host for part in _BLOCKED_SOURCE_HOST_PARTS):
+        return False
+    if path.endswith(_IMAGE_URL_EXTENSIONS):
+        return False
+    if "/room_types/" in path and any(path.endswith(ext) for ext in _IMAGE_URL_EXTENSIONS):
+        return False
+    return True
 
 
 def _phrase_in_text(text: str, phrase: str) -> bool:
@@ -106,14 +129,14 @@ def _candidate_urls(item: dict) -> list[str]:
     urls: list[str] = []
     for key in URL_KEYS:
         value = str(metadata.get(key) or "").strip()
-        if value and value not in urls:
+        if _is_displayable_web_url(value) and value not in urls:
             urls.append(value)
 
     # Sometimes the row text contains a more specific entity URL than the first
     # metadata URL selected at ingest time. Prefer a non-conflicting URL if found.
     for value in re.findall(r"https?://[^\s<>\]\)\}]+", str(item.get("text") or "")):
         cleaned = value.rstrip(".,;:")
-        if cleaned and cleaned not in urls:
+        if _is_displayable_web_url(cleaned) and cleaned not in urls:
             urls.append(cleaned)
     return urls
 
@@ -123,7 +146,7 @@ def _best_source_path(item: dict, target_destination_ids: set[str]) -> str | Non
     if not candidates:
         return None
     for url in candidates:
-        if not _url_conflicts(url, target_destination_ids):
+        if _is_displayable_web_url(url) and not _url_conflicts(url, target_destination_ids):
             return url
     # Every URL points to a different known destination: suppress the link rather
     # than displaying a misleading citation.
@@ -221,8 +244,10 @@ def _build_sources(state: dict) -> list[SourceItem]:
     for item in documents:
         source = _source_item_from_document(item, destination_ids)
 
-        # A missing URL must never suppress valid evidence. The frontend can render
-        # this source as plain text (path=None) while the answer still uses the data.
+        # Customer-visible sources must be clickable web pages only. Hide image URLs,
+        # static assets, and context-only evidence rows with no URL.
+        if not _is_displayable_web_url(source.path):
+            continue
         normalized_entity = normalize_text(source.source_file)
         if source.path and source.path in seen_urls:
             continue
@@ -258,6 +283,7 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
                 "user_message": request.message,
                 "session_id": session_id,
                 "user_id": user_id,
+                "page_context": request.page_context,
             }
         )
     except PermissionError as exc:
@@ -288,6 +314,14 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
             "explicit_intents": state.get("explicit_intents", []),
             "intent_origin": state.get("intent_origin", "none"),
             "intent_results": state.get("intent_results", {}),
+            "price_requested": state.get("price_requested", False),
+            "cost_estimate_requested": state.get("cost_estimate_requested", False),
+            "price_data_as_of": state.get("price_data_as_of"),
+            "structured_enrichment_count": state.get("structured_enrichment_count", 0),
+            "structured_price_document_count": state.get("structured_price_document_count", 0),
+            "answer_mode": state.get("answer_mode"),
+            "preferred_output_currency": state.get("preferred_output_currency"),
+            "price_estimate_destination_ids": state.get("price_estimate_destination_ids", []),
             "request_mode": state.get("request_mode"),
             "resolution_mode": state.get("resolution_mode"),
             "support_triage_reason": state.get("support_triage_reason"),
@@ -297,6 +331,10 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
             "safety_category": state.get("safety_category"),
             "safety_reason": state.get("safety_reason"),
             "safety_confidence": state.get("safety_confidence"),
+            "logic_action": state.get("logic_action"),
+            "logic_category": state.get("logic_category"),
+            "logic_reason": state.get("logic_reason"),
+            "logic_confidence": state.get("logic_confidence"),
         },
     )
 

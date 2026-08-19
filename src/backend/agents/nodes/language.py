@@ -14,6 +14,30 @@ _LANGUAGE_CODE_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _SAFETY_ACTIONS = {"allow", "block"}
 
 
+def _guardrail_has_run(state: AgentState) -> bool:
+    return (
+        "scope_action" in state
+        or "sanitized_user_request" in state
+        or "logic_action" in state
+    )
+
+
+def _language_detection_message(state: AgentState) -> str:
+    """Return the text used only for language detection.
+
+    Once the guardrail has run, allowed turns should use the legitimate sanitized
+    request so prompt-injection metadata cannot choose the reply language. Blocked
+    or invalid turns often have an empty sanitized request, so fall back to the raw
+    current message to keep refusals in the user's language.
+    """
+    if _guardrail_has_run(state):
+        sanitized = str(state.get("sanitized_user_request") or "").strip()
+        if state.get("scope_action") == "allow" and sanitized:
+            return sanitized
+        return str(state.get("user_message") or "").strip()
+    return effective_user_message(state)
+
+
 def _normalize_language_code(value: object) -> str:
     """Normalize an LLM-supplied ISO/BCP-47 language tag without inventing one."""
     code = str(value or "").strip().replace("_", "-")
@@ -43,7 +67,7 @@ def _recover_language_identity(llm: LLMService, state: AgentState) -> tuple[str,
         ),
         user_prompt=f"""
 CURRENT MESSAGE:
-{effective_user_message(state)}
+{_language_detection_message(state)}
 
 Return exactly:
 {{
@@ -76,7 +100,7 @@ def _recover_safety_decision(llm: LLMService, state: AgentState) -> tuple[str, s
         ),
         user_prompt=f"""
 CURRENT MESSAGE:
-{effective_user_message(state)}
+{_language_detection_message(state)}
 
 Return exactly:
 {{
@@ -110,6 +134,40 @@ def detect_language_and_translate(state: AgentState) -> AgentState:
     ``language_name`` gives downstream generation an unambiguous human-readable target.
     """
     llm = LLMService()
+
+    # The input guardrail is authoritative and now runs on the raw CURRENT
+    # message before memory/context/rewrite nodes. After that point this node must
+    # not reopen the route, safety, scope, logic, sanitized request, or RAG query.
+    # It only ensures that every branch, including invalid/sensitive/out-of-scope
+    # branches, has a response language grounded in the current user turn.
+    if _guardrail_has_run(state):
+        language_code = _normalize_language_code(state.get("original_language"))
+        language_name = str(state.get("original_language_name") or "").strip()[:80]
+        if language_code == "und" or not language_name:
+            recovered_code, recovered_name = _recover_language_identity(llm, state)
+            if recovered_code != "und":
+                language_code = recovered_code
+            if recovered_name:
+                language_name = recovered_name
+        if language_code == "und" or not language_name:
+            raise ValueError("Could not reliably identify the current message language.")
+
+        try:
+            safety_confidence = float(state.get("safety_confidence") or 0.0)
+        except (TypeError, ValueError):
+            safety_confidence = 0.0
+        output: AgentState = {
+            "original_language": language_code,
+            "original_language_name": language_name,
+            "rag_query": str(state.get("rag_query") or ""),
+            "route": str(state.get("route") or "rag"),
+            "safety_action": str(state.get("safety_action") or "allow"),
+            "safety_category": str(state.get("safety_category") or "safe"),
+            "safety_reason": str(state.get("safety_reason") or "").strip()[:500],
+            "safety_confidence": max(0.0, min(safety_confidence, 1.0)),
+        }
+        return output
+
     result = llm.json(
         system_prompt=(
             "You are the control classifier for a Vinpearl/VinWonders travel-support assistant. "
@@ -166,7 +224,7 @@ def detect_language_and_translate(state: AgentState) -> AgentState:
                     "recent_destinations": state.get("recent_destination_summary", "(none yet)"),
                     "recent_entities": state.get("recent_entity_summary", "(none yet)"),
                     "previous_conversation": state.get("conversation_history", "(no previous conversation)"),
-                    "current_message": effective_user_message(state),
+                    "current_message": _language_detection_message(state),
                 },
                 ensure_ascii=False,
             )

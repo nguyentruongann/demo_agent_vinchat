@@ -97,7 +97,7 @@ def test_memory_retrieval_does_not_leak_old_intents_into_current_turn(monkeypatc
     assert {item["id"] for item in result["retrieved_documents"]} == {"current", "old"}
 
 
-def test_grounded_entity_destination_is_available_for_plural_followup() -> None:
+def test_assistant_suggested_destination_is_recallable_but_not_user_focus() -> None:
     memory = MemoryService.__new__(MemoryService)
     turns = [
         {
@@ -108,13 +108,38 @@ def test_grounded_entity_destination_is_available_for_plural_followup() -> None:
                 {
                     "name": "VinWonders Grand Park",
                     "type": "attraction",
-                    "source": "grounded_answer_kb",
+                    "source": "assistant_suggestion_kb",
                     "destination_id": "ho-chi-minh",
                 }
             ],
         }
     ]
 
-    destinations = memory.extract_recent_destinations(turns)
+    assert memory.extract_recent_destinations(turns) == []
 
-    assert destinations[0]["id"] == "ho-chi-minh"
+    discussed = memory.extract_recent_discussed_destinations(turns)
+    assert discussed[0]["id"] == "ho-chi-minh"
+    assert discussed[0]["source"] == "assistant_suggestion"
+    assert discussed[0]["confirmed"] == "false"
+
+
+def test_explicit_user_destination_still_becomes_user_focus(monkeypatch) -> None:
+    memory = MemoryService.__new__(MemoryService)
+    monkeypatch.setattr(
+        "src.backend.services.query_parser.detect_destinations",
+        lambda _text: [{"id": "nha-trang", "name_vi": "Nha Trang"}],
+    )
+    turns = [
+        {
+            "route": "rag",
+            "user_message": "mình muốn đi Nha Trang",
+            "detected_destinations": [
+                {"id": "nha-trang", "name": "Nha Trang", "source": "retrieval_detection"}
+            ],
+            "resolved_destinations": [],
+            "focus_entities": [],
+        }
+    ]
+
+    destinations = memory.extract_recent_destinations(turns)
+    assert destinations[0]["id"] == "nha-trang"
