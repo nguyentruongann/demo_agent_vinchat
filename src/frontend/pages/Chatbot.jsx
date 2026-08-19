@@ -156,6 +156,7 @@ function Chatbot() {
   const initialPrompt = searchParams.get('prompt') || ''
   const handledPromptRef = useRef(null)
   const messagesContainerRef = useRef(null)
+  const inputRef = useRef(null)
   const previousUserIdRef = useRef(undefined)
 
   function createSystemMessage(id, localizationKey = 'chatbotWelcome') {
@@ -193,6 +194,19 @@ function Chatbot() {
       behavior: messages.length > 1 ? 'smooth' : 'auto',
     })
   }, [messages, loading])
+
+  // While the assistant is responding, the input is intentionally disabled.
+  // Restore focus as soon as it becomes available again so users can continue
+  // the conversation without an extra mouse click.
+  useEffect(() => {
+    if (loading || !conversationReady) return undefined
+
+    const frame = window.requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [loading, conversationReady])
 
   // Keep only local/system UI messages synchronized with the selected language.
   // This also upgrades old sessionStorage messages created before localizationKey existed.
@@ -548,6 +562,7 @@ function Chatbot() {
 
           <form className="chatbot-page__form" onSubmit={handleFormSubmit}>
             <input
+              ref={inputRef}
               className="chatbot-page__input"
               type="text"
               placeholder={t.chatbotPlaceholder}

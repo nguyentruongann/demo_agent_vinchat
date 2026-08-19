@@ -13,7 +13,7 @@ import { useLanguage } from '../context/LanguageContext'
 import '../styles/components/Header.css'
 
 const VINPEARL_LOGO_URL =
-  'https://statics.vinpearl.com/files/images/new-homepage/vp-logo-blue.svg'
+  'https://statics.vinpearl.com/files/img/vinpearl/vp.svg'
 
 function Header() {
   const { language, setLanguage, t } = useLanguage()

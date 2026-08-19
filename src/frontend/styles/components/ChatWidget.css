@@ -386,6 +386,21 @@
   line-height: 1.6;
 }
 
+/* StructuredMessage uses the light-page ink color by default. In the floating
+   dark widget that made plain answers and especially the closing/follow-up line
+   almost disappear. Keep all non-card assistant copy high-contrast here. */
+.chat-widget .structured-msg__closing,
+.chat-widget .structured-msg--plain,
+.chat-widget .structured-msg--plain .rich-msg,
+.chat-widget .structured-msg--plain .rich-msg__text {
+  color: #f8fafc;
+}
+
+.chat-widget .structured-msg__closing {
+  font-weight: 500;
+  line-height: 1.65;
+}
+
 .chat-widget .source-pills__label {
   color: #cbd5e1;
 }
