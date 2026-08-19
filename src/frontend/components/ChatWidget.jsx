@@ -22,6 +22,7 @@ function ChatWidget() {
   })
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
   const previousUserIdRef = useRef(undefined)
 
   useEffect(() => {
@@ -29,6 +30,19 @@ function ChatWidget() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, loading, isOpen])
+
+  // The input is disabled while the assistant is answering. Once the response
+  // finishes (or the widget is opened), restore keyboard focus automatically so
+  // the user can keep typing without clicking the input again.
+  useEffect(() => {
+    if (!isOpen || loading) return undefined
+
+    const frame = window.requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [isOpen, loading])
 
   // Frontend-generated error messages should follow the selected UI language.
   // Real chat history remains untouched.
@@ -237,6 +251,7 @@ function ChatWidget() {
 
           <form className="chat-widget__form" onSubmit={handleQuickSend}>
             <input
+              ref={inputRef}
               className="chat-widget__input"
               type="text"
               placeholder={t.chatWidgetPlaceholder}
