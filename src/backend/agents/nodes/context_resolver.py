@@ -6,7 +6,38 @@ from typing import Any
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.agents.state import AgentState
 from src.backend.services.llm import LLMService
-from src.backend.services.query_parser import detect_destinations, load_destination_catalog
+from src.backend.services.query_parser import detect_destinations, load_destination_catalog, normalize_text
+
+
+_USER_FOCUS_DESTINATION_SOURCES = {
+    "current_explicit",
+    "user_explicit",
+    "user_explicit_kb",
+    "user_explicit_legacy_detection",
+    "user_confirmed",
+    "user_confirmed_via_memory",
+    "recent_user_focus",
+    "current_page_context",
+}
+_ASSISTANT_PROPOSAL_DESTINATION_SOURCES = {
+    "assistant_suggestion",
+    "assistant_suggestion_kb",
+    "grounded_answer",
+    "grounded_answer_kb",
+    "recent_assistant_proposal",
+}
+_RETRIEVAL_ONLY_DESTINATION_SOURCES = {
+    "retrieval_detection",
+    "retrieval_evidence",
+    "grounded_retrieval",
+    "recent_retrieval_evidence",
+}
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
 
 
 def _bounded_confidence(value: Any) -> float:
@@ -39,10 +70,195 @@ def _destination_name(item: dict[str, Any]) -> str:
     ).strip()
 
 
+def _message_uses_page_context(message: str) -> bool:
+    text = normalize_text(message)
+    if not text:
+        return False
+    markers = (
+        "here", "this place", "this destination", "this hotel", "this resort",
+        "current page", "on this page", "o day", "ở đây", "cho nay", "chỗ này",
+        "noi nay", "nơi này", "trang nay", "trang này", "tai day", "tại đây",
+    )
+    return any(normalize_text(marker) in text for marker in markers)
+
+
+def _infer_current_input_task(message: str) -> dict[str, Any]:
+    """Classify the *current* customer task before memory selection.
+
+    This is intentionally lightweight and runs after the raw guardrail has passed.
+    It does not answer the question; it gives downstream memory/retrieval nodes a
+    stable reading of what the customer is trying to do now.  The important UX
+    distinction is that customers may phrase an assumption incorrectly ("ở đây có
+    2 nơi hả?") when the UI or prior answer confused them.  That wording should
+    trigger clarification/grouping against memory, not force a fake comparison.
+    """
+    text = normalize_text(message)
+    if not text:
+        return {
+            "input_task_type": "general",
+            "current_user_intent": "general Vinpearl information request",
+            "memory_resolution_strategy": "current_message_first",
+            "place_grouping_hint": {},
+        }
+
+    place_count_markers = (
+        "2 noi", "hai noi", "may noi", "mấy nơi", "tung noi", "từng nơi",
+        "co 2 noi", "co hai noi", "có 2 nơi", "có hai nơi",
+        "2 cho", "hai cho", "may cho", "mấy chỗ", "tung cho", "từng chỗ",
+        "co 2 cho", "co hai cho", "có 2 chỗ", "có hai chỗ",
+        "hai dia diem", "2 dia diem", "mấy địa điểm", "co phai 2", "có phải 2",
+    )
+    if any(marker in text for marker in place_count_markers):
+        return {
+            "input_task_type": "place_structure_clarification",
+            "current_user_intent": (
+                "clarify whether the previously mentioned items are separate places "
+                "or components/names of the same place, then review the supported components"
+            ),
+            "memory_resolution_strategy": "use_recent_answer_entities_to_group_places_do_not_assume_count",
+            "place_grouping_hint": {
+                "customer_count_may_be_wrong": True,
+                "group_by": ["destination_id", "complex_id", "property_id", "area_alias"],
+                "same_destination_components_are_not_separate_places": True,
+                "brand_suffix_is_not_a_place": True,
+            },
+        }
+
+    brand_markers = ("affiliated by melia", "affiliated by meliá")
+    if any(marker in text for marker in brand_markers):
+        # If the user names a full Vinpearl property, treat it as a property detail
+        # query; otherwise they are asking about the brand/suffix concept itself.
+        property_context_markers = ("vinpearl", "resort", "hotel", "khach san", "khách sạn")
+        if not any(marker in text for marker in property_context_markers):
+            return {
+                "input_task_type": "brand_detail",
+                "current_user_intent": "explain the Affiliated by Meliá label/relationship without turning one property into a destination",
+                "memory_resolution_strategy": "current_message_first_memory_only_for_examples",
+                "place_grouping_hint": {"brand_suffix_is_not_a_place": True},
+            }
+
+    detail_markers = (
+        "chi tiet", "chi tiết", "thong tin", "thông tin", "review", "danh gia", "đánh giá",
+        "gioi thieu", "giới thiệu", "tell me about", "details about", "detail about",
+    )
+    property_markers = ("vinpearl", "resort", "hotel", "khach san", "khách sạn")
+    if any(marker in text for marker in detail_markers) and any(marker in text for marker in property_markers):
+        return {
+            "input_task_type": "property_detail",
+            "current_user_intent": "provide details about the explicitly named Vinpearl property/entity",
+            "memory_resolution_strategy": "current_explicit_entity_first",
+            "place_grouping_hint": {"entity_detail_not_generic_faq": True},
+        }
+
+    comparison_markers = ("so sanh", "so sánh", "khac nhau", "khác nhau", "nen chon", "nên chọn", "compare")
+    if any(marker in text for marker in comparison_markers):
+        return {
+            "input_task_type": "comparison",
+            "current_user_intent": "compare the explicitly named or memory-resolved supported entities",
+            "memory_resolution_strategy": "use_memory_only_when_compared_entities_are_omitted",
+            "place_grouping_hint": {"require_distinct_entities_before_comparing": True},
+        }
+
+    return {
+        "input_task_type": "general",
+        "current_user_intent": "answer the current Vinpearl/VinWonders request",
+        "memory_resolution_strategy": "current_message_first_memory_only_if_dependency_gate_requires_it",
+        "place_grouping_hint": {},
+    }
+
+
+def _input_task_from_request_plan(state: AgentState, message: str) -> dict[str, Any]:
+    """Bridge the N-task request plan into legacy single-task fields.
+
+    Downstream code still reads input_task_type/current_user_intent, but those
+    fields must no longer collapse a compound request. The full request_tasks list
+    remains authoritative; this helper exposes a compatible summary only.
+    """
+    tasks = [item for item in (state.get("request_tasks") or []) if isinstance(item, dict)]
+    if not tasks:
+        return _infer_current_input_task(message)
+
+    if len(tasks) == 1:
+        task = tasks[0]
+        task_type = str(task.get("task_type") or "general_qa")
+        legacy_map = {
+            "place_structure_clarification": "place_structure_clarification",
+            "property_detail": "property_detail",
+            "brand_detail": "brand_detail",
+            "comparison": "comparison",
+        }
+        return {
+            "input_task_type": legacy_map.get(task_type, "general"),
+            "current_user_intent": str(task.get("goal") or state.get("request_understanding_summary") or "answer the current request"),
+            "memory_resolution_strategy": (
+                "resolve_only_task_references_from_memory" if task.get("needs_memory")
+                else "current_message_first"
+            ),
+            "place_grouping_hint": (
+                {
+                    "customer_count_may_be_wrong": True,
+                    "group_by": ["destination_id", "complex_id", "property_id", "area_alias"],
+                    "same_destination_components_are_not_separate_places": True,
+                    "brand_suffix_is_not_a_place": True,
+                }
+                if task_type == "place_structure_clarification" else {}
+            ),
+        }
+
+    has_place_clarification = any(str(item.get("task_type")) == "place_structure_clarification" for item in tasks)
+    return {
+        "input_task_type": "multi_intent",
+        "current_user_intent": str(state.get("request_understanding_summary") or " | ".join(str(item.get("goal") or "") for item in tasks)),
+        "memory_resolution_strategy": "resolve_memory_per_task_then_preserve_all_tasks",
+        "place_grouping_hint": (
+            {
+                "customer_count_may_be_wrong": True,
+                "group_by": ["destination_id", "complex_id", "property_id", "area_alias"],
+                "same_destination_components_are_not_separate_places": True,
+                "brand_suffix_is_not_a_place": True,
+            }
+            if has_place_clarification else {}
+        ),
+    }
+
+
+def _input_task_fields(input_task: dict[str, Any] | None) -> dict[str, Any]:
+    input_task = input_task or {}
+    return {
+        "input_task_type": str(input_task.get("input_task_type") or "general"),
+        "current_user_intent": str(input_task.get("current_user_intent") or "answer the current request"),
+        "memory_resolution_strategy": str(input_task.get("memory_resolution_strategy") or "current_message_first"),
+        "place_grouping_hint": dict(input_task.get("place_grouping_hint") or {}),
+    }
+
+
+def _page_context_destination(state: AgentState) -> dict[str, Any] | None:
+    page_context = state.get("page_context") or {}
+    if not isinstance(page_context, dict):
+        return None
+    destination_id = str(page_context.get("destination_id") or "").strip()
+    if not destination_id:
+        return None
+    item = _catalog_destination(destination_id) or {"id": destination_id}
+    item = dict(item)
+    if page_context.get("destination_name"):
+        item["name"] = str(page_context.get("destination_name"))
+    item["source"] = "current_page_context"
+    item["confirmed"] = True
+    item["recency_rank"] = None
+    return item
+
+
 def _build_destination_candidates(
     state: AgentState,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Build a closed destination set from explicit mentions + structured memory."""
+    """Build a closed destination set with explicit provenance.
+
+    ``recent_destinations`` is user-owned focus. ``recent_discussed_destinations``
+    is answer/retrieval/proposal memory for recall and follow-up only.  Both are
+    exposed to the resolver, but their ``source`` values decide whether they may
+    become hard filters or merely contextual references.
+    """
     current_message = effective_user_message(state)
     explicit_raw = detect_destinations(current_message)
 
@@ -50,30 +266,70 @@ def _build_destination_candidates(
     explicit: list[dict[str, Any]] = []
     seen: set[str] = set()
 
-    for raw in explicit_raw:
+    def append_candidate(
+        raw: dict[str, Any],
+        *,
+        source: str,
+        recency_rank: int | None,
+        confirmed: bool = False,
+    ) -> dict[str, Any] | None:
         destination_id = str(raw.get("id") or "").strip()
         if not destination_id or destination_id in seen:
-            continue
+            return None
         item = _catalog_destination(destination_id) or dict(raw)
         item = dict(item)
-        item["source"] = "current_explicit"
-        item["recency_rank"] = None
-        explicit.append(item)
+        item["source"] = source
+        item["recency_rank"] = recency_rank
+        item["confirmed"] = bool(confirmed or source in _USER_FOCUS_DESTINATION_SOURCES)
         candidates.append(item)
         seen.add(destination_id)
+        return item
+
+    for raw in explicit_raw:
+        item = append_candidate(
+            raw,
+            source="current_explicit",
+            recency_rank=None,
+            confirmed=True,
+        )
+        if item is not None:
+            explicit.append(item)
+
+    page_destination = _page_context_destination(state)
+    if page_destination and (not explicit or _message_uses_page_context(current_message)):
+        item = append_candidate(
+            page_destination,
+            source="current_page_context",
+            recency_rank=None,
+            confirmed=True,
+        )
+        if item is not None:
+            explicit.append(item)
 
     for rank, raw in enumerate(state.get("recent_destinations", []) or [], start=1):
-        destination_id = str(raw.get("id") or "").strip()
-        if not destination_id or destination_id in seen:
-            continue
-        item = _catalog_destination(destination_id)
-        if item is None:
-            continue
-        item = dict(item)
-        item["source"] = "recent_user_focus"
-        item["recency_rank"] = rank
-        candidates.append(item)
-        seen.add(destination_id)
+        raw_source = str(raw.get("source") or "recent_user_focus").strip()
+        source = raw_source if raw_source in _USER_FOCUS_DESTINATION_SOURCES else "recent_user_focus"
+        append_candidate(
+            raw,
+            source=source,
+            recency_rank=rank,
+            confirmed=True,
+        )
+
+    for rank, raw in enumerate(state.get("recent_discussed_destinations", []) or [], start=1):
+        raw_source = str(raw.get("source") or "assistant_suggestion").strip()
+        if raw_source in _USER_FOCUS_DESTINATION_SOURCES:
+            source = raw_source
+        elif raw_source in _ASSISTANT_PROPOSAL_DESTINATION_SOURCES:
+            source = "recent_assistant_proposal"
+        else:
+            source = "recent_retrieval_evidence"
+        append_candidate(
+            raw,
+            source=source,
+            recency_rank=rank,
+            confirmed=_truthy(raw.get("confirmed")) and source in _USER_FOCUS_DESTINATION_SOURCES,
+        )
 
     return explicit, candidates
 
@@ -96,11 +352,13 @@ def _build_entity_candidates(state: AgentState) -> list[dict[str, Any]]:
         if key in seen:
             continue
         seen.add(key)
+        source = str(raw.get("source") or "recent_grounded_focus")
         candidate = {
             "ref": f"entity:{rank}",
             "name": name,
             "type": entity_type,
-            "source": str(raw.get("source") or "recent_grounded_focus"),
+            "source": source,
+            "confirmed": _truthy(raw.get("confirmed")) or source in _USER_FOCUS_DESTINATION_SOURCES,
             "recency_rank": rank,
         }
         destination_id = str(raw.get("destination_id") or "").strip()
@@ -111,36 +369,76 @@ def _build_entity_candidates(state: AgentState) -> list[dict[str, Any]]:
 
 
 def _compact_focus_turns(state: AgentState, limit: int = 8) -> list[dict[str, Any]]:
-    """Return recent user-grounded turns with stable opaque refs for semantic reuse."""
+    """Return recent turns with user/proposal provenance for semantic reuse."""
     turns = list(state.get("conversation_turns", []) or [])[-limit:]
     output: list[dict[str, Any]] = []
     for turn in turns:
-        focus = turn.get("resolved_destinations") or turn.get("detected_destinations") or []
-        focus_ids = [
-            str(item.get("id") or "").strip()
-            for item in focus
-            if str(item.get("id") or "").strip()
-        ]
+        focus_destinations: list[dict[str, Any]] = []
+        seen_destinations: set[str] = set()
+
+        def add_focus_destination(destination_id: str, *, source: str, confirmed: bool = False) -> None:
+            destination_id = str(destination_id or "").strip()
+            if not destination_id or destination_id in seen_destinations:
+                return
+            focus_destinations.append(
+                {
+                    "id": destination_id,
+                    "source": source,
+                    "confirmed": bool(confirmed or source in _USER_FOCUS_DESTINATION_SOURCES),
+                }
+            )
+            seen_destinations.add(destination_id)
+
+        for item in turn.get("resolved_destinations") or []:
+            source = str(item.get("source") or "retrieval_evidence").strip()
+            add_focus_destination(
+                str(item.get("id") or ""),
+                source=source,
+                confirmed=_truthy(item.get("confirmed")),
+            )
+        for item in turn.get("detected_destinations") or []:
+            add_focus_destination(
+                str(item.get("id") or ""),
+                source=str(item.get("source") or "retrieval_detection").strip(),
+            )
+
         focus_entities = []
         for item in (turn.get("focus_entities") or [])[:12]:
             if not str(item.get("name") or "").strip():
                 continue
+            entity_source = str(item.get("source") or "grounded_answer").strip()
             compact_entity = {
                 "name": str(item.get("name") or "")[:180],
                 "type": str(item.get("type") or item.get("entity_type") or "entity")[:80],
+                "source": entity_source[:80],
+                "confirmed": _truthy(item.get("confirmed")) or entity_source in _USER_FOCUS_DESTINATION_SOURCES,
             }
             destination_id = str(item.get("destination_id") or "").strip()
             if destination_id:
                 compact_entity["destination_id"] = destination_id[:120]
+                if entity_source in _USER_FOCUS_DESTINATION_SOURCES:
+                    dest_source = entity_source
+                    confirmed = True
+                elif entity_source in _ASSISTANT_PROPOSAL_DESTINATION_SOURCES:
+                    dest_source = "assistant_suggestion"
+                    confirmed = False
+                else:
+                    dest_source = "retrieval_evidence"
+                    confirmed = False
+                add_focus_destination(destination_id, source=dest_source, confirmed=confirmed)
             focus_entities.append(compact_entity)
+
         output.append(
             {
                 "turn_ref": str(turn.get("memory_ref") or ""),
                 "user_message": str(turn.get("user_message") or "")[:500],
+                "assistant_answer_excerpt": str(turn.get("assistant_answer") or "")[:800],
                 "rag_query": str(turn.get("rag_query") or "")[:700],
-                "focus_destination_ids": focus_ids,
+                "focus_destination_ids": [item["id"] for item in focus_destinations],
+                "focus_destinations": focus_destinations,
                 "focus_entities": focus_entities,
                 "detected_intents": list(turn.get("detected_intents") or []),
+                "request_tasks": list(turn.get("request_tasks") or []),
             }
         )
     return output
@@ -152,6 +450,7 @@ def _fallback_resolution(
     reason: str,
     *,
     request_kind: str = "independent",
+    input_task: dict[str, Any] | None = None,
 ) -> AgentState:
     """Fail safely to current explicit context with memory fully disabled."""
     names = [_destination_name(item) for item in explicit]
@@ -167,10 +466,20 @@ def _fallback_resolution(
         "excluded_entity_names": [],
         "context_uses_memory": False,
         "context_request_kind": request_kind,
+        "context_destination_provenance": [
+            {
+                "id": str(item.get("id") or ""),
+                "name": _destination_name(item),
+                "source": str(item.get("source") or "current_explicit"),
+                "confirmed": str(bool(item.get("confirmed", True))).lower(),
+            }
+            for item in explicit
+        ],
         "context_resolution_reason": reason,
         "context_resolution_confidence": 0.0,
         "context_resolution_source": "explicit_fallback" if explicit else "none",
         "rag_query": rag_query,
+        **_input_task_fields(input_task),
     }
 
 
@@ -370,6 +679,7 @@ def _resolution_result(
     confidence: float,
     source: str,
     rag_query: str,
+    input_task: dict[str, Any] | None = None,
 ) -> AgentState:
     selected_destinations = _dedupe_destinations(selected_destinations)
     excluded_destinations = _dedupe_destinations(excluded_destinations)
@@ -416,11 +726,57 @@ def _resolution_result(
         "excluded_entity_names": excluded_entity_names,
         "context_uses_memory": uses_memory,
         "context_request_kind": request_kind,
+        "context_destination_provenance": [
+            {
+                "id": str(item.get("id") or ""),
+                "name": _destination_name(item),
+                "source": str(item.get("source") or "unknown"),
+                "confirmed": str(bool(item.get("confirmed", False))).lower(),
+            }
+            for item in selected_destinations
+        ],
         "context_resolution_reason": reason[:500],
         "context_resolution_confidence": _bounded_confidence(confidence),
         "context_resolution_source": source,
         "rag_query": rag_query,
+        **_input_task_fields(input_task),
     }
+
+
+def _message_confirms_prior_option(message: str) -> bool:
+    """Heuristic guard for turning an assistant proposal into user-confirmed focus."""
+    text = normalize_text(message)
+    if not text:
+        return False
+    reference_terms = (
+        "cho do", "noi do", "goi do", "phuong an do", "lua chon do",
+        "option do", "cai do", "chuyen do", "noi nay", "goi nay", "phuong an nay",
+    )
+    confirmation_terms = (
+        "chon", "lay", "dat", "book", "quyet", "dong y", "ok", "duoc", "di",
+    )
+    return any(term in text for term in reference_terms) and any(term in text for term in confirmation_terms)
+
+
+def _confirmed_selection_destinations(
+    selected_destinations: list[dict[str, Any]],
+    *,
+    selection: dict[str, Any],
+    current_message: str,
+) -> list[dict[str, Any]]:
+    """Promote selected assistant proposals only when the user confirms them."""
+    model_confirms = bool(selection.get("user_confirms_selected_memory_destination", False))
+    heuristic_confirms = _message_confirms_prior_option(current_message)
+    if not (model_confirms or heuristic_confirms):
+        return selected_destinations
+    promoted: list[dict[str, Any]] = []
+    for item in selected_destinations:
+        copied = dict(item)
+        if str(copied.get("source") or "") in _ASSISTANT_PROPOSAL_DESTINATION_SOURCES | {"recent_assistant_proposal"}:
+            copied["source"] = "user_confirmed_via_memory"
+            copied["confirmed"] = True
+        promoted.append(copied)
+    return promoted
 
 
 def resolve_conversation_context(state: AgentState) -> AgentState:
@@ -441,6 +797,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     "ở Hà Nội thì sao?", and clarification/correction turns.
     """
     current_message = effective_user_message(state)
+    input_task = _input_task_from_request_plan(state, current_message)
     guarded_query = str(state.get("rag_query") or current_message).strip()
     explicit, destination_candidates = _build_destination_candidates(state)
     entity_candidates = _build_entity_candidates(state)
@@ -452,13 +809,13 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             explicit,
             guarded_query,
             "Context resolver skipped because this route cannot consume conversation memory.",
+            input_task=input_task,
         )
 
-    has_memory = bool(
-        any(item.get("source") == "recent_user_focus" for item in destination_candidates)
-        or entity_candidates
-        or focus_turns
-    )
+    prior_destination_candidates = [
+        item for item in destination_candidates if item.get("source") != "current_explicit"
+    ]
+    has_memory = bool(prior_destination_candidates or entity_candidates or focus_turns)
     if not has_memory:
         request_kind = "conversation_meta" if route == "conversation_context" else "independent"
         return {
@@ -467,6 +824,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
                 guarded_query,
                 "No prior structured memory is available; only current explicit context was used.",
                 request_kind=request_kind,
+                input_task=input_task,
             ),
             "context_resolution_confidence": 1.0 if explicit else 0.0,
             "context_resolution_source": "current_explicit" if explicit else "none",
@@ -479,14 +837,19 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         }
         for item in explicit
     ]
-    memory_destination_candidates = [
-        item for item in destination_candidates if item.get("source") == "recent_user_focus"
-    ]
+    memory_destination_candidates = prior_destination_candidates
     memory_destination_payload = [
         {
             "id": item.get("id"),
             "name": _destination_name(item),
             "recency_rank": item.get("recency_rank"),
+            "source": item.get("source"),
+            "confirmed": bool(item.get("confirmed", False)),
+            "memory_role": (
+                "user_focus" if item.get("source") in _USER_FOCUS_DESTINATION_SOURCES
+                else "assistant_proposal" if item.get("source") in _ASSISTANT_PROPOSAL_DESTINATION_SOURCES | {"recent_assistant_proposal"}
+                else "retrieval_evidence"
+            ),
         }
         for item in memory_destination_candidates
     ]
@@ -498,25 +861,31 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     dependency_prompt = (
         "You are the memory-dependency gate for a Vinpearl/VinWonders assistant. "
         "Decide whether the CURRENT request actually requires prior conversation. Same session or topic similarity is NOT enough. "
+        "Prior destinations/entities include a provenance role: user_focus means the user chose/named it; assistant_proposal means the assistant previously suggested or mentioned it; retrieval_evidence is only a KB/search hit. "
         "Classify request_kind as exactly one of independent, factual_continuation, conversation_meta. "
         "independent: the current message plus any entities/destinations explicitly named IN THAT MESSAGE are sufficient to understand "
         "what new factual request to retrieve. Do not use memory merely because a previous destination/entity is related. "
         "factual_continuation: prior context is materially required to resolve an omitted subject/pronoun, 'this/that/it/there', ordinal, "
         "comparison, correction, clarification, 'another/additional/different' option, exclusion of a previous recommendation, or an equivalent "
-        "discourse relation. If the same request could be answered correctly without knowing prior turns, it is independent. "
-        "conversation_meta: the requested output itself is about the stored conversation and no new KB fact is requested. "
+        "discourse relation, or a request to reuse/adjust/recalculate information already provided. If the same request could be answered correctly without knowing prior turns, it is independent. "
+        "conversation_meta: the requested output itself is about the stored conversation and no new KB fact is requested, for example recap/repeat what was said. "
+        "The field current_input_task is system-derived from the raw current message. If it is place_structure_clarification, the customer may be asking because a prior answer/UI made one property/area look like multiple places; classify it as factual_continuation when prior context is available, and do NOT turn the user's assumed count into a requirement to compare two places. "
         "\n\nAlso bind destinations explicitly present in the CURRENT message only. Put each explicit destination in either "
         "current_target_destination_ids or current_excluded_destination_ids. A destination named as the desired/new target is a target. "
         "A destination named only as wrong, negated, replaced, or explicitly excluded is an exclusion. Never use a memory destination in these "
         "two current_* fields. If a current destination is positively named, it must never disappear merely because old memory exists. "
+        "Never treat an assistant_proposal or retrieval_evidence destination as a user-confirmed choice in this gate. "
         "Return JSON only."
     )
     dependency_payload = {
         "current_route_hint": route,
         "current_message": current_message,
+        "current_input_task": input_task,
+        "request_task_plan": state.get("request_tasks") or [],
         "guarded_current_only_rag_query": guarded_query,
         "current_explicit_destinations": current_explicit_payload,
-        "available_prior_destination_focus": memory_destination_payload,
+        "available_prior_destination_focus": [item for item in memory_destination_payload if item.get("memory_role") == "user_focus"],
+        "available_prior_discussed_destinations": memory_destination_payload,
         "available_prior_entities": entity_candidates,
         "recent_structured_focus_turns": focus_turns,
     }
@@ -545,6 +914,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             guarded_query,
             f"Memory dependency gate failed; memory disabled safely: {exc}",
             request_kind="conversation_meta" if route == "conversation_context" else "independent",
+            input_task=input_task,
         )
 
     request_kind = str(dependency.get("request_kind") or "").strip().lower()
@@ -563,6 +933,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             guarded_query,
             "Memory dependency gate returned unsupported current destination bindings; memory disabled safely.",
             request_kind="independent",
+            input_task=input_task,
         )
 
     dependency_reason = str(
@@ -570,6 +941,24 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     ).strip()[:500]
     dependency_confidence = _bounded_confidence(dependency.get("confidence"))
     declared_needs_memory = bool(dependency.get("needs_memory", False))
+
+    if bool(state.get("request_requires_memory")) and has_memory:
+        request_kind = "factual_continuation"
+        declared_needs_memory = True
+        dependency_reason = (
+            "At least one atomic task in the current request explicitly requires prior conversation; "
+            "resolve only the references needed by those tasks while preserving every other current task."
+        )
+
+    if input_task.get("input_task_type") == "place_structure_clarification" and has_memory:
+        # Customer wording such as "có 2 nơi hả?" is usually an assumption to be
+        # checked against the previous answer, not a standalone comparison request.
+        request_kind = "factual_continuation"
+        declared_needs_memory = True
+        dependency_reason = (
+            "Current turn asks to clarify the structure/count of items mentioned earlier; "
+            "use memory to group prior entities instead of assuming there are multiple places."
+        )
 
     # Semantic invariant: independent requests never consume prior memory. Conversely,
     # a factual continuation must actually need memory; a contradictory gate output is
@@ -592,6 +981,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             confidence=dependency_confidence,
             source=source,
             rag_query=guarded_query,
+            input_task=input_task,
         )
         _print_resolution(current_message, destination_candidates, entity_candidates, result)
         return result
@@ -612,6 +1002,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             confidence=dependency_confidence,
             source="memory",
             rag_query="",
+            input_task=input_task,
         )
         _print_resolution(current_message, destination_candidates, entity_candidates, result)
         return result
@@ -632,15 +1023,17 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     selector_prompt = (
         "You are the CLOSED memory selector for a Vinpearl/VinWonders factual continuation. The dependency gate has already established "
         "that prior context is required. Select the MINIMUM prior refs needed to resolve the current request. "
-        "selected_memory_destination_ids/entities are positive prior targets the current request is still about. excluded_memory_* are prior "
+        "selected_memory_destination_ids/entities are positive prior targets the current request is still about. A selected prior destination may be user_focus or assistant_proposal; preserve that distinction. excluded_memory_* are prior "
         "recommendations/entities that must not be returned (for example 'another option'). Select a prior turn only when its grounded retrieval "
-        "focus materially supplies the omitted relation/subject; recency alone is not enough. Never invent refs. Old assistant prose is not fresh "
-        "factual evidence. Return a standalone faithful English rag_query that combines the CURRENT request with only the selected memory meaning, "
-        "preserving constraints, comparisons, corrections, exclusions, quantities, dates, and requested relation. Current explicit targets/exclusions "
-        "are authoritative and must not be replaced by stale memory. Return JSON only."
+        "focus materially supplies the omitted relation/subject; recency alone is not enough. Never invent refs. If current_input_task is place_structure_clarification, select the most recent turn/entities that caused the customer's confusion and write the rag_query to clarify whether they are one place with multiple components/names, not to review room types unless rooms were explicitly requested. If several assistant_proposal destinations were offered and the current request does not identify one, prefer selecting the prior turn and/or all relevant entities over guessing one destination. Old assistant prose is not fresh "
+        "factual evidence. REQUEST_TASK_PLAN is authoritative for customer-visible coverage: preserve EVERY atomic task in the standalone rag_query, in order when practical; never drop a later clause just because an earlier clause resolved the reference. "
+        "Return a standalone faithful English rag_query that combines the CURRENT request with only the selected memory meaning, preserving all task goals, constraints, comparisons, corrections, exclusions, quantities, dates, and requested relations. Current explicit targets/exclusions "
+        "are authoritative and must not be replaced by stale memory. Set user_confirms_selected_memory_destination=true only when the CURRENT message clearly accepts/chooses a prior assistant proposal (for example 'chọn phương án đó', 'đi chỗ đó', 'book gói đó'). Return JSON only."
     )
     selector_payload = {
         "current_message": current_message,
+        "current_input_task": input_task,
+        "request_task_plan": state.get("request_tasks") or [],
         "guarded_current_only_rag_query": guarded_query,
         "current_target_destinations": [
             {"id": item.get("id"), "name": _destination_name(item)}
@@ -660,6 +1053,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
   "selected_turn_refs": ["turn:5"],
   "excluded_memory_destination_ids": ["prior-destination-id"],
   "excluded_memory_entity_refs": ["entity:1"],
+  "user_confirms_selected_memory_destination": false,
   "rag_query": "standalone faithful English retrieval query",
   "reason": "brief memory-selection reason",
   "confidence": 0.0
@@ -689,6 +1083,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             confidence=0.0,
             source="current_explicit" if current_targets else "none",
             rag_query=guarded_query,
+            input_task=input_task,
         )
         _print_resolution(current_message, destination_candidates, entity_candidates, result)
         return result
@@ -731,9 +1126,16 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             confidence=0.0,
             source="current_explicit" if current_targets else "none",
             rag_query=guarded_query,
+            input_task=input_task,
         )
         _print_resolution(current_message, destination_candidates, entity_candidates, result)
         return result
+
+    selected_memory_destinations = _confirmed_selection_destinations(
+        selected_memory_destinations,
+        selection=selection,
+        current_message=current_message,
+    )
 
     uses_memory = _memory_refs_used(
         selected_memory_destinations,
@@ -758,6 +1160,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             confidence=_bounded_confidence(selection.get("confidence")),
             source="current_explicit" if current_targets else "none",
             rag_query=guarded_query,
+            input_task=input_task,
         )
         _print_resolution(current_message, destination_candidates, entity_candidates, result)
         return result
@@ -789,6 +1192,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         confidence=confidence,
         source=source,
         rag_query=resolved_query,
+        input_task=input_task,
     )
     _print_resolution(current_message, destination_candidates, entity_candidates, result)
     return result
@@ -804,6 +1208,9 @@ def _print_resolution(
     print("\n===== CONTEXT RESOLUTION =====")
     print(f"Question: {current_message}")
     print(f"Request kind: {result.get('context_request_kind')}")
+    print(f"Input task: {result.get('input_task_type', 'general')}")
+    print(f"Current intent: {result.get('current_user_intent', '')}")
+    print(f"Request tasks: {[(item.get('task_id'), item.get('task_type')) for item in (result.get('request_tasks') or [])] if result.get('request_tasks') else 'see state planner'}")
     print(
         "Destination candidates: "
         f"{[(item.get('id'), item.get('source')) for item in destination_candidates]}"

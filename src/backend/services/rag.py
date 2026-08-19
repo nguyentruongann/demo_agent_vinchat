@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from math import ceil
+import json
 import re
 from typing import Any
 
@@ -607,13 +608,39 @@ class RAGService:
             normalized_name = normalize_text(name)
             if not normalized_name:
                 continue
-            tokens = normalized_name.split()
-            # Single-token names are too broad for substring matching unless the
-            # entire current request is that entity name. This is structural, not
-            # a topic-specific deny-list.
-            if len(tokens) == 1 and combined != normalized_name:
-                continue
-            if not self._phrase_in_text(combined, normalized_name):
+
+            # Build safe literal aliases for long property/entity names. Many
+            # Vinpearl property rows append a brand suffix such as ", Affiliated
+            # by Meliá". Customers usually omit that suffix ("Vinpearl Cua Hoi
+            # Resort"), so requiring the full metadata name makes explicit entity
+            # questions fall through to generic FAQ retrieval. Do not add the suffix
+            # itself as an alias; "Affiliated by Meliá" alone is a brand-label
+            # query, not one concrete property.
+            aliases = [normalized_name]
+            for delimiter in (",", " - ", " – ", " — "):
+                if delimiter in name:
+                    prefix = normalize_text(name.split(delimiter, 1)[0])
+                    if prefix and prefix not in aliases:
+                        aliases.append(prefix)
+            for suffix in ("affiliated by melia", "affiliated by meliá"):
+                if suffix in normalized_name:
+                    prefix = normalize_text(normalized_name.replace(suffix, ""))
+                    prefix = prefix.strip(" ,:-–—")
+                    if prefix and prefix not in aliases:
+                        aliases.append(prefix)
+
+            matched_alias = ""
+            for alias in aliases:
+                tokens = alias.split()
+                # Single-token names are too broad for substring matching unless the
+                # entire current request is that entity name. This is structural, not
+                # a topic-specific deny-list.
+                if len(tokens) == 1 and combined != alias:
+                    continue
+                if len(tokens) >= 2 and self._phrase_in_text(combined, alias):
+                    matched_alias = alias
+                    break
+            if not matched_alias:
                 continue
 
             key = (entity_type, normalized_name)
@@ -820,6 +847,9 @@ class RAGService:
         resolved_destinations: list[dict[str, Any]] | None = None,
         excluded_destination_ids: list[str] | None = None,
         excluded_entity_names: list[str] | None = None,
+        planned_intents: list[str] | None = None,
+        force_price_requested: bool = False,
+        force_cost_estimate_requested: bool = False,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Run destination-aware retrieval with native multi-intent support.
 
@@ -860,8 +890,9 @@ class RAGService:
         except (TypeError, ValueError):
             budget_vnd = None
         has_budget_constraint = bool(parsed.get("has_budget_constraint") and budget_vnd)
-        price_requested = bool(parsed.get("price_requested"))
-        booking_evidence_preferred = bool(parsed.get("booking_evidence_preferred"))
+        price_requested = bool(parsed.get("price_requested")) or bool(force_price_requested) or bool(force_cost_estimate_requested)
+        booking_evidence_preferred = bool(parsed.get("booking_evidence_preferred")) or bool(force_price_requested) or bool(force_cost_estimate_requested)
+        cost_estimate_requested = bool(parsed.get("cost_estimate_requested")) or bool(force_cost_estimate_requested)
 
         # When the semantic context resolver has run, its closed/validated
         # destination set is authoritative. This prevents a later text parser from
@@ -884,7 +915,15 @@ class RAGService:
             destinations = list(parsed.get("destinations") or [])
 
         intents = list(parsed.get("intents") or [])
-        primary_intent = parsed.get("intent")
+        planned_added: list[str] = []
+        for planned in planned_intents or []:
+            planned_name = str(planned or "").strip().lower()
+            if planned_name in INTENT_ENTITY_TYPES and planned_name not in intents:
+                intents.append(planned_name)
+                planned_added.append(planned_name)
+        primary_intent = intents[0] if intents else parsed.get("intent")
+        named_entities = self._find_named_entity_mentions(user_message, query)
+        named_entity_types = {str(item.get("type") or "").strip().lower() for item in named_entities}
 
         # Keep legacy behavior for a query where no explicit intent can be detected.
         retrieval_intents: list[str | None] = intents or [primary_intent]
@@ -909,9 +948,27 @@ class RAGService:
         # for broad multi-category discovery queries, where a narrow FAQ answer should
         # not replace normal destination consultation.
         generic_discovery_intents = {"attraction", "hotel", "dining", "service"}
+        combined_query_for_faq_gate = normalize_text(f"{user_message} {query}")
+        policy_or_faq_intent = bool({"policy", "payment"} & set(intents))
+        entity_detail_markers = (
+            "chi tiet", "chi tiết", "thong tin", "thông tin", "review", "danh gia", "đánh giá",
+            "details", "detail", "tell me about", "gioi thieu", "giới thiệu",
+        )
+        has_specific_catalog_entity = bool(
+            named_entities
+            and named_entity_types & {"property", "room", "complex", "attraction", "booking_product", "dining_service", "golf_course", "mice_venue"}
+        )
+        entity_detail_request = has_specific_catalog_entity and any(
+            marker in combined_query_for_faq_gate for marker in entity_detail_markers
+        )
+        # Broad discovery/planning and specific entity-detail requests stay on the
+        # catalog/property retrieval path. Exact FAQ equality is still allowed inside
+        # FAQMatcher; this only disables semantic FAQ hijacking such as matching
+        # "Where are Vinpearl's properties?" for "chi tiết về Vinpearl Cua Hoi Resort".
         skip_faq_semantic = (
-            len(intents) >= 3
-            and generic_discovery_intents.issubset(set(intents))
+            len(intents) > 1
+            or (len(intents) >= 3 and generic_discovery_intents.issubset(set(intents)))
+            or (entity_detail_request and not policy_or_faq_intent)
         )
         faq_routing_context = " ".join(
             str(value or "").strip()
@@ -989,12 +1046,14 @@ class RAGService:
                 "intents": intents or ["faq"],
                 "explicit_intents": list(parsed.get("explicit_intents") or []),
                 "constraint_derived_intents": list(parsed.get("constraint_derived_intents") or []),
+                "planned_intents": planned_added,
                 "has_budget_constraint": has_budget_constraint,
                 "budget_vnd": budget_vnd,
                 "price_requested": price_requested,
                 "booking_evidence_preferred": booking_evidence_preferred,
+                "cost_estimate_requested": cost_estimate_requested,
                 "booking_focus_document_count": 0,
-                "intent_origin": str(parsed.get("intent_origin") or "none"),
+                "intent_origin": ("request_plan" if planned_added else str(parsed.get("intent_origin") or "none")),
                 "intent_results": intent_results,
                 "keyword_candidate_count": int(faq_diagnostics.get("candidate_count") or 0),
                 "missing_destination_ids": [],
@@ -1031,7 +1090,6 @@ class RAGService:
                 f"margin={faq_diagnostics.get('margin')}"
             )
 
-        named_entities = self._find_named_entity_mentions(user_message, query)
         if named_entities and has_exclusions:
             cache = self._load_corpus_cache()
             filtered_named_entities: list[dict[str, Any]] = []
@@ -1533,12 +1591,14 @@ class RAGService:
             "intents": intents,
             "explicit_intents": list(parsed.get("explicit_intents") or []),
             "constraint_derived_intents": list(parsed.get("constraint_derived_intents") or []),
+            "planned_intents": planned_added,
             "has_budget_constraint": has_budget_constraint,
             "budget_vnd": budget_vnd,
             "price_requested": price_requested,
             "booking_evidence_preferred": booking_evidence_preferred,
+            "cost_estimate_requested": cost_estimate_requested,
             "booking_focus_document_count": len(booking_focus_documents),
-            "intent_origin": str(parsed.get("intent_origin") or "none"),
+            "intent_origin": ("request_plan" if planned_added else str(parsed.get("intent_origin") or "none")),
             "intent_results": intent_results,
             "keyword_candidate_count": all_candidates,
             "missing_destination_ids": missing_destination_ids,
@@ -1567,6 +1627,25 @@ class RAGService:
 
         for index, item in enumerate(documents, start=1):
             metadata = item.get("metadata", {}) or {}
+            structured_record = item.get("structured_record") or {}
+            structured_text = ""
+            if structured_record:
+                try:
+                    structured_text = json.dumps(
+                        structured_record,
+                        ensure_ascii=False,
+                        default=str,
+                        sort_keys=True,
+                    )
+                except Exception:
+                    structured_text = str(structured_record)
+                # The semantic chunk remains primary. This cap prevents one large
+                # booking row from consuming the full 18k context budget while
+                # still exposing substantially more normalized fields than the
+                # vector chunk alone.
+                if len(structured_text) > 5000:
+                    structured_text = structured_text[:5000] + "…"
+
             block = (
                 f"[SOURCE {index}]\n"
                 f"type: {metadata.get('entity_type') or metadata.get('category')}\n"
@@ -1579,6 +1658,11 @@ class RAGService:
                 f"semantic_score: {item.get('semantic_score')}\n"
                 f"keyword_score: {item.get('keyword_score')}\n"
                 f"content:\n{item.get('text', '')}\n"
+                + (
+                    f"structured_record_from_postgresql:\n{structured_text}\n"
+                    if structured_text
+                    else ""
+                )
             )
             if total + len(block) > self.settings.max_context_chars:
                 break

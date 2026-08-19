@@ -27,6 +27,31 @@ class MemoryService:
     _DB_ROUTES = {"greeting", "out_of_scope", "rag"}
     _META_EVENT = "chat_turn_metadata"
 
+    # Memory provenance is intentionally more important than recency.
+    # A destination the assistant merely suggested must remain retrievable for
+    # recap/follow-up, but it must not become a user preference or a hard RAG
+    # filter until the user explicitly names or confirms it.
+    _USER_FOCUS_SOURCES = {
+        "current_explicit",
+        "user_explicit",
+        "user_explicit_kb",
+        "user_explicit_legacy_detection",
+        "user_confirmed",
+        "user_confirmed_via_memory",
+        "recent_user_focus",
+    }
+    _ASSISTANT_PROPOSAL_SOURCES = {
+        "assistant_suggestion",
+        "assistant_suggestion_kb",
+        "grounded_answer",
+        "grounded_answer_kb",
+    }
+    _RETRIEVAL_ONLY_SOURCES = {
+        "retrieval_detection",
+        "retrieval_evidence",
+        "grounded_retrieval",
+    }
+
     def __init__(self) -> None:
         settings = get_settings()
         self.max_turns = settings.memory_max_turns
@@ -192,12 +217,15 @@ class MemoryService:
                     "detected_destinations": metadata.get("detected_destinations") or [],
                     "resolved_destinations": metadata.get("resolved_destinations") or [],
                     "focus_entities": metadata.get("focus_entities") or [],
+                    "memory_provenance_version": metadata.get("memory_provenance_version"),
+                    "conversation_subjects": metadata.get("conversation_subjects") or [],
                     "context_uses_memory": bool(metadata.get("context_uses_memory", False)),
                     "context_resolution_reason": metadata.get("context_resolution_reason"),
                     "context_resolution_confidence": metadata.get("context_resolution_confidence"),
                     "context_resolution_source": metadata.get("context_resolution_source"),
                     "detected_intent": metadata.get("detected_intent"),
                     "detected_intents": metadata.get("detected_intents") or [],
+                    "request_tasks": metadata.get("request_tasks") or [],
                     "request_mode": metadata.get("request_mode"),
                     "resolution_mode": metadata.get("resolution_mode"),
                 }
@@ -363,20 +391,24 @@ class MemoryService:
         turns: list[dict[str, Any]],
         limit: int = 4,
     ) -> list[dict[str, str]]:
-        """Return unique recently discussed destinations, newest first.
+        """Return unique USER-OWNED destination focus, newest first.
 
-        Destination focus can come from three structured surfaces, in order:
-        (1) destinations resolved for the user's request, (2) destinations detected
-        during retrieval, and (3) destination IDs attached to grounded entities that
-        the final answer actually named.  The third surface is important for broad
-        discovery answers: a user can naturally say "tell me more about these places"
-        even though none of those places appeared literally in the preceding user
-        message.
+        This is deliberately strict.  It powers hard contextual constraints, so it
+        may include only destinations the user explicitly mentioned or confirmed.
+        Retrieval hits and assistant recommendations remain available through
+        ``extract_recent_discussed_destinations()`` / focus turns, but they must not
+        be promoted into ``recent_user_focus`` merely because they appeared in an
+        answer.  That was the source of the Phú Quốc-overfitting bug.
         """
         recent: list[dict[str, str]] = []
         seen: set[str] = set()
 
-        def append_destination(destination_id: str, name: str | None = None) -> bool:
+        def append_destination(
+            destination_id: str,
+            name: str | None = None,
+            *,
+            source: str = "user_explicit",
+        ) -> bool:
             destination_id = str(destination_id or "").strip()
             if not destination_id or destination_id in seen:
                 return False
@@ -395,69 +427,150 @@ class MemoryService:
                 except Exception:
                     canonical_name = destination_id
 
-            recent.append({"id": destination_id, "name": canonical_name or destination_id})
+            recent.append(
+                {
+                    "id": destination_id,
+                    "name": canonical_name or destination_id,
+                    "source": source,
+                    "confirmed": "true" if source in self._USER_FOCUS_SOURCES else "false",
+                }
+            )
             seen.add(destination_id)
             return len(recent) >= limit
 
         for turn in reversed(turns):
-            # Resolved destinations are stronger than raw retrieval detections because
-            # they already incorporate semantic reference resolution.
-            structured = (
-                turn.get("resolved_destinations")
-                or turn.get("detected_destinations")
-                or []
-            )
-            for item in structured:
-                if append_destination(
-                    str(item.get("id") or ""),
-                    str(
-                        item.get("name")
-                        or item.get("name_vi")
-                        or item.get("name_en")
-                        or ""
-                    ),
-                ):
-                    return recent
-
-            # A grounded assistant answer may introduce several concrete options in
-            # response to a broad request.  Persist their canonical destination IDs
-            # as structured focus so plural follow-ups ("these places") do not lose
-            # one location simply because it was absent from the user's wording.
-            grounded_focus = turn.get("focus_entities") or []
-            added_grounded_destination = False
-            for entity in grounded_focus:
-                destination_id = str(entity.get("destination_id") or "").strip()
-                if not destination_id:
-                    continue
-                added_grounded_destination = True
-                if append_destination(destination_id):
-                    return recent
-
-            if structured or added_grounded_destination:
-                continue
-
-            # Legacy fallback for old rows that predate structured entity memory.
-            # Mine only user wording / resolved RAG query from accepted RAG turns;
-            # never mine arbitrary assistant prose.
-            if str(turn.get("route") or "") != "rag":
-                continue
             try:
                 from src.backend.services.query_parser import detect_destinations
 
-                searchable = " ".join(
-                    [
-                        str(turn.get("user_message") or ""),
-                        str(turn.get("rag_query") or ""),
-                    ]
-                )
-                for item in detect_destinations(searchable):
+                user_explicit_ids = {
+                    str(item.get("id") or "").strip()
+                    for item in detect_destinations(str(turn.get("user_message") or ""))
+                    if str(item.get("id") or "").strip()
+                }
+            except Exception:
+                user_explicit_ids = set()
+
+            for item in turn.get("resolved_destinations") or []:
+                destination_id = str(item.get("id") or "").strip()
+                if not destination_id:
+                    continue
+                source = str(item.get("source") or "").strip()
+                if source in self._USER_FOCUS_SOURCES or destination_id in user_explicit_ids:
                     if append_destination(
-                        str(item.get("id") or ""),
-                        str(item.get("name_vi") or item.get("name_en") or ""),
+                        destination_id,
+                        str(
+                            item.get("name")
+                            or item.get("name_vi")
+                            or item.get("name_en")
+                            or ""
+                        ),
+                        source=source or "user_explicit",
                     ):
                         return recent
-            except Exception:
-                pass
+
+            # Legacy support: old metadata may have only detected_destinations.
+            # Accept it as user focus only when the user literally named it.
+            for item in turn.get("detected_destinations") or []:
+                destination_id = str(item.get("id") or "").strip()
+                if not destination_id or destination_id not in user_explicit_ids:
+                    continue
+                if append_destination(
+                    destination_id,
+                    str(item.get("name") or item.get("name_vi") or item.get("name_en") or ""),
+                    source="user_explicit_legacy_detection",
+                ):
+                    return recent
+
+        return recent
+
+    def extract_recent_discussed_destinations(
+        self,
+        turns: list[dict[str, Any]],
+        limit: int = 8,
+    ) -> list[dict[str, str]]:
+        """Return recently discussed/proposed destinations without implying choice.
+
+        These destinations are suitable for conversation recap, plural follow-ups
+        ("các phương án lúc nãy"), and resolving anaphora. They must be treated as
+        unconfirmed unless their source is also a user-focus source.
+        """
+        recent: list[dict[str, str]] = []
+        seen: set[str] = set()
+
+        def append_destination(
+            destination_id: str,
+            name: str | None = None,
+            *,
+            source: str = "assistant_suggestion",
+        ) -> bool:
+            destination_id = str(destination_id or "").strip()
+            if not destination_id or destination_id in seen:
+                return False
+            canonical_name = str(name or "").strip()
+            if not canonical_name:
+                try:
+                    from src.backend.services.query_parser import load_destination_catalog
+
+                    catalog_item = load_destination_catalog().get(destination_id) or {}
+                    canonical_name = str(
+                        catalog_item.get("name_vi")
+                        or catalog_item.get("name_en")
+                        or destination_id
+                    ).strip()
+                except Exception:
+                    canonical_name = destination_id
+            confirmed = source in self._USER_FOCUS_SOURCES
+            recent.append(
+                {
+                    "id": destination_id,
+                    "name": canonical_name or destination_id,
+                    "source": source,
+                    "confirmed": "true" if confirmed else "false",
+                }
+            )
+            seen.add(destination_id)
+            return len(recent) >= limit
+
+        for turn in reversed(turns):
+            # User-owned focus is also discussed, but marked confirmed/user-owned.
+            for item in turn.get("resolved_destinations") or []:
+                destination_id = str(item.get("id") or "").strip()
+                if not destination_id:
+                    continue
+                source = str(item.get("source") or "retrieval_evidence").strip()
+                if append_destination(
+                    destination_id,
+                    str(item.get("name") or item.get("name_vi") or item.get("name_en") or ""),
+                    source=source,
+                ):
+                    return recent
+
+            # Retrieval-detected destinations are discussed evidence, not user focus.
+            for item in turn.get("detected_destinations") or []:
+                destination_id = str(item.get("id") or "").strip()
+                if not destination_id:
+                    continue
+                source = str(item.get("source") or "retrieval_detection").strip()
+                if append_destination(
+                    destination_id,
+                    str(item.get("name") or item.get("name_vi") or item.get("name_en") or ""),
+                    source=source,
+                ):
+                    return recent
+
+            for entity in turn.get("focus_entities") or []:
+                destination_id = str(entity.get("destination_id") or "").strip()
+                if not destination_id:
+                    continue
+                entity_source = str(entity.get("source") or "grounded_answer").strip()
+                if entity_source in self._USER_FOCUS_SOURCES:
+                    dest_source = entity_source
+                elif entity_source in self._ASSISTANT_PROPOSAL_SOURCES:
+                    dest_source = "assistant_suggestion"
+                else:
+                    dest_source = "retrieval_evidence"
+                if append_destination(destination_id, source=dest_source):
+                    return recent
 
         return recent
 
@@ -493,10 +606,12 @@ class MemoryService:
                 if not key[1] or key in seen:
                     continue
                 seen.add(key)
+                source = str(item.get("source") or "grounded_retrieval")
                 entity = {
                     "name": name,
                     "type": entity_type,
-                    "source": str(item.get("source") or "grounded_retrieval"),
+                    "source": source,
+                    "confirmed": "true" if source in MemoryService._USER_FOCUS_SOURCES else "false",
                 }
                 destination_id = str(item.get("destination_id") or "").strip()
                 if destination_id:
@@ -535,12 +650,14 @@ class MemoryService:
         if state.get("grounding_passed") is False:
             return []
 
+        # Use only the user's current wording for user-owned memory.  The RAG query
+        # may contain assistant/LLM rewrites or selected prior context, so mining it
+        # as "user focus" would turn retrieved suggestions into user preferences.
         user_blob = normalize_text(
             " ".join(
                 [
                     str(state.get("user_message") or ""),
                     str(state.get("sanitized_user_request") or ""),
-                    str(state.get("rag_query") or ""),
                 ]
             )
         )
@@ -625,7 +742,7 @@ class MemoryService:
                     doc_score = float(doc.get("score") or 0.0)
                 except (TypeError, ValueError):
                     doc_score = 0.0
-                source = "user_or_query" if user_match >= 0.60 else "grounded_answer"
+                source = "user_explicit" if user_match >= 0.60 else "assistant_suggestion"
                 score = (
                     2.0 * user_match
                     + 1.25 * answer_match
@@ -651,7 +768,7 @@ class MemoryService:
                 " ".join(
                     [
                         str(state.get("user_message") or ""),
-                        str(state.get("rag_query") or ""),
+                        str(state.get("sanitized_user_request") or ""),
                     ]
                 ),
                 limit=max(24, limit * 3),
@@ -660,7 +777,7 @@ class MemoryService:
                 add_candidate(
                     name=str(item.get("entity_name") or ""),
                     entity_type=str(item.get("entity_type") or "entity"),
-                    source="user_or_query_kb",
+                    source="user_explicit_kb",
                     score=4.0 - position * 0.001,
                     destination_id=str(item.get("destination_id") or ""),
                 )
@@ -673,7 +790,7 @@ class MemoryService:
                 add_candidate(
                     name=str(item.get("entity_name") or ""),
                     entity_type=str(item.get("entity_type") or "entity"),
-                    source="grounded_answer_kb",
+                    source="assistant_suggestion_kb",
                     score=3.0 - position * 0.001,
                     destination_id=str(item.get("destination_id") or ""),
                 )
@@ -703,6 +820,7 @@ class MemoryService:
         context_resolution_source: str | None = None,
         detected_intent: str | None = None,
         detected_intents: list[str] | None = None,
+        request_tasks: list[dict[str, Any]] | None = None,
         request_mode: str | None = None,
         resolution_mode: str | None = None,
     ) -> None:
@@ -720,17 +838,19 @@ class MemoryService:
                 if not destination_id or destination_id in seen_ids:
                     continue
                 seen_ids.add(destination_id)
-                compact.append(
-                    {
-                        "id": destination_id,
-                        "name": str(
-                            item.get("name")
-                            or item.get("name_vi")
-                            or item.get("name_en")
-                            or destination_id
-                        ),
-                    }
-                )
+                source = str(item.get("source") or "retrieval_detection")[:80]
+                compact_item = {
+                    "id": destination_id,
+                    "name": str(
+                        item.get("name")
+                        or item.get("name_vi")
+                        or item.get("name_en")
+                        or destination_id
+                    ),
+                    "source": source,
+                    "confirmed": "true" if source in self._USER_FOCUS_SOURCES else "false",
+                }
+                compact.append(compact_item)
             return compact
 
         compact_destinations = _compact_destination_list(detected_destinations)
@@ -748,10 +868,12 @@ class MemoryService:
                 if not key[1] or key in seen_entities:
                     continue
                 seen_entities.add(key)
+                source = str(item.get("source") or "grounded_retrieval")[:80]
                 entity = {
                     "name": name[:220],
                     "type": entity_type[:100],
-                    "source": str(item.get("source") or "grounded_retrieval")[:80],
+                    "source": source,
+                    "confirmed": "true" if source in self._USER_FOCUS_SOURCES else "false",
                 }
                 destination_id = str(item.get("destination_id") or "").strip()
                 if destination_id:
@@ -760,6 +882,21 @@ class MemoryService:
             return compact[:12]
 
         compact_focus_entities = _compact_entity_list(focus_entities)
+
+        compact_request_tasks: list[dict[str, Any]] = []
+        for index, item in enumerate(request_tasks or [], start=1):
+            if not isinstance(item, dict):
+                continue
+            goal = str(item.get("goal") or "").strip()
+            if not goal:
+                continue
+            compact_request_tasks.append({
+                "task_id": str(item.get("task_id") or f"t{index}")[:40],
+                "task_type": str(item.get("task_type") or "general_qa")[:80],
+                "goal": goal[:500],
+                "needs_memory": bool(item.get("needs_memory", False)),
+                "depends_on": [str(value)[:40] for value in (item.get("depends_on") or [])[:8]],
+            })
 
         with open_session() as db:
             if parsed_user_id is not None and db.get(AppUser, parsed_user_id) is None:
@@ -834,12 +971,15 @@ class MemoryService:
                         "detected_destinations": compact_destinations,
                         "resolved_destinations": compact_resolved_destinations,
                         "focus_entities": compact_focus_entities,
+                        "memory_provenance_version": 2,
+                        "conversation_subjects": compact_focus_entities[:8],
                         "context_uses_memory": bool(context_uses_memory),
                         "context_resolution_reason": context_resolution_reason,
                         "context_resolution_confidence": context_resolution_confidence,
                         "context_resolution_source": context_resolution_source,
                         "detected_intent": detected_intent,
                         "detected_intents": list(detected_intents or []),
+                        "request_tasks": compact_request_tasks,
                         "request_mode": request_mode,
                         "resolution_mode": resolution_mode,
                     },

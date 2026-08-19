@@ -303,3 +303,55 @@ def test_conversation_meta_uses_memory_but_does_not_produce_rag_query(monkeypatc
     assert resolved["context_uses_memory"] is True
     assert resolved["rag_query"] == ""
     assert fake.calls == 1
+
+
+def test_assistant_proposal_memory_can_be_used_without_becoming_user_focus(monkeypatch):
+    _patch_catalog(monkeypatch)
+    fake = _FakeLLM(
+        _dependency("factual_continuation", needs_memory=True),
+        _selection(
+            destinations=["phu-quoc"],
+            turns=["turn:5"],
+            rag_query="Is 5 million VND enough for two people for the previously suggested Phu Quoc option?",
+        ),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="rag", current_message="mình có bạn gái đi cùng nữa thì 5tr có đủ không")
+    state["recent_destinations"] = []
+    state["recent_discussed_destinations"] = [
+        {"id": "phu-quoc", "name": "Phú Quốc", "source": "assistant_suggestion", "confirmed": "false"}
+    ]
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["context_uses_memory"] is True
+    assert resolved["resolved_destination_ids"] == ["phu-quoc"]
+    assert resolved["context_destination_provenance"][0]["source"] == "recent_assistant_proposal"
+    assert resolved["context_destination_provenance"][0]["confirmed"] == "false"
+
+
+def test_user_confirmation_promotes_prior_assistant_proposal(monkeypatch):
+    _patch_catalog(monkeypatch)
+    fake = _FakeLLM(
+        _dependency("factual_continuation", needs_memory=True),
+        {
+            **_selection(
+                destinations=["phu-quoc"],
+                turns=["turn:5"],
+                rag_query="Plan the previously suggested Phu Quoc option.",
+            ),
+            "user_confirms_selected_memory_destination": True,
+        },
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(route="rag", current_message="ok chọn phương án đó đi")
+    state["recent_destinations"] = []
+    state["recent_discussed_destinations"] = [
+        {"id": "phu-quoc", "name": "Phú Quốc", "source": "assistant_suggestion", "confirmed": "false"}
+    ]
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["resolved_destination_ids"] == ["phu-quoc"]
+    assert resolved["context_destination_provenance"][0]["source"] == "user_confirmed_via_memory"
+    assert resolved["context_destination_provenance"][0]["confirmed"] == "true"

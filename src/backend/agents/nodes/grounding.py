@@ -1,6 +1,7 @@
 from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.llm import LLMService
+from src.backend.services.retrieval_enrichment import PRICE_DATA_AS_OF
 
 
 def validate_grounding(state: AgentState) -> AgentState:
@@ -34,6 +35,14 @@ def validate_grounding(state: AgentState) -> AgentState:
             "reported as KB-not-found while found branches must remain grounded in context. "
             "When RETRIEVED_CONTEXT contains a matching type=faq source, a faithful translation or concise "
             "paraphrase of that FAQ's Answer field is grounded even if it does not repeat the English wording verbatim. "
+            "For price/cost answers, transparent arithmetic derived solely from numeric RETRIEVED_CONTEXT values is grounded. "
+            "A clearly labeled estimation assumption that a hotel room price_from/standard-rate is used as an approximate nightly "
+            "rate is also permitted when the user explicitly requested a trip/lodging cost estimate. Do not allow invented exchange "
+            "rates or unsupported prices. PRICE_DATA_AS_OF is trusted system provenance metadata, so a statement that price information "
+            "is updated as of that date is grounded even when the date is not repeated inside a source row. "
+            "When PRICE_REQUESTED=true and RETRIEVED_CONTEXT contains numeric money evidence, any corrected_answer must preserve at least "
+            "one supported numeric price/range/estimate and the PRICE_DATA_AS_OF statement; grounding correction must not collapse a useful "
+            "price answer into a generic website referral. "
             "If unsupported content exists, return a corrected answer removing only unsupported claims "
             "and preserving grounded partial sections. Introduce no new facts. corrected_answer MUST be "
             "entirely in TARGET_RESPONSE_LANGUAGE. Do not fall back to English just because the context is English. "
@@ -44,6 +53,12 @@ TARGET_RESPONSE_LANGUAGE: {state.get("original_language_name") or state.get("ori
 
 USER_QUESTION:
 {effective_user_message(state)}
+
+PRICE_REQUESTED: {str(bool(state.get('price_requested', False))).lower()}
+COST_ESTIMATE_REQUESTED: {str(bool(state.get('cost_estimate_requested', False))).lower()}
+PRICE_DATA_AS_OF: {state.get('price_data_as_of') or PRICE_DATA_AS_OF}
+STRUCTURED_PRICE_EVIDENCE:
+{state.get('price_evidence_summary') or '(none)'}
 
 INTENT_RETRIEVAL_STATUS:
 {intent_results}
