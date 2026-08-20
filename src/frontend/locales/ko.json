@@ -174,7 +174,7 @@
     "chatbotThinking": "요청 내용을 확인하고 있어요...",
     "chatbotEscalation": "특별한 그룹 예약에 대한 인간 관료의 도움이 필요하십니까?",
     "chatbotSubmitTicket": "지원 티켓 을 제출 하십시오",
-    "chatbotWelcome": "환영합니다. 저는 당신의 빈트래블 AI 개인 컨지어입니다. 리조트 추천, 사용자 지정 3D2N 여행, 예산 분해, 리조트 정책 문의에 도움을 줄 수 있습니다.",
+    "chatbotWelcome": "안녕하세요! 저는 Vinpearl AI입니다. 리조트, 여행 일정, 예산 및 결제에 대해 안내해 드릴 수 있습니다.",
     "chatbotReset": "회의를 재개해 어떻게 도와드릴까요?",
     "chatbotPlaceholder": "리조트, 객실 요금, 여행 일정, 결제에 대해 물어보세요...",
     "reset": "다시 설정",
