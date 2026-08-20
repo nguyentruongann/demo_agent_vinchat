@@ -379,9 +379,19 @@ function Chatbot() {
 
     setThinkingMessageIndex(0)
     const messageCount = copy.thinkingMessages?.length || 1
+
+    if (messageCount <= 1) return undefined
+
     const timer = window.setInterval(() => {
-      setThinkingMessageIndex((current) => (current + 1) % messageCount)
-    }, 2200)
+      setThinkingMessageIndex((current) => {
+        if (current >= messageCount - 1) {
+          window.clearInterval(timer)
+          return current
+        }
+
+        return current + 1
+      })
+    }, 3000)
 
     return () => window.clearInterval(timer)
   }, [loading, language])
