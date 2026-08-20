@@ -407,6 +407,7 @@ class RAGService:
         preferred_entity_types: set[str],
         max_candidates: int = 300,
         strict_entity_types: bool = False,
+        require_destination_id_match: bool = False,
     ) -> list[dict[str, Any]]:
         if not destination:
             return []
@@ -432,6 +433,8 @@ class RAGService:
                 and metadata_destination
                 and metadata_destination == normalized_destination_id
             )
+            if require_destination_id_match and not destination_id_match:
+                continue
             if not matched_aliases and not destination_id_match:
                 continue
             if strict_entity_types and preferred_entity_types and entity_type not in preferred_entity_types:
@@ -589,33 +592,19 @@ class RAGService:
     ) -> list[dict[str, Any]]:
         """Find corpus entity names literally/faithfully present in the request.
 
-        The index is built from Chroma metadata at runtime. There is no package,
-        property or promotion name dictionary in code, so newly ingested entity
-        types automatically participate. FAQ question titles are excluded because
-        the dedicated FAQ matcher owns that evidence lane.
+        Long-name prefixes are accepted only when that shortened alias identifies a
+        single canonical entity in the corpus. This keeps useful aliases such as a
+        hotel name without a brand suffix, while preventing a shared catalog prefix
+        (for example ``[Venue] - Product A/B/C``) from making one venue mention look
+        like many explicitly named products.
         """
         combined = normalize_text(" ".join(str(value or "") for value in texts))
         if not combined:
             return []
 
         cache = self._load_corpus_cache()
-        by_name: dict[tuple[str, str], dict[str, Any]] = {}
-        for index, metadata in enumerate(cache["metadatas"]):
-            entity_type = str(metadata.get("entity_type") or metadata.get("category") or "entity").strip() or "entity"
-            if normalize_text(entity_type) == "faq":
-                continue
-            name = str(metadata.get("entity_name") or "").strip()
-            normalized_name = normalize_text(name)
-            if not normalized_name:
-                continue
 
-            # Build safe literal aliases for long property/entity names. Many
-            # Vinpearl property rows append a brand suffix such as ", Affiliated
-            # by Meliá". Customers usually omit that suffix ("Vinpearl Cua Hoi
-            # Resort"), so requiring the full metadata name makes explicit entity
-            # questions fall through to generic FAQ retrieval. Do not add the suffix
-            # itself as an alias; "Affiliated by Meliá" alone is a brand-label
-            # query, not one concrete property.
+        def literal_aliases(name: str, normalized_name: str) -> list[str]:
             aliases = [normalized_name]
             for delimiter in (",", " - ", " – ", " — "):
                 if delimiter in name:
@@ -628,13 +617,47 @@ class RAGService:
                     prefix = prefix.strip(" ,:-–—")
                     if prefix and prefix not in aliases:
                         aliases.append(prefix)
+            return aliases
+
+        entries: list[dict[str, Any]] = []
+        alias_owners: dict[str, set[tuple[str, str]]] = {}
+        for index, metadata in enumerate(cache["metadatas"]):
+            entity_type = str(metadata.get("entity_type") or metadata.get("category") or "entity").strip() or "entity"
+            if normalize_text(entity_type) == "faq":
+                continue
+            name = str(metadata.get("entity_name") or "").strip()
+            normalized_name = normalize_text(name)
+            if not normalized_name:
+                continue
+            key = (entity_type, normalized_name)
+            aliases = literal_aliases(name, normalized_name)
+            entries.append({
+                "index": index,
+                "key": key,
+                "name": name,
+                "normalized_name": normalized_name,
+                "entity_type": entity_type,
+                "aliases": aliases,
+            })
+            # Full canonical names remain matchable even when duplicated in metadata.
+            # Only shortened aliases need uniqueness protection.
+            for alias in aliases[1:]:
+                alias_owners.setdefault(alias, set()).add(key)
+
+        by_name: dict[tuple[str, str], dict[str, Any]] = {}
+        for entry in entries:
+            aliases = [entry["normalized_name"]]
+            aliases.extend(
+                alias
+                for alias in entry["aliases"][1:]
+                if len(alias_owners.get(alias, set())) == 1
+            )
 
             matched_alias = ""
             for alias in aliases:
                 tokens = alias.split()
                 # Single-token names are too broad for substring matching unless the
-                # entire current request is that entity name. This is structural, not
-                # a topic-specific deny-list.
+                # entire current request is that entity name.
                 if len(tokens) == 1 and combined != alias:
                     continue
                 if len(tokens) >= 2 and self._phrase_in_text(combined, alias):
@@ -643,17 +666,17 @@ class RAGService:
             if not matched_alias:
                 continue
 
-            key = (entity_type, normalized_name)
+            key = entry["key"]
             bucket = by_name.setdefault(
                 key,
                 {
-                    "name": name,
-                    "normalized_name": normalized_name,
-                    "type": entity_type,
+                    "name": entry["name"],
+                    "normalized_name": entry["normalized_name"],
+                    "type": entry["entity_type"],
                     "indices": [],
                 },
             )
-            bucket["indices"].append(index)
+            bucket["indices"].append(entry["index"])
 
         # Prefer the most specific/longest named mentions and suppress a shorter
         # candidate fully contained in an already selected longer name.
@@ -850,6 +873,7 @@ class RAGService:
         planned_intents: list[str] | None = None,
         force_price_requested: bool = False,
         force_cost_estimate_requested: bool = False,
+        exhaustive_requested: bool = False,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Run destination-aware retrieval with native multi-intent support.
 
@@ -1203,8 +1227,11 @@ class RAGService:
             booking_focus_documents = self._dedupe_documents(booking_focus_documents)[:booking_focus_k]
 
         if destinations:
-            # Allocate a useful minimum to each intent. The final merged context is
-            # bounded by max_context_chars, so 3-4 docs per intent is a good balance.
+            # Normal requests stay top-k bounded. Exhaustive requests are a different
+            # coverage contract: enumerate every canonical indexed entity that falls
+            # inside the resolved destination + intent entity-type scope. This avoids
+            # pretending a top-k sample is a complete catalog while leaving ordinary
+            # RAG latency/noise unchanged.
             per_intent_k = max(2, ceil(k / max(1, len(retrieval_intents))))
             per_intent_k = min(max(per_intent_k, 3 if is_multi_intent else 2), 5)
 
@@ -1228,11 +1255,20 @@ class RAGService:
                 per_destination_k = max(2, ceil(per_intent_k / max(1, len(destinations))))
                 per_destination_docs: list[list[dict[str, Any]]] = []
                 for destination in destinations:
+                    exhaustive_types = set(INTENT_ENTITY_TYPES.get(intent or "", set()))
+                    effective_types = preferred_entity_types or exhaustive_types
                     candidates = self.keyword_candidates(
                         destination=destination,
                         intent=intent,
-                        preferred_entity_types=preferred_entity_types,
-                        strict_entity_types=is_multi_intent and bool(preferred_entity_types),
+                        preferred_entity_types=effective_types,
+                        # An exhaustive branch is meaningful only inside its typed
+                        # catalog lane. Normal multi-intent behavior is unchanged.
+                        strict_entity_types=(bool(effective_types) if exhaustive_requested else (is_multi_intent and bool(preferred_entity_types))),
+                        # Exhaustive enumeration must not silently inherit the normal
+                        # 300-candidate ceiling. The corpus cache itself is finite, so
+                        # this safely means "all indexed candidates in scope".
+                        max_candidates=1000000 if exhaustive_requested else 300,
+                        require_destination_id_match=bool(exhaustive_requested),
                     )
                     branch_candidates += len(candidates)
                     all_candidates += len(candidates)
@@ -1244,34 +1280,69 @@ class RAGService:
                         per_destination_docs.append([])
                         continue
 
-                    rerank_k = per_destination_k
-                    if has_budget_constraint and intent == "promotion":
-                        # Price-fit is a hard constraint, so inspect a wider semantic
-                        # shortlist before cutting to the normal per-destination top-k.
-                        rerank_k = max(per_destination_k, min(20, len(candidates)))
-                    ranked = self._rerank_candidates(
-                        query=focused_query,
-                        candidates=candidates,
-                        top_k=rerank_k,
-                        preferred_entity_types=preferred_entity_types,
-                        intent=intent,
-                    )
-                    if has_budget_constraint and intent == "promotion":
-                        affordable_ranked: list[dict[str, Any]] = []
-                        for item in ranked:
-                            prices = _affordable_prices(item.get("text", ""), budget_vnd)
-                            if not prices:
+                    if exhaustive_requested:
+                        # Destination metadata + strict entity type already provide a
+                        # deterministic scope. Dedupe all chunks to one representative
+                        # source per canonical entity instead of semantically cutting
+                        # the branch back down to top-k.
+                        ranked: list[dict[str, Any]] = []
+                        seen_entities: set[tuple[str, str]] = set()
+                        for candidate in candidates:
+                            metadata = candidate.get("metadata", {}) or {}
+                            entity_type = str(metadata.get("entity_type") or metadata.get("category") or "")
+                            entity_key = str(
+                                metadata.get("entity_id")
+                                or metadata.get("entity_name")
+                                or candidate.get("id")
+                                or candidate.get("text", "")[:120]
+                            )
+                            dedupe_key = (entity_type, entity_key)
+                            if dedupe_key in seen_entities:
                                 continue
-                            copied = dict(item)
-                            copied["budget_constraint_vnd"] = budget_vnd
-                            copied["budget_matched_prices"] = prices
-                            affordable_ranked.append(copied)
-                        ranked = affordable_ranked[:per_destination_k]
+                            seen_entities.add(dedupe_key)
+                            copied = dict(candidate)
+                            keyword_score = float(candidate.get("keyword_score", 0.0) or 0.0)
+                            copied["score"] = round(max(0.0, min(1.0, keyword_score)), 4)
+                            copied["semantic_score"] = 0.0
+                            copied["retrieval_mode"] = "keyword_exhaustive_catalog"
+                            copied["matched_intent"] = intent
+                            copied["intent_query"] = focused_query
+                            ranked.append(copied)
+                        ranked.sort(
+                            key=lambda item: (
+                                str((item.get("metadata", {}) or {}).get("entity_type") or ""),
+                                str((item.get("metadata", {}) or {}).get("entity_name") or "").casefold(),
+                            )
+                        )
                     else:
-                        ranked = ranked[:per_destination_k]
-                    for item in ranked:
-                        item["matched_intent"] = intent
-                        item["intent_query"] = focused_query
+                        rerank_k = per_destination_k
+                        if has_budget_constraint and intent == "promotion":
+                            # Price-fit is a hard constraint, so inspect a wider semantic
+                            # shortlist before cutting to the normal per-destination top-k.
+                            rerank_k = max(per_destination_k, min(20, len(candidates)))
+                        ranked = self._rerank_candidates(
+                            query=focused_query,
+                            candidates=candidates,
+                            top_k=rerank_k,
+                            preferred_entity_types=preferred_entity_types,
+                            intent=intent,
+                        )
+                        if has_budget_constraint and intent == "promotion":
+                            affordable_ranked: list[dict[str, Any]] = []
+                            for item in ranked:
+                                prices = _affordable_prices(item.get("text", ""), budget_vnd)
+                                if not prices:
+                                    continue
+                                copied = dict(item)
+                                copied["budget_constraint_vnd"] = budget_vnd
+                                copied["budget_matched_prices"] = prices
+                                affordable_ranked.append(copied)
+                            ranked = affordable_ranked[:per_destination_k]
+                        else:
+                            ranked = ranked[:per_destination_k]
+                        for item in ranked:
+                            item["matched_intent"] = intent
+                            item["intent_query"] = focused_query
                     per_destination_docs.append(ranked)
 
                 # Round-robin across destinations inside each intent branch.
@@ -1280,7 +1351,9 @@ class RAGService:
                     for group in per_destination_docs:
                         if index < len(group):
                             branch_docs.append(group[index])
-                branch_docs = self._dedupe_documents(branch_docs)[:per_intent_k]
+                branch_docs = self._dedupe_documents(branch_docs)
+                if not exhaustive_requested:
+                    branch_docs = branch_docs[:per_intent_k]
 
                 intent_key = intent or "general"
                 best_score = max(
@@ -1325,6 +1398,8 @@ class RAGService:
             mode = "keyword_multi_intent" if is_multi_intent else (
                 "keyword_multi_destination" if len(destinations) > 1 else "keyword_then_embedding"
             )
+            if exhaustive_requested:
+                mode += "+exhaustive"
             if any(result.get("status") == "not_found" for result in intent_results.values()):
                 mode += "_partial"
             if booking_focus_documents:
@@ -1597,6 +1672,8 @@ class RAGService:
             "price_requested": price_requested,
             "booking_evidence_preferred": booking_evidence_preferred,
             "cost_estimate_requested": cost_estimate_requested,
+            "exhaustive_requested": bool(exhaustive_requested),
+            "exhaustive_retrieval_complete": bool(exhaustive_requested and destinations),
             "booking_focus_document_count": len(booking_focus_documents),
             "intent_origin": ("request_plan" if planned_added else str(parsed.get("intent_origin") or "none")),
             "intent_results": intent_results,
@@ -1621,11 +1698,47 @@ class RAGService:
         )
         return documents, diagnostics
 
-    def build_context(self, documents: list[dict[str, Any]]) -> str:
+    @staticmethod
+    def _context_round_robin(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Interleave intent branches so one long branch cannot hide the rest."""
+        groups: dict[str, list[dict[str, Any]]] = {}
+        order: list[str] = []
+        for item in documents:
+            key = str(item.get("matched_intent") or "general")
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(item)
+        output: list[dict[str, Any]] = []
+        max_len = max((len(group) for group in groups.values()), default=0)
+        for offset in range(max_len):
+            for key in order:
+                group = groups[key]
+                if offset < len(group):
+                    output.append(group[offset])
+        return output
+
+    def build_context_with_diagnostics(
+        self,
+        documents: list[dict[str, Any]],
+        *,
+        exhaustive: bool = False,
+    ) -> tuple[str, dict[str, Any]]:
+        """Serialize evidence and report what actually reached the answer LLM.
+
+        Normal requests preserve the historical ordering/budget behavior. Exhaustive
+        requests use branch round-robin + compact blocks so a large first document
+        cannot consume the entire context before other requested branches are seen.
+        The complete exhaustive entity set is also supplied separately by the agent
+        packet; this context is the detailed supporting sample used for richer prose.
+        """
         blocks: list[str] = []
         total = 0
+        selected_intents: dict[str, int] = {}
+        selected_entities: list[str] = []
+        ordered = self._context_round_robin(documents) if exhaustive else list(documents)
 
-        for index, item in enumerate(documents, start=1):
+        for index, item in enumerate(ordered, start=1):
             metadata = item.get("metadata", {}) or {}
             structured_record = item.get("structured_record") or {}
             structured_text = ""
@@ -1639,12 +1752,13 @@ class RAGService:
                     )
                 except Exception:
                     structured_text = str(structured_record)
-                # The semantic chunk remains primary. This cap prevents one large
-                # booking row from consuming the full 18k context budget while
-                # still exposing substantially more normalized fields than the
-                # vector chunk alone.
-                if len(structured_text) > 5000:
-                    structured_text = structured_text[:5000] + "…"
+                structured_cap = 1200 if exhaustive else 5000
+                if len(structured_text) > structured_cap:
+                    structured_text = structured_text[:structured_cap] + "…"
+
+            raw_content = str(item.get("text", "") or "")
+            if exhaustive and len(raw_content) > 1100:
+                raw_content = raw_content[:1100] + "…"
 
             block = (
                 f"[SOURCE {index}]\n"
@@ -1657,7 +1771,7 @@ class RAGService:
                 f"relevance_score: {item.get('score')}\n"
                 f"semantic_score: {item.get('semantic_score')}\n"
                 f"keyword_score: {item.get('keyword_score')}\n"
-                f"content:\n{item.get('text', '')}\n"
+                f"content:\n{raw_content}\n"
                 + (
                     f"structured_record_from_postgresql:\n{structured_text}\n"
                     if structured_text
@@ -1665,11 +1779,37 @@ class RAGService:
                 )
             )
             if total + len(block) > self.settings.max_context_chars:
+                if exhaustive:
+                    # Do not terminate serialization just because one source is too
+                    # large. Later round-robin sources may still fit and may belong to
+                    # branches not represented yet.
+                    continue
                 break
             blocks.append(block)
             total += len(block)
+            intent = str(item.get("matched_intent") or "general")
+            selected_intents[intent] = selected_intents.get(intent, 0) + 1
+            entity_key = str(
+                metadata.get("entity_id")
+                or metadata.get("entity_name")
+                or item.get("id")
+                or ""
+            ).strip()
+            if entity_key:
+                selected_entities.append(entity_key)
 
-        return "\n---\n".join(blocks)
+        return "\n---\n".join(blocks), {
+            "document_count": len(blocks),
+            "branch_counts": selected_intents,
+            "intents": list(selected_intents),
+            "entity_keys": selected_entities,
+            "character_count": total,
+            "exhaustive_serialization": bool(exhaustive),
+        }
+
+    def build_context(self, documents: list[dict[str, Any]], *, exhaustive: bool = False) -> str:
+        context, _ = self.build_context_with_diagnostics(documents, exhaustive=exhaustive)
+        return context
 
 @lru_cache(maxsize=1)
 def get_rag_service() -> RAGService:

@@ -28,6 +28,9 @@ _ALLOWED_TASK_TYPES = {
     "general_qa",
 }
 
+_ALLOWED_RESULT_SCOPES = {"normal", "exhaustive"}
+
+
 _ALLOWED_RETRIEVAL_INTENTS = {
     "hotel",
     "booking_product",
@@ -66,6 +69,10 @@ def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
     if task_type not in _ALLOWED_TASK_TYPES:
         task_type = "general_qa"
 
+    result_scope = str(raw.get("result_scope") or "normal").strip().lower()
+    if result_scope not in _ALLOWED_RESULT_SCOPES:
+        result_scope = "normal"
+
     retrieval_intents: list[str] = []
     for value in raw.get("retrieval_intents") or []:
         intent = str(value or "").strip().lower()
@@ -87,6 +94,7 @@ def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
     return {
         "task_id": f"t{index}",
         "task_type": task_type,
+        "result_scope": result_scope,
         "goal": goal[:500],
         "must_answer": True,
         "needs_memory": _bool(raw.get("needs_memory")),
@@ -98,28 +106,27 @@ def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
     }
 
 
-def _audit_missing_tasks(llm: LLMService, message: str, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Second-pass semantic audit so the planner cannot quietly drop clause 3+."""
+def _audit_missing_tasks(
+    llm: LLMService,
+    message: str,
+    tasks: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, str], dict[str, list[str]]]:
+    """Second-pass semantic audit for task coverage, result scope, and evidence type."""
     audit_schema = """{
-  \"missing_tasks\": [
-    {
-      \"task_type\": \"general_qa\",
-      \"goal\": \"missing customer-visible outcome only\",
-      \"needs_memory\": false,
-      \"memory_reason\": \"\",
-      \"reference_phrases\": [],
-      \"retrieval_intents\": [],
-      \"needs_retrieval\": true,
-      \"depends_on\": []
-    }
-  ]
+  \"missing_tasks\": [],
+  \"scope_updates\": [],
+  \"retrieval_updates\": []
 }"""
     result = llm.json(
         system_prompt=(
             "You are a completeness auditor for a customer request task plan. Compare CURRENT_REQUEST with EXISTING_TASK_PLAN. "
             "Find every customer-visible question/requested outcome that is present in CURRENT_REQUEST but not represented by any existing task. "
+            "Also audit each existing task's result_scope semantically. result_scope=exhaustive means the customer wants the COMPLETE SET of matching items/records/options, regardless of the exact vocabulary or language used; result_scope=normal means a representative/single/non-complete result is acceptable. "
+            "If a task's scope is wrong, put only that task_id and the corrected result_scope in scope_updates. Do not use a keyword checklist; infer coverage from meaning. "
+            "Also audit retrieval_intents by evidence type. If the task asks for purchasable/bookable tickets, passes, packages, combos, vouchers, memberships, or equivalent catalog products, booking_product should be present; promotion is only for actual discounts/offers/deals, hotel is for properties/rooms. Only emit retrieval_updates when the existing evidence types are materially wrong or incomplete. "
+            "When an update is needed, each scope_updates item must be exactly {task_id, result_scope}; each retrieval_updates item must be exactly {task_id, retrieval_intents}. Missing tasks use the same task object shape as the planner, including result_scope. "
             "This includes third, fourth, fifth, or later clauses; there is no two-clause limit. Do not add paraphrase duplicates and do not invent wishes the customer did not express. "
-            "If nothing is missing, return missing_tasks=[]. Use the same closed task_type and retrieval_intents vocabularies as the planner. Return JSON only."
+            "If nothing is missing and no scope/evidence-type correction is needed, return missing_tasks=[], scope_updates=[], retrieval_updates=[]. Use the same closed task_type and retrieval_intents vocabularies as the planner. Return JSON only."
         ),
         user_prompt=(
             "CURRENT_REQUEST:\n" + str(message or "")
@@ -138,7 +145,32 @@ def _audit_missing_tasks(llm: LLMService, message: str, tasks: list[dict[str, An
         if any(goal_norm and goal_norm == normalize_text(item.get("goal")) for item in tasks + output):
             continue
         output.append(normalized)
-    return output
+
+    valid_task_ids = {str(item.get("task_id") or "") for item in tasks}
+    scope_updates: dict[str, str] = {}
+    for raw in result.get("scope_updates") or []:
+        if not isinstance(raw, dict):
+            continue
+        task_id = str(raw.get("task_id") or "").strip()
+        result_scope = str(raw.get("result_scope") or "").strip().lower()
+        if task_id in valid_task_ids and result_scope in _ALLOWED_RESULT_SCOPES:
+            scope_updates[task_id] = result_scope
+
+    retrieval_updates: dict[str, list[str]] = {}
+    for raw in result.get("retrieval_updates") or []:
+        if not isinstance(raw, dict):
+            continue
+        task_id = str(raw.get("task_id") or "").strip()
+        if task_id not in valid_task_ids:
+            continue
+        values: list[str] = []
+        for value in raw.get("retrieval_intents") or []:
+            intent = str(value or "").strip().lower()
+            if intent in _ALLOWED_RETRIEVAL_INTENTS and intent not in values:
+                values.append(intent)
+        if values:
+            retrieval_updates[task_id] = values
+    return output, scope_updates, retrieval_updates
 
 
 def _deterministic_fallback_tasks(message: str) -> list[dict[str, Any]]:
@@ -164,6 +196,7 @@ def _deterministic_fallback_tasks(message: str) -> list[dict[str, Any]]:
         tasks.append({
             "task_id": "t1",
             "task_type": "place_structure_clarification",
+            "result_scope": "normal",
             "goal": "Determine whether the places/items the customer refers to are actually separate places.",
             "must_answer": True,
             "needs_memory": True,
@@ -177,6 +210,7 @@ def _deterministic_fallback_tasks(message: str) -> list[dict[str, Any]]:
         tasks.append({
             "task_id": f"t{len(tasks) + 1}",
             "task_type": "detailed_review",
+            "result_scope": "normal",
             "goal": "Provide the detailed review requested by the customer for the correctly resolved place(s) or components.",
             "must_answer": True,
             "needs_memory": bool(tasks),
@@ -191,6 +225,7 @@ def _deterministic_fallback_tasks(message: str) -> list[dict[str, Any]]:
         tasks.append({
             "task_id": "t1",
             "task_type": "general_qa",
+            "result_scope": "normal",
             "goal": str(message or "").strip()[:500] or "Answer the current customer request.",
             "must_answer": True,
             "needs_memory": False,
@@ -236,6 +271,8 @@ def understand_current_request(state: AgentState) -> AgentState:
         "Memory need is task-specific: one clause may need memory while another is fully explicit. "
         "Use task_type only from this closed set: place_structure_clarification, detailed_review, property_detail, brand_detail, comparison, price_estimate, price_lookup, hotel_recommendation, destination_recommendation, policy_qa, memory_recall, amenity_check, availability_check, itinerary, support_action, general_qa. "
         "retrieval_intents may contain only: hotel, booking_product, attraction, dining, service, promotion, event, golf, mice, policy, payment. "
+        "Choose retrieval_intents by evidence type, not by broad brand words: a task asking for prices/listing of bookable tickets, passes, packages, combos, vouchers, memberships, or similar purchasable catalog items should include booking_product; promotion is for discounts/offers/deals, and hotel is for properties/rooms. Infer this semantically rather than requiring literal English labels. "
+        "For every task also set result_scope to exactly normal or exhaustive. Use exhaustive when the customer semantically requests the COMPLETE SET of matching records/items/options (for example all/every/complete/full list, list everything, what are all available types/packages, show the whole catalog), regardless of the exact vocabulary or language used. Do not require any particular keyword; infer the requested coverage from meaning. Use normal when representative, best, nearest, a few, one, or otherwise non-complete evidence is enough. "
         "Return JSON only."
     )
     payload = {
@@ -248,6 +285,7 @@ def understand_current_request(state: AgentState) -> AgentState:
   "tasks": [
     {
       "task_type": "general_qa",
+      "result_scope": "normal",
       "goal": "one complete customer-visible outcome",
       "needs_memory": false,
       "memory_reason": "why prior turns are required, or empty",
@@ -282,10 +320,21 @@ def understand_current_request(state: AgentState) -> AgentState:
             raise ValueError("task planner returned no valid tasks")
 
         try:
-            missing_tasks = _audit_missing_tasks(llm, message, tasks)
+            missing_tasks, scope_updates, retrieval_updates = _audit_missing_tasks(llm, message, tasks)
         except Exception as audit_exc:
-            missing_tasks = []
+            missing_tasks, scope_updates, retrieval_updates = [], {}, {}
             print(f"[REQUEST PLAN AUDIT] skipped after error: {type(audit_exc).__name__}: {audit_exc}")
+        if scope_updates or retrieval_updates:
+            for task in tasks:
+                task_id = str(task.get("task_id") or "")
+                if task_id in scope_updates:
+                    task["result_scope"] = scope_updates[task_id]
+                if task_id in retrieval_updates:
+                    merged_intents = list(task.get("retrieval_intents") or [])
+                    for intent in retrieval_updates[task_id]:
+                        if intent not in merged_intents:
+                            merged_intents.append(intent)
+                    task["retrieval_intents"] = merged_intents
         if missing_tasks:
             tasks.extend(missing_tasks)
             for index, task in enumerate(tasks, start=1):
@@ -308,7 +357,7 @@ def understand_current_request(state: AgentState) -> AgentState:
     print(f"Task count: {len(tasks)}")
     for task in tasks:
         print(
-            f"  {task.get('task_id')} type={task.get('task_type')} "
+            f"  {task.get('task_id')} type={task.get('task_type')} scope={task.get('result_scope', 'normal')} "
             f"memory={task.get('needs_memory')} retrieval={task.get('retrieval_intents')} "
             f"goal={task.get('goal')}"
         )

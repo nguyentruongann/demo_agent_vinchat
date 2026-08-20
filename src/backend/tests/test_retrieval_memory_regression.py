@@ -143,3 +143,114 @@ def test_explicit_user_destination_still_becomes_user_focus(monkeypatch) -> None
 
     destinations = memory.extract_recent_destinations(turns)
     assert destinations[0]["id"] == "nha-trang"
+
+
+def test_logic_rejected_turn_recovers_single_explicit_destination_as_user_focus(monkeypatch) -> None:
+    memory = MemoryService.__new__(MemoryService)
+    monkeypatch.setattr(
+        "src.backend.services.query_parser.detect_destinations",
+        lambda _text: [{"id": "phu-quoc", "name_vi": "Phú Quốc"}],
+    )
+    turns = [
+        {
+            "route": "invalid_request",
+            "logic_action": "reject",
+            "scope_action": "allow",
+            "safety_action": "allow",
+            "user_message": "mình muốn đi Phú Quốc 2 ngày 3 đêm",
+            "detected_destinations": [],
+            "resolved_destinations": [],
+            "focus_entities": [],
+        }
+    ]
+
+    destinations = memory.extract_recent_destinations(turns)
+    assert [item["id"] for item in destinations] == ["phu-quoc"]
+    assert destinations[0]["source"] == "user_explicit_logic_subject"
+    assert destinations[0]["confirmed"] == "true"
+
+
+def test_logic_rejected_turn_does_not_promote_ambiguous_multiple_destinations(monkeypatch) -> None:
+    memory = MemoryService.__new__(MemoryService)
+    monkeypatch.setattr(
+        "src.backend.services.query_parser.detect_destinations",
+        lambda _text: [
+            {"id": "phu-quoc", "name_vi": "Phú Quốc"},
+            {"id": "nha-trang", "name_vi": "Nha Trang"},
+        ],
+    )
+    turns = [
+        {
+            "route": "invalid_request",
+            "logic_action": "reject",
+            "scope_action": "allow",
+            "safety_action": "allow",
+            "user_message": "Phú Quốc hay Nha Trang 2 ngày 3 đêm",
+            "detected_destinations": [],
+            "resolved_destinations": [],
+            "focus_entities": [],
+        }
+    ]
+
+    assert memory.extract_recent_destinations(turns) == []
+
+
+def test_structured_price_enrichment_prefers_resolved_hard_destination_scope(monkeypatch) -> None:
+    captured = {}
+
+    class FakeRag:
+        def hybrid_search(self, **_kwargs):
+            return (
+                [{"id": "doc", "text": "price evidence", "score": 0.9, "metadata": {"entity_type": "booking_product"}}],
+                {
+                    "mode": "semantic_fallback",
+                    "intent": "booking_product",
+                    "intents": ["booking_product"],
+                    "explicit_intents": [],
+                    "intent_origin": "cost_estimate",
+                    "intent_results": {"booking_product": {"status": "found", "document_count": 1}},
+                    # Simulate noisy semantic evidence mentioning another destination.
+                    "destinations": [],
+                    "destination_ids": ["phu-quoc", "nha-trang"],
+                    "destination_names": ["Phú Quốc", "Nha Trang"],
+                    "keyword_candidate_count": 1,
+                    "missing_destination_ids": [],
+                    "price_requested": True,
+                    "cost_estimate_requested": True,
+                },
+            )
+
+        @staticmethod
+        def build_context_with_diagnostics(documents, exhaustive=False):
+            return (
+                "\n".join(item.get("text", "") for item in documents),
+                {"document_count": len(documents), "branch_counts": {}, "intents": ["booking_product"], "entity_keys": []},
+            )
+
+    def fake_enrich(documents, *, destination_ids=None, **_kwargs):
+        captured["destination_ids"] = list(destination_ids or [])
+        return documents, {
+            "structured_price_document_count": 0,
+            "structured_enrichment_count": 0,
+            "price_estimate_packet": {},
+            "price_estimate_destination_ids": list(destination_ids or []),
+            "preferred_output_currency": "VND",
+            "currency_conversion_guidance": "",
+        }
+
+    monkeypatch.setattr(retrieval_node, "get_rag_service", lambda: FakeRag())
+    monkeypatch.setattr(retrieval_node, "enrich_retrieved_documents", fake_enrich)
+
+    state = {
+        "rag_query": "Plan a 3-day 2-night Phu Quoc trip with estimated cost",
+        "user_message": "mình nhầm 3 ngày 2 đêm mới đúng tư vấn cho mình đi ạ",
+        "resolved_destinations": [
+            {"id": "phu-quoc", "name": "Phú Quốc", "source": "user_explicit_logic_subject", "confirmed": True}
+        ],
+        "request_tasks": [
+            {"task_id": "t1", "task_type": "itinerary", "retrieval_intents": ["hotel", "booking_product"], "needs_price": True, "needs_cost_estimate": True}
+        ],
+    }
+
+    retrieval_node.retrieve_context(state)
+    assert captured["destination_ids"] == ["phu-quoc"]

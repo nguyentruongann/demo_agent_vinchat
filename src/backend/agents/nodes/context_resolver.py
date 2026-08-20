@@ -14,9 +14,11 @@ _USER_FOCUS_DESTINATION_SOURCES = {
     "user_explicit",
     "user_explicit_kb",
     "user_explicit_legacy_detection",
+    "user_explicit_logic_subject",
     "user_confirmed",
     "user_confirmed_via_memory",
     "recent_user_focus",
+    "user_focus_from_selected_turn",
     "current_page_context",
 }
 _ASSISTANT_PROPOSAL_DESTINATION_SOURCES = {
@@ -402,6 +404,27 @@ def _compact_focus_turns(state: AgentState, limit: int = 8) -> list[dict[str, An
                 source=str(item.get("source") or "retrieval_detection").strip(),
             )
 
+        # Recovery for pre-v3 memory: invalid timing/quantity/etc. can prevent
+        # normal context resolution, but a single explicitly named destination
+        # remains a valid user-owned subject.  Never promote raw text from
+        # safety/scope blocked or conversation-meta turns.
+        route = str(turn.get("route") or "").strip()
+        logic_action = str(turn.get("logic_action") or "").strip().lower()
+        scope_action = str(turn.get("scope_action") or "allow").strip().lower()
+        safety_action = str(turn.get("safety_action") or "allow").strip().lower()
+        recover_logic_subject = (
+            route == "invalid_request" or logic_action == "reject"
+        ) and scope_action != "block" and safety_action != "block"
+        if recover_logic_subject:
+            raw_explicit = detect_destinations(str(turn.get("user_message") or ""))
+            raw_ids = {str(item.get("id") or "").strip() for item in raw_explicit if str(item.get("id") or "").strip()}
+            if len(raw_ids) == 1:
+                add_focus_destination(
+                    next(iter(raw_ids)),
+                    source="user_explicit_logic_subject",
+                    confirmed=True,
+                )
+
         focus_entities = []
         for item in (turn.get("focus_entities") or [])[:12]:
             if not str(item.get("name") or "").strip():
@@ -779,6 +802,49 @@ def _confirmed_selection_destinations(
     return promoted
 
 
+def _single_confirmed_destination_from_selected_turns(
+    selected_turn_refs: list[str],
+    focus_turns: list[dict[str, Any]],
+    destination_by_id: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Recover one authoritative destination carried by selected prior turns.
+
+    A continuation selector may correctly choose the prior turn that supplies an
+    omitted subject while omitting the parallel destination ID.  If those selected
+    turns point to exactly one *confirmed/user-owned* destination, materialize it as
+    the factual continuation scope.  Assistant proposals/retrieval evidence are
+    intentionally excluded so the discussed-memory stream can never silently
+    become user focus.
+    """
+    selected = set(selected_turn_refs or [])
+    ids: list[str] = []
+    seen: set[str] = set()
+    for turn in focus_turns or []:
+        if str(turn.get("turn_ref") or "") not in selected:
+            continue
+        for item in turn.get("focus_destinations") or []:
+            destination_id = str(item.get("id") or "").strip()
+            source = str(item.get("source") or "").strip()
+            confirmed = _truthy(item.get("confirmed")) or source in _USER_FOCUS_DESTINATION_SOURCES
+            if not destination_id or not confirmed or destination_id in seen:
+                continue
+            seen.add(destination_id)
+            ids.append(destination_id)
+    if len(ids) != 1:
+        return []
+    destination_id = ids[0]
+    item = destination_by_id.get(destination_id)
+    if item is not None:
+        return [item]
+    catalog_item = _catalog_destination(destination_id)
+    if not catalog_item:
+        return []
+    catalog_item = dict(catalog_item)
+    catalog_item["source"] = "user_focus_from_selected_turn"
+    catalog_item["confirmed"] = True
+    return [catalog_item]
+
+
 def resolve_conversation_context(state: AgentState) -> AgentState:
     """Resolve current context first; consult memory only when the turn depends on it.
 
@@ -844,7 +910,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             "name": _destination_name(item),
             "recency_rank": item.get("recency_rank"),
             "source": item.get("source"),
-            "confirmed": bool(item.get("confirmed", False)),
+            "confirmed": _truthy(item.get("confirmed")),
             "memory_role": (
                 "user_focus" if item.get("source") in _USER_FOCUS_DESTINATION_SOURCES
                 else "assistant_proposal" if item.get("source") in _ASSISTANT_PROPOSAL_DESTINATION_SOURCES | {"recent_assistant_proposal"}
@@ -942,11 +1008,15 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     dependency_confidence = _bounded_confidence(dependency.get("confidence"))
     declared_needs_memory = bool(dependency.get("needs_memory", False))
 
-    if bool(state.get("request_requires_memory")) and has_memory:
+    if (
+        request_kind != "conversation_meta"
+        and bool(state.get("request_requires_memory"))
+        and has_memory
+    ):
         request_kind = "factual_continuation"
         declared_needs_memory = True
         dependency_reason = (
-            "At least one atomic task in the current request explicitly requires prior conversation; "
+            "At least one atomic task in the current factual request explicitly requires prior conversation; "
             "resolve only the references needed by those tasks while preserving every other current task."
         )
 
@@ -1136,6 +1206,15 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         selection=selection,
         current_message=current_message,
     )
+
+    if not selected_memory_destinations and selected_turn_refs and not current_targets:
+        recovered_from_turn = _single_confirmed_destination_from_selected_turns(
+            selected_turn_refs,
+            focus_turns,
+            memory_destination_by_id,
+        )
+        if recovered_from_turn:
+            selected_memory_destinations = recovered_from_turn
 
     uses_memory = _memory_refs_used(
         selected_memory_destinations,

@@ -1,5 +1,6 @@
 from src.backend.agents.state import AgentState
 from src.backend.services.memory import MemoryService
+from src.backend.services.query_parser import detect_destinations
 
 
 def load_conversation_memory(state: AgentState) -> AgentState:
@@ -48,6 +49,43 @@ def load_conversation_memory(state: AgentState) -> AgentState:
     }
 
 
+def _logic_reject_subject_destinations(state: AgentState) -> list[dict]:
+    """Preserve a safe, explicit destination even when another constraint is invalid.
+
+    The guardrail can reject a turn such as "Phú Quốc, 2 days 3 nights" for
+    impossible timing before the normal resolver runs.  That must not erase the
+    valid user-owned subject from memory.  This recovery is deliberately narrow:
+    only safety/scope-allowed, non-injection turns with exactly one canonical
+    destination are promoted.  Ambiguous multi-destination rejected turns remain
+    unpromoted rather than guessing target/exclusion semantics.
+    """
+    if str(state.get("logic_action") or "").strip().lower() != "reject":
+        return []
+    if str(state.get("scope_action") or "allow").strip().lower() == "block":
+        return []
+    if str(state.get("safety_action") or "allow").strip().lower() == "block":
+        return []
+    if bool(state.get("prompt_injection_detected", False)):
+        return []
+
+    matches = detect_destinations(str(state.get("user_message") or ""))
+    unique: dict[str, dict] = {}
+    for raw in matches or []:
+        destination_id = str(raw.get("id") or "").strip()
+        if destination_id and destination_id not in unique:
+            unique[destination_id] = raw
+    if len(unique) != 1:
+        return []
+
+    raw = next(iter(unique.values()))
+    return [{
+        "id": str(raw.get("id") or "").strip(),
+        "name": str(raw.get("name") or raw.get("name_vi") or raw.get("name_en") or raw.get("id") or "").strip(),
+        "source": "user_explicit_logic_subject",
+        "confirmed": True,
+    }]
+
+
 def save_conversation_memory(state: AgentState) -> AgentState:
     # Never persist a blocked/sensitive turn as a RAG turn. Otherwise the raw
     # adversarial message could later be mined as trusted destination memory.
@@ -57,6 +95,23 @@ def save_conversation_memory(state: AgentState) -> AgentState:
 
     memory = MemoryService()
     focus_entities = memory.derive_focus_entities(state)
+
+    detected_destinations = list(state.get("detected_destinations", []) or [])
+    resolved_destinations = list(state.get("resolved_destinations", []) or [])
+    recovered_logic_subjects = _logic_reject_subject_destinations(state)
+    if recovered_logic_subjects:
+        existing_detected = {str(item.get("id") or "") for item in detected_destinations}
+        existing_resolved = {str(item.get("id") or "") for item in resolved_destinations}
+        for item in recovered_logic_subjects:
+            if item["id"] not in existing_detected:
+                detected_destinations.append(dict(item))
+            if item["id"] not in existing_resolved:
+                resolved_destinations.append(dict(item))
+        print(
+            "[MEMORY] preserved valid subject from logic-rejected turn: "
+            f"{[item['id'] for item in recovered_logic_subjects]}"
+        )
+
     memory.append_turn(
         session_id=state.get("session_id"),
         user_id=state.get("user_id"),
@@ -66,8 +121,8 @@ def save_conversation_memory(state: AgentState) -> AgentState:
         route=persisted_route,
         rag_query=state.get("rag_query"),
         ticket_id=state.get("ticket_id"),
-        detected_destinations=state.get("detected_destinations", []),
-        resolved_destinations=state.get("resolved_destinations", []),
+        detected_destinations=detected_destinations,
+        resolved_destinations=resolved_destinations,
         focus_entities=focus_entities,
         context_uses_memory=bool(state.get("context_uses_memory", False)),
         context_resolution_reason=state.get("context_resolution_reason"),
@@ -78,5 +133,9 @@ def save_conversation_memory(state: AgentState) -> AgentState:
         request_tasks=state.get("request_tasks", []),
         request_mode=state.get("request_mode"),
         resolution_mode=state.get("resolution_mode"),
+        logic_action=state.get("logic_action"),
+        logic_category=state.get("logic_category"),
+        scope_action=state.get("scope_action"),
+        safety_action=state.get("safety_action"),
     )
     return {}

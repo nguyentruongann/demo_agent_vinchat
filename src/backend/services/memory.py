@@ -36,9 +36,11 @@ class MemoryService:
         "user_explicit",
         "user_explicit_kb",
         "user_explicit_legacy_detection",
+        "user_explicit_logic_subject",
         "user_confirmed",
         "user_confirmed_via_memory",
         "recent_user_focus",
+        "user_focus_from_selected_turn",
     }
     _ASSISTANT_PROPOSAL_SOURCES = {
         "assistant_suggestion",
@@ -228,6 +230,10 @@ class MemoryService:
                     "request_tasks": metadata.get("request_tasks") or [],
                     "request_mode": metadata.get("request_mode"),
                     "resolution_mode": metadata.get("resolution_mode"),
+                    "logic_action": metadata.get("logic_action"),
+                    "logic_category": metadata.get("logic_category"),
+                    "scope_action": metadata.get("scope_action"),
+                    "safety_action": metadata.get("safety_action"),
                 }
             )
             pending_user = None
@@ -478,6 +484,28 @@ class MemoryService:
                     destination_id,
                     str(item.get("name") or item.get("name_vi") or item.get("name_en") or ""),
                     source="user_explicit_legacy_detection",
+                ):
+                    return recent
+
+            # Backward-compatible recovery for turns saved before provenance v3.
+            # A logic-invalid turn can still contain a perfectly valid SUBJECT
+            # (for example: "Phú Quốc for 2 days 3 nights").  If the turn was
+            # rejected only for logical coherence and the raw user text names
+            # exactly one canonical destination, preserve that destination as
+            # user-owned focus.  Do not do this for safety/scope blocks,
+            # conversation-meta turns, or ambiguous multi-destination text.
+            route = str(turn.get("route") or "").strip()
+            logic_action = str(turn.get("logic_action") or "").strip().lower()
+            scope_action = str(turn.get("scope_action") or "allow").strip().lower()
+            safety_action = str(turn.get("safety_action") or "allow").strip().lower()
+            recover_logic_subject = (
+                route == "invalid_request" or logic_action == "reject"
+            ) and scope_action != "block" and safety_action != "block"
+            if recover_logic_subject and len(user_explicit_ids) == 1:
+                destination_id = next(iter(user_explicit_ids))
+                if append_destination(
+                    destination_id,
+                    source="user_explicit_logic_subject",
                 ):
                     return recent
 
@@ -823,6 +851,10 @@ class MemoryService:
         request_tasks: list[dict[str, Any]] | None = None,
         request_mode: str | None = None,
         resolution_mode: str | None = None,
+        logic_action: str | None = None,
+        logic_category: str | None = None,
+        scope_action: str | None = None,
+        safety_action: str | None = None,
     ) -> None:
         if not self.enabled or not session_id:
             return
@@ -982,6 +1014,10 @@ class MemoryService:
                         "request_tasks": compact_request_tasks,
                         "request_mode": request_mode,
                         "resolution_mode": resolution_mode,
+                        "logic_action": str(logic_action or "")[:40] or None,
+                        "logic_category": str(logic_category or "")[:80] or None,
+                        "scope_action": str(scope_action or "")[:40] or None,
+                        "safety_action": str(safety_action or "")[:40] or None,
                     },
                 )
             )

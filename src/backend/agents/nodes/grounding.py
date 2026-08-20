@@ -17,7 +17,7 @@ def validate_grounding(state: AgentState) -> AgentState:
         }
 
     # A pure no-data response can legitimately have no retrieved context.
-    if not context and not intent_results:
+    if not context and not intent_results and not state.get("exhaustive_catalog_packet") and not state.get("exhaustive_retrieval_packet"):
         return {
             "grounding_passed": False,
             "grounding_reason": "Answer and retrieval metadata cannot be grounded.",
@@ -27,7 +27,7 @@ def validate_grounding(state: AgentState) -> AgentState:
     result = llm.json(
         system_prompt=(
             "You are a strict grounding validator for a RAG system. Positive factual claims and "
-            "named entities are supported ONLY by RETRIEVED_CONTEXT. INTENT_RETRIEVAL_STATUS is "
+            "named entities are supported only by RETRIEVED_CONTEXT plus any explicitly complete trusted exhaustive packet supplied below. INTENT_RETRIEVAL_STATUS is "
             "trusted system retrieval metadata and may support only a narrow statement such as "
             "'the current knowledge base did not retrieve/record enough information for golf'. "
             "It NEVER supports the stronger claim that golf or any entity does not exist in reality. "
@@ -40,7 +40,9 @@ def validate_grounding(state: AgentState) -> AgentState:
             "rate is also permitted when the user explicitly requested a trip/lodging cost estimate. Do not allow invented exchange "
             "rates or unsupported prices. PRICE_DATA_AS_OF is trusted system provenance metadata, so a statement that price information "
             "is updated as of that date is grounded even when the date is not repeated inside a source row. "
-            "When PRICE_REQUESTED=true and RETRIEVED_CONTEXT contains numeric money evidence, any corrected_answer must preserve at least "
+            "When EXHAUSTIVE_RETRIEVAL_REQUESTED=true and EXHAUSTIVE_RETRIEVAL_PACKET.complete=true, every entity name/type, matched intent, destination, source URL, and source-faithful evidence excerpt in that packet is trusted evidence; a corrected answer must preserve the complete unique entity set instead of collapsing it to one or a top-k sample. "
+            "When EXHAUSTIVE_CATALOG_REQUESTED=true and EXHAUSTIVE_CATALOG_PACKET.complete=true, every product and price field in that packet is trusted structured evidence; a corrected answer must preserve the complete requested catalog instead of collapsing it to a sample. "
+            "When PRICE_REQUESTED=true and RETRIEVED_CONTEXT/EXHAUSTIVE_CATALOG_PACKET contains numeric money evidence, any corrected_answer must preserve at least "
             "one supported numeric price/range/estimate and the PRICE_DATA_AS_OF statement; grounding correction must not collapse a useful "
             "price answer into a generic website referral. "
             "If unsupported content exists, return a corrected answer removing only unsupported claims "
@@ -59,6 +61,16 @@ COST_ESTIMATE_REQUESTED: {str(bool(state.get('cost_estimate_requested', False)))
 PRICE_DATA_AS_OF: {state.get('price_data_as_of') or PRICE_DATA_AS_OF}
 STRUCTURED_PRICE_EVIDENCE:
 {state.get('price_evidence_summary') or '(none)'}
+
+EXHAUSTIVE_RETRIEVAL_REQUESTED: {str(bool(state.get('exhaustive_retrieval_requested', False))).lower()}
+EXHAUSTIVE_RETRIEVAL_COMPLETE: {str(bool(state.get('exhaustive_retrieval_complete', False))).lower()}
+EXHAUSTIVE_RETRIEVAL_PACKET:
+{state.get('exhaustive_retrieval_packet') or {}}
+
+EXHAUSTIVE_CATALOG_REQUESTED: {str(bool(state.get('exhaustive_catalog_requested', False))).lower()}
+EXHAUSTIVE_CATALOG_COMPLETE: {str(bool(state.get('exhaustive_catalog_complete', False))).lower()}
+EXHAUSTIVE_CATALOG_PACKET:
+{state.get('exhaustive_catalog_packet') or {}}
 
 INTENT_RETRIEVAL_STATUS:
 {intent_results}

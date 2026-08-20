@@ -62,6 +62,11 @@ class AgentState(TypedDict, total=False):
     request_understanding_summary: str
     request_understanding_confidence: float
     request_understanding_source: str
+    exhaustive_catalog_requested: bool
+    exhaustive_catalog_complete: bool
+    exhaustive_catalog_count: int
+    exhaustive_catalog_scope: dict[str, Any]
+    exhaustive_catalog_packet: dict[str, Any]
     context_destination_provenance: list[dict[str, str]]
     excluded_destination_ids: list[str]
     excluded_entity_names: list[str]
@@ -103,6 +108,17 @@ class AgentState(TypedDict, total=False):
 
     retrieved_documents: list[dict[str, Any]]
     context: str
+    context_document_count: int
+    context_branch_counts: dict[str, int]
+    context_intents: list[str]
+    context_entity_keys: list[str]
+
+    # Generic semantic exhaustive-retrieval contract. This is separate from the
+    # specialised structured booking-price catalog below and applies to any typed
+    # destination intent (hotel/service/attraction/dining/...).
+    exhaustive_retrieval_requested: bool
+    exhaustive_retrieval_complete: bool
+    exhaustive_retrieval_packet: dict[str, Any]
 
     # Hybrid retrieval diagnostics.
     retrieval_mode: str
