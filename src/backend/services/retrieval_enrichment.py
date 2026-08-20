@@ -19,6 +19,7 @@ semantically relevant.
 
 import json
 import re
+from difflib import SequenceMatcher
 from collections import defaultdict
 from datetime import date, datetime, time
 from decimal import Decimal
@@ -28,6 +29,7 @@ from sqlalchemy import and_, or_, select
 
 from src.backend.config import get_settings
 from src.backend.services.db import get_engine
+from src.backend.services.query_parser import normalize_text
 from src.data_postgre.db import CORE_TABLES
 
 
@@ -559,6 +561,284 @@ def _booking_price_rows(connection, destination_ids: list[str], per_destination:
     return selected
 
 
+def _token_similarity(left: str, right: str) -> float:
+    if left == right:
+        return 1.0
+    return SequenceMatcher(None, left, right).ratio()
+
+
+def _catalog_scope_score(query_text: str, label: str) -> float:
+    """Generic fuzzy score for a user-described catalog scope.
+
+    This intentionally scores semantic entity labels from PostgreSQL rather than
+    relying on a hard-coded VinWonders/venue dictionary. Token coverage handles
+    natural surrounding wording, while fuzzy token matching tolerates small
+    spelling/plural differences such as ``vinwonder`` vs ``vinwonders``.
+    """
+    query = normalize_text(query_text)
+    candidate = normalize_text(label)
+    if not query or not candidate:
+        return 0.0
+    if candidate == query:
+        return 1.0
+    if re.search(rf"(?:^|\s){re.escape(candidate)}(?:$|\s)", query):
+        return 0.98
+
+    query_tokens = query.split()
+    candidate_tokens = candidate.split()
+    if not candidate_tokens:
+        return 0.0
+
+    best_matches: list[float] = []
+    for token in candidate_tokens:
+        best_matches.append(max((_token_similarity(token, other) for other in query_tokens), default=0.0))
+    strong = [score for score in best_matches if score >= 0.82]
+    candidate_coverage = len(strong) / len(candidate_tokens)
+    fuzzy_coverage = sum(best_matches) / len(candidate_tokens)
+    sequence = SequenceMatcher(None, candidate, query).ratio()
+    return min(1.0, 0.62 * candidate_coverage + 0.23 * fuzzy_coverage + 0.15 * sequence)
+
+
+def _resolve_booking_catalog_scope(
+    connection,
+    destination_ids: list[str],
+    query_text: str,
+    hydrated_documents: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Resolve an optional booking venue/site scope without hard-coded keys.
+
+    The destination remains the safe outer boundary. Within it, canonical venue
+    labels/booking codes are read from PostgreSQL and matched against the user's
+    semantic query. Retrieved booking rows provide only a small evidence boost;
+    they never invent a scope that does not exist in the canonical table.
+    """
+    booking = CORE_TABLES.get("booking_product")
+    if booking is None or not destination_ids:
+        return {"destination_ids": list(destination_ids), "scope_type": "destination"}
+
+    try:
+        rows = connection.execute(
+            select(
+                booking.c.booking_code,
+                booking.c.destination_id,
+                booking.c.destination_name,
+                booking.c.venue_name,
+            )
+            .where(booking.c.destination_id.in_(destination_ids))
+            .distinct()
+        ).mappings().all()
+    except Exception:
+        rows = []
+
+    candidates: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for raw in rows:
+        destination_id = str(raw.get("destination_id") or "").strip()
+        venue_name = str(raw.get("venue_name") or "").strip()
+        destination_name = str(raw.get("destination_name") or "").strip()
+        booking_code = str(raw.get("booking_code") or "").strip()
+        key = (destination_id, venue_name.casefold(), booking_code.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        labels = [value for value in (venue_name, destination_name) if value]
+        score = max((_catalog_scope_score(query_text, value) for value in labels), default=0.0)
+        candidates.append({
+            "destination_id": destination_id,
+            "venue_name": venue_name,
+            "destination_name": destination_name,
+            "booking_code": booking_code,
+            "score": score,
+        })
+
+    # A canonical venue repeatedly present in already-retrieved booking evidence is
+    # a useful tie-breaker, not an authoritative selector.
+    evidence_counts: dict[tuple[str, str], int] = defaultdict(int)
+    for item in hydrated_documents:
+        metadata = item.get("metadata", {}) or {}
+        if str(metadata.get("entity_type") or "") != "booking_product":
+            continue
+        record = item.get("structured_record", {}) or {}
+        venue = str(record.get("venue_name") or "").strip().casefold()
+        code = str(record.get("booking_code") or "").strip().casefold()
+        if venue or code:
+            evidence_counts[(venue, code)] += 1
+    for item in candidates:
+        key = (str(item.get("venue_name") or "").casefold(), str(item.get("booking_code") or "").casefold())
+        item["score"] = min(1.0, float(item.get("score") or 0.0) + min(0.08, evidence_counts.get(key, 0) * 0.02))
+
+    candidates.sort(key=lambda item: float(item.get("score") or 0.0), reverse=True)
+    if not candidates:
+        return {"destination_ids": list(destination_ids), "scope_type": "destination"}
+
+    best = candidates[0]
+    runner_up = float(candidates[1].get("score") or 0.0) if len(candidates) > 1 else 0.0
+    best_score = float(best.get("score") or 0.0)
+    # Require high canonical-label coverage and a useful margin. If the user only
+    # named the city/destination, keep the broader destination scope instead of
+    # guessing a venue.
+    if best_score >= 0.74 and (best_score - runner_up >= 0.10 or best_score >= 0.94):
+        return {
+            "destination_ids": list(destination_ids),
+            "scope_type": "booking_venue",
+            "venue_name": best.get("venue_name"),
+            "destination_name": best.get("destination_name"),
+            "booking_code": best.get("booking_code"),
+            "match_score": round(best_score, 4),
+        }
+    return {
+        "destination_ids": list(destination_ids),
+        "scope_type": "destination",
+        "match_score": round(best_score, 4),
+    }
+
+
+def _booking_catalog_rows(connection, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    booking = CORE_TABLES.get("booking_product")
+    destination_ids = [str(value).strip() for value in scope.get("destination_ids", []) if str(value).strip()]
+    if booking is None or not destination_ids:
+        return []
+
+    stmt = select(booking).where(booking.c.destination_id.in_(destination_ids))
+    booking_code = str(scope.get("booking_code") or "").strip()
+    venue_name = str(scope.get("venue_name") or "").strip()
+    if booking_code:
+        stmt = stmt.where(booking.c.booking_code == booking_code)
+    elif venue_name:
+        stmt = stmt.where(booking.c.venue_name == venue_name)
+
+    rows = [dict(row) for row in connection.execute(stmt).mappings().all()]
+    rows.sort(key=lambda item: (
+        bool(item.get("sold_out")),
+        str(item.get("product_name") or "").casefold(),
+        str(item.get("ticket_code") or "").casefold(),
+    ))
+    return rows
+
+
+def _compact_catalog_variant(variant: dict[str, Any], target_currency: str) -> dict[str, Any]:
+    price = variant.get("price") if isinstance(variant.get("price"), dict) else {}
+    eligibility = variant.get("eligibility") if isinstance(variant.get("eligibility"), dict) else {}
+    discount = variant.get("discount") if isinstance(variant.get("discount"), dict) else {}
+    availability = variant.get("availability") if isinstance(variant.get("availability"), dict) else {}
+    source_currency = _normalize_currency(price.get("currency"))
+    amount = price.get("sale_price") if price.get("sale_price") is not None else price.get("amount")
+    customer_display = _converted_money_display(amount, source_currency, target_currency) or _money_display(amount, source_currency)
+    output = {
+        "variant_name": variant.get("variant_name"),
+        "guest_type": variant.get("guest_type"),
+        "guest_label": variant.get("guest_label"),
+        "source_amount": _json_safe(amount),
+        "source_currency": source_currency,
+        "customer_display": customer_display,
+        "price_basis": price.get("price_basis"),
+        "is_approximate": price.get("is_approximate"),
+        "original_price": _json_safe(price.get("original_price")),
+        "discount_percent": discount.get("discount_percent"),
+        "discount_text": discount.get("discount_text"),
+        "availability_status": availability.get("status"),
+        "sold_out": availability.get("sold_out"),
+    }
+    eligibility_compact = {
+        key: _json_safe(eligibility.get(key))
+        for key in (
+            "height_min_cm", "height_max_cm", "height_text",
+            "age_min", "age_max", "age_text", "gender", "nationality",
+            "membership_required", "membership_type",
+        )
+        if eligibility.get(key) is not None
+    }
+    if eligibility_compact:
+        output["eligibility"] = eligibility_compact
+    return {key: value for key, value in output.items() if value not in (None, "")}
+
+
+def _compact_catalog_product(
+    row: dict[str, Any],
+    preferred_output_currency: str | None = None,
+) -> dict[str, Any]:
+    target_currency = _normalize_currency(preferred_output_currency) or "USD"
+    raw_variants = row.get("price_variants")
+    variants: list[dict[str, Any]] = []
+    if isinstance(raw_variants, list):
+        variants = [
+            _compact_catalog_variant(item, target_currency)
+            for item in raw_variants[:8]
+            if isinstance(item, dict)
+        ]
+
+    source_currency = _normalize_currency(row.get("currency") or row.get("source_currency"))
+    primary_amount = (
+        row.get("minimum_price")
+        if row.get("minimum_price") is not None
+        else row.get("maximum_price")
+    )
+    customer_display = (
+        _converted_money_display(primary_amount, source_currency, target_currency)
+        or _money_display(primary_amount, source_currency)
+        if primary_amount is not None
+        else ""
+    )
+    minimum_display = (
+        _converted_money_display(row.get("minimum_price"), source_currency, target_currency)
+        or _money_display(row.get("minimum_price"), source_currency)
+        if row.get("minimum_price") is not None
+        else ""
+    )
+    maximum_display = (
+        _converted_money_display(row.get("maximum_price"), source_currency, target_currency)
+        or _money_display(row.get("maximum_price"), source_currency)
+        if row.get("maximum_price") is not None
+        else ""
+    )
+
+    output = {
+        key: _json_safe(row.get(key))
+        for key in (
+            "id", "product_name", "ticket_code", "booking_code", "destination_id",
+            "destination_name", "venue_name", "service_group", "product_type", "category",
+            "currency", "pricing_status", "price_type", "is_from_price", "is_approximate_price",
+            "display_price", "display_original_price", "display_discount_text",
+            "minimum_price", "maximum_price", "availability_status", "availability_text",
+            "sold_out", "booking_open", "source_url", "detail_url", "booking_url",
+        )
+        if row.get(key) is not None
+    }
+    output["preferred_output_currency"] = target_currency
+    if customer_display:
+        output["customer_display"] = customer_display
+    if minimum_display:
+        output["customer_minimum_display"] = minimum_display
+    if maximum_display:
+        output["customer_maximum_display"] = maximum_display
+    if variants:
+        output["price_variants"] = variants
+    return output
+
+
+def _build_booking_catalog_packet(
+    rows: list[dict[str, Any]],
+    scope: dict[str, Any],
+    *,
+    preferred_output_currency: str | None = None,
+) -> dict[str, Any]:
+    target_currency = _normalize_currency(preferred_output_currency) or "USD"
+    products = [
+        _compact_catalog_product(row, target_currency)
+        for row in rows
+    ]
+    return {
+        "task": "exhaustive_booking_catalog",
+        "complete": bool(rows),
+        "record_count": len(products),
+        "scope": {key: value for key, value in scope.items() if value not in (None, "", [])},
+        "price_data_as_of": PRICE_DATA_AS_OF,
+        "preferred_output_currency": target_currency,
+        "currency_conversion_guidance": currency_conversion_guidance(target_currency),
+        "products": products,
+    }
+
+
 def _price_doc_from_room(row: dict[str, Any]) -> dict[str, Any]:
     amount = _json_safe(row.get("effective_price"))
     currency = str(row.get("effective_currency") or "").strip() or "unknown currency"
@@ -618,7 +898,7 @@ def _price_doc_from_booking(row: dict[str, Any]) -> dict[str, Any]:
     compact = {
         key: _json_safe(row.get(key))
         for key in (
-            "id", "product_name", "destination_id", "destination_name",
+            "id", "product_name", "ticket_code", "booking_code", "destination_id", "destination_name",
             "venue_name", "service_group", "product_type", "category",
             "currency", "pricing_status", "price_type", "is_from_price",
             "is_approximate_price", "display_price", "display_original_price",
@@ -852,6 +1132,8 @@ def enrich_retrieved_documents(
     destination_ids: list[str] | None = None,
     price_requested: bool = False,
     cost_estimate_requested: bool = False,
+    exhaustive_booking_requested: bool = False,
+    catalog_query: str = "",
     preferred_output_currency: str | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Hydrate matched rows and optionally supplement structured price evidence.
@@ -869,6 +1151,11 @@ def enrich_retrieved_documents(
         "price_evidence_summary": "",
         "price_estimate_packet": {},
         "price_estimate_destination_ids": [],
+        "exhaustive_catalog_requested": bool(exhaustive_booking_requested),
+        "exhaustive_catalog_complete": False,
+        "exhaustive_catalog_count": 0,
+        "exhaustive_catalog_scope": {},
+        "exhaustive_catalog_packet": {},
         "preferred_output_currency": preferred_output_currency,
         "currency_conversion_guidance": currency_conversion_guidance(preferred_output_currency),
     }
@@ -904,15 +1191,43 @@ def enrich_retrieved_documents(
                 price_destination_ids = _extract_destination_ids_from_documents(base_documents, limit=3)
 
             if price_requested and price_destination_ids:
-                # Cost-estimate questions need enough examples to construct a
-                # practical breakdown. Single-item price questions still receive a
-                # small grounded price lane, but with fewer rows.
-                room_limit = 3 if cost_estimate_requested else 2
-                booking_limit = 5 if cost_estimate_requested else 3
-                for row in _room_price_rows(connection, price_destination_ids, per_destination=room_limit):
-                    price_documents.append(_price_doc_from_room(row))
-                for row in _booking_price_rows(connection, price_destination_ids, per_destination=booking_limit):
-                    price_documents.append(_price_doc_from_booking(row))
+                if exhaustive_booking_requested:
+                    # Exhaustive listing is a structured enumeration contract, not
+                    # a top-k sampling problem. Resolve the narrowest canonical
+                    # booking scope that the user's wording supports, then return
+                    # every row in that scope. Do not mix unrelated room samples
+                    # into a ticket/package catalog request.
+                    catalog_scope = _resolve_booking_catalog_scope(
+                        connection,
+                        price_destination_ids,
+                        catalog_query,
+                        base_documents,
+                    )
+                    catalog_rows = _booking_catalog_rows(connection, catalog_scope)
+                    catalog_packet = _build_booking_catalog_packet(
+                        catalog_rows,
+                        catalog_scope,
+                        preferred_output_currency=preferred_output_currency,
+                    )
+                    diagnostics["exhaustive_catalog_scope"] = catalog_scope
+                    diagnostics["exhaustive_catalog_packet"] = catalog_packet
+                    diagnostics["exhaustive_catalog_count"] = len(catalog_rows)
+                    diagnostics["exhaustive_catalog_complete"] = bool(catalog_rows)
+                    for row in catalog_rows:
+                        doc = _price_doc_from_booking(row)
+                        doc["retrieval_mode"] = "post_retrieval_exhaustive_catalog"
+                        doc["metadata"]["exhaustive_catalog_support"] = True
+                        price_documents.append(doc)
+                else:
+                    # Cost-estimate questions need enough examples to construct a
+                    # practical breakdown. Single-item price questions still receive a
+                    # small grounded price lane, but with fewer rows.
+                    room_limit = 3 if cost_estimate_requested else 2
+                    booking_limit = 5 if cost_estimate_requested else 3
+                    for row in _room_price_rows(connection, price_destination_ids, per_destination=room_limit):
+                        price_documents.append(_price_doc_from_room(row))
+                    for row in _booking_price_rows(connection, price_destination_ids, per_destination=booking_limit):
+                        price_documents.append(_price_doc_from_booking(row))
 
             # If the requested output language/currency is VND, enrich summaries
             # with deterministic converted display values so the final LLM never has

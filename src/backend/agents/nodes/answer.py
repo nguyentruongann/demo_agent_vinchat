@@ -106,6 +106,15 @@ def _answer_mode_specific_system(state: AgentState) -> str:
             "Do not require an exact pre-built solo package; estimate from supported components. "
         )
     if mode == "PRICE_LOOKUP":
+        if state.get("exhaustive_catalog_requested") and state.get("exhaustive_catalog_complete"):
+            return (
+                "ACTIVE_OUTPUT_CASE=PRICE_LOOKUP_EXHAUSTIVE. The customer requested the complete catalog/list for the resolved scope. "
+                + currency_rule +
+                "EXHAUSTIVE_CATALOG_PACKET is authoritative for coverage and contains the complete structured record set. "
+                "List EVERY product in EXHAUSTIVE_CATALOG_PACKET exactly once; do not silently shorten to representative examples, top items, or the RETRIEVED_CONTEXT character window. "
+                "Use each product's supported display/minimum/maximum/variant prices. If a product has no numeric price in the packet, say that its price is not recorded rather than inventing one. "
+                "Do not mix products outside the packet scope and do not expand into a trip budget. "
+            )
         return (
             "ACTIVE_OUTPUT_CASE=PRICE_LOOKUP. Apply only direct-price lookup behavior. "
             + currency_rule +
@@ -147,7 +156,11 @@ def _price_contract_needs_repair(state: AgentState, answer: str) -> bool:
     """Return True when a grounded money question still lacks the minimum UX output."""
     if not state.get("price_requested"):
         return False
-    evidence = f"{state.get('price_evidence_summary') or ''}\n{state.get('context') or ''}"
+    evidence = (
+        f"{state.get('price_evidence_summary') or ''}\n"
+        f"{_json_prompt(state.get('exhaustive_catalog_packet') or {})}\n"
+        f"{state.get('context') or ''}"
+    )
     if not _MONEY_IN_ANSWER_RE.search(evidence):
         # No numeric evidence means we must not force the model to invent a price.
         return False
@@ -180,6 +193,7 @@ def _repair_price_answer(llm: LLMService, state: AgentState, draft: str) -> str:
             "Customer-facing money MUST use exactly PREFERRED_OUTPUT_CURRENCY. Do not show mixed currency or source-currency parentheses. "
             f"Any answer containing money MUST state that price information is updated as of {PRICE_DATA_AS_OF}. "
             "Preserve and continue to answer every task in REQUEST_TASK_PLAN; repairing price must not delete unrelated requested clauses. "
+            "When EXHAUSTIVE_CATALOG_REQUESTED=true and EXHAUSTIVE_CATALOG_PACKET.complete=true, preserve every listed product; price repair must never collapse the complete catalog into a sample. "
             "Reply entirely in TARGET_RESPONSE_LANGUAGE. Return only the repaired answer."
         ),
         user_prompt=f"""
@@ -203,6 +217,12 @@ SYSTEM_CURRENCY_CONVERSION_BASIS:
 
 PRICE_ESTIMATE_PACKET:
 {_json_prompt(state.get('price_estimate_packet') or {})}
+
+EXHAUSTIVE_CATALOG_REQUESTED:
+{str(bool(state.get('exhaustive_catalog_requested', False))).lower()}
+
+EXHAUSTIVE_CATALOG_PACKET — when complete, preserve EVERY product in this packet:
+{_json_prompt(state.get('exhaustive_catalog_packet') or {})}
 
 STRUCTURED_PRICE_EVIDENCE:
 {state.get('price_evidence_summary') or '(none)'}
@@ -352,6 +372,9 @@ STRUCTURED_PRICE_EVIDENCE:
 
 PRICE_ESTIMATE_PACKET:
 {_json_prompt(state.get('price_estimate_packet') or {})}
+
+EXHAUSTIVE_RETRIEVAL_PACKET:
+{_json_prompt(state.get('exhaustive_retrieval_packet') or {})}
 
 RETRIEVED_CONTEXT:
 {state.get('context', '')}
@@ -566,6 +589,24 @@ SYSTEM_CURRENCY_CONVERSION_BASIS:
 PRICE_ESTIMATE_PACKET — grouped deterministic price evidence; use this first for cost estimates:
 {_json_prompt(state.get('price_estimate_packet') or {})}
 
+EXHAUSTIVE_RETRIEVAL_REQUESTED:
+{str(bool(state.get('exhaustive_retrieval_requested', False))).lower()}
+
+EXHAUSTIVE_RETRIEVAL_COMPLETE:
+{str(bool(state.get('exhaustive_retrieval_complete', False))).lower()}
+
+EXHAUSTIVE_RETRIEVAL_PACKET — authoritative complete indexed entity set for generic exhaustive requests:
+{_json_prompt(state.get('exhaustive_retrieval_packet') or {})}
+
+EXHAUSTIVE_CATALOG_REQUESTED:
+{str(bool(state.get('exhaustive_catalog_requested', False))).lower()}
+
+EXHAUSTIVE_CATALOG_COMPLETE:
+{str(bool(state.get('exhaustive_catalog_complete', False))).lower()}
+
+EXHAUSTIVE_CATALOG_PACKET — authoritative complete structured booking-price set when complete=true:
+{_json_prompt(state.get('exhaustive_catalog_packet') or {})}
+
 STRUCTURED_PRICE_EVIDENCE — deterministic PostgreSQL price rows selected after semantic retrieval:
 {state.get('price_evidence_summary') or '(none)'}
 
@@ -575,14 +616,14 @@ INTENT_RETRIEVAL_STATUS:
 Entities explicitly identified in retrieved metadata:
 {_allowed_entities(state)}
 
-RETRIEVED_CONTEXT — sole evidence for positive factual claims:
+RETRIEVED_CONTEXT — detailed evidence; complete exhaustive packets above are also authoritative when explicitly marked complete:
 {state.get("context", "")}
 
 
 FINAL ANSWER RULES:
 
 1. REQUEST_TASK_PLAN is mandatory coverage. Address every task; do not merge or silently omit any customer-visible clause.
-   - Supported task => answer from RETRIEVED_CONTEXT/structured evidence.
+   - Supported task => answer from RETRIEVED_CONTEXT, a complete exhaustive packet, or structured evidence.
    - Unsupported task => briefly say you do not have enough reliable information to confirm that specific part.
    - Never turn missing evidence into a real-world non-existence claim.
 
@@ -616,7 +657,18 @@ FINAL ANSWER RULES:
     Give only grounded instructions.
     Never pretend that you performed an account-specific action.
 
-12. If PRICE_REQUESTED=true and numeric price evidence exists:
+12. If EXHAUSTIVE_RETRIEVAL_REQUESTED=true and EXHAUSTIVE_RETRIEVAL_COMPLETE=true:
+    - Treat EXHAUSTIVE_RETRIEVAL_PACKET as the authoritative generic coverage set.
+    - Cover every unique packet.entities item at least once; do not collapse the result to only the highest-ranked service or a top-k sample.
+    - Group naturally by matched_intents/entity_type and deduplicate entities that appear in several branches.
+    - Positive details beyond an entity name/type must come from that entity's evidence_excerpt, RETRIEVED_CONTEXT, or structured evidence.
+
+13. If EXHAUSTIVE_CATALOG_REQUESTED=true and EXHAUSTIVE_CATALOG_COMPLETE=true:
+    - Treat EXHAUSTIVE_CATALOG_PACKET as the authoritative structured booking-price coverage set.
+    - Include every product in packet.products exactly once; do not shorten to a top-k/sample even if RETRIEVED_CONTEXT is truncated.
+    - Do not add products outside packet.scope.
+
+14. If PRICE_REQUESTED=true and numeric price evidence exists:
     - The answer must contain a numeric price/estimate before any suggestion to verify live availability.
     - If COST_ESTIMATE_REQUESTED=true, calculate a grounded estimate or "from/at least" subtotal from supported components.
     - State the assumptions used in the calculation.

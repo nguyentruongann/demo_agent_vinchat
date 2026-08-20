@@ -355,3 +355,92 @@ def test_user_confirmation_promotes_prior_assistant_proposal(monkeypatch):
     assert resolved["resolved_destination_ids"] == ["phu-quoc"]
     assert resolved["context_destination_provenance"][0]["source"] == "user_confirmed_via_memory"
     assert resolved["context_destination_provenance"][0]["confirmed"] == "true"
+
+
+def test_conversation_meta_named_destination_is_reference_not_rag_target(monkeypatch):
+    _patch_catalog(monkeypatch, explicit_ids=["nha-trang"])
+    fake = _FakeLLM(
+        _dependency(
+            "conversation_meta",
+            needs_memory=True,
+            targets=["nha-trang"],
+            reason="User asks why Nha Trang appeared in the previous answer.",
+        ),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = _memory_state(
+        route="conversation_context",
+        current_message="tại sao bạn lại tư vấn cả Nha Trang cho mình vậy?",
+    )
+    state["request_requires_memory"] = True
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert fake.calls == 1
+    assert resolved["context_request_kind"] == "conversation_meta"
+    assert resolved["context_uses_memory"] is True
+    assert resolved["resolved_destination_ids"] == []
+    assert resolved["rag_query"] == ""
+
+
+def test_correction_selected_invalid_turn_recovers_its_single_user_destination(monkeypatch):
+    _patch_catalog(monkeypatch)
+    fake = _FakeLLM(
+        _dependency(
+            "factual_continuation",
+            needs_memory=True,
+            reason="User corrects the duration of the previous Phu Quoc request.",
+        ),
+        _selection(
+            turns=["turn:1"],
+            rag_query="Plan the corrected 3-day 2-night Phu Quoc trip with a cost estimate.",
+        ),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+
+    state = {
+        "route": "rag",
+        "scope_action": "allow",
+        "sanitized_user_request": "mình nhầm 3 ngày 2 đêm mới đúng tư vấn cho mình đi ạ",
+        "user_message": "mình nhầm 3 ngày 2 đêm mới đúng tư vấn cho mình đi ạ",
+        "rag_query": "Plan the corrected 3-day 2-night trip.",
+        "request_requires_memory": True,
+        "recent_destinations": [
+            {"id": "phu-quoc", "name": "Phú Quốc", "source": "user_explicit_logic_subject", "confirmed": "true"}
+        ],
+        "recent_discussed_destinations": [],
+        "recent_entities": [],
+        "conversation_turns": [
+            {
+                "memory_ref": "turn:1",
+                "route": "invalid_request",
+                "logic_action": "reject",
+                "scope_action": "allow",
+                "safety_action": "allow",
+                "user_message": "mình muốn đi Phú Quốc 2 ngày 3 đêm",
+                "rag_query": "",
+                "resolved_destinations": [],
+                "detected_destinations": [],
+                "focus_entities": [],
+            }
+        ],
+    }
+
+    # Current correction contains no destination; only the selected prior turn does.
+    monkeypatch.setattr(
+        context_resolver,
+        "detect_destinations",
+        lambda text: (
+            [{"id": "phu-quoc", "name_vi": "Phú Quốc"}]
+            if "phú quốc" in text.lower() else []
+        ),
+    )
+
+    resolved = context_resolver.resolve_conversation_context(state)
+
+    assert resolved["context_request_kind"] == "factual_continuation"
+    assert resolved["context_uses_memory"] is True
+    assert resolved["selected_memory_turn_refs"] == ["turn:1"]
+    assert resolved["resolved_destination_ids"] == ["phu-quoc"]
+    assert resolved["context_destination_provenance"][0]["confirmed"] == "true"
+    assert "nha-trang" not in resolved["resolved_destination_ids"]

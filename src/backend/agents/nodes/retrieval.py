@@ -86,10 +86,11 @@ def _answer_mode(state: AgentState, diagnostics: dict) -> str:
     return "GENERAL_QA"
 
 
-def _planned_retrieval_requirements(state: AgentState) -> tuple[list[str], bool, bool]:
+def _planned_retrieval_requirements(state: AgentState) -> tuple[list[str], bool, bool, bool]:
     intents: list[str] = []
     price_requested = False
     cost_estimate_requested = False
+    exhaustive_catalog_requested = False
     for task in state.get("request_tasks") or []:
         if not isinstance(task, dict):
             continue
@@ -102,12 +103,79 @@ def _planned_retrieval_requirements(state: AgentState) -> tuple[list[str], bool,
             price_requested = True
         if task_type == "price_estimate":
             cost_estimate_requested = True
-    return intents, price_requested, cost_estimate_requested
+        if str(task.get("result_scope") or "normal").strip().lower() == "exhaustive":
+            exhaustive_catalog_requested = True
+    return intents, price_requested, cost_estimate_requested, exhaustive_catalog_requested
+
+
+def _build_exhaustive_retrieval_packet(
+    documents: list[dict],
+    requested_intents: list[str],
+    *,
+    complete: bool,
+) -> dict:
+    """Build a compact, generic complete-set packet from exhaustive RAG rows.
+
+    Unlike the structured booking-price packet, this works for any retrieval intent
+    (hotel/service/attraction/dining/...). Duplicate entities that legitimately appear
+    in several semantic branches are represented once with all matched intents.
+    """
+    requested = [str(value or "").strip() for value in requested_intents if str(value or "").strip()]
+    entities: list[dict] = []
+    by_key: dict[tuple[str, str], dict] = {}
+    branch_keys: dict[str, list[str]] = {intent: [] for intent in requested}
+
+    for item in documents or []:
+        intent = str(item.get("matched_intent") or "").strip()
+        if requested and intent not in requested:
+            continue
+        metadata = item.get("metadata", {}) or {}
+        entity_type = str(metadata.get("entity_type") or metadata.get("category") or "entity").strip() or "entity"
+        entity_name = str(metadata.get("entity_name") or metadata.get("source_file") or "").strip()
+        entity_id = str(metadata.get("entity_id") or item.get("id") or entity_name).strip()
+        if not entity_id and not entity_name:
+            continue
+        key = (entity_type, entity_id or entity_name)
+        row = by_key.get(key)
+        if row is None:
+            raw_text = " ".join(str(item.get("text") or "").split())
+            row = {
+                "entity_key": f"{entity_type}:{entity_id or entity_name}",
+                "name": entity_name or entity_id,
+                "entity_type": entity_type,
+                "destination_id": str(metadata.get("destination_id") or item.get("matched_destination_id") or "").strip(),
+                "source_url": metadata.get("source_url"),
+                # A short source-faithful excerpt lets the answerer give useful
+                # context without serializing every full crawled page.
+                "evidence_excerpt": raw_text[:650] + ("…" if len(raw_text) > 650 else ""),
+                "matched_intents": [],
+            }
+            by_key[key] = row
+            entities.append(row)
+        if intent and intent not in row["matched_intents"]:
+            row["matched_intents"].append(intent)
+        if intent in branch_keys and row["entity_key"] not in branch_keys[intent]:
+            branch_keys[intent].append(row["entity_key"])
+
+    branches = {
+        intent: {"entity_count": len(keys), "entity_keys": keys}
+        for intent, keys in branch_keys.items()
+    }
+    return {
+        "complete": bool(complete),
+        "requested_intents": requested,
+        "entity_count": len(entities),
+        "branches": branches,
+        "entities": entities,
+    }
 
 
 def retrieve_context(state: AgentState) -> AgentState:
     rag = get_rag_service()
-    planned_intents, planned_price, planned_cost_estimate = _planned_retrieval_requirements(state)
+    planned_intents, planned_price, planned_cost_estimate, planned_exhaustive = _planned_retrieval_requirements(state)
+    exhaustive_booking_semantic = bool(
+        planned_exhaustive and "booking_product" in planned_intents
+    )
     documents, diagnostics = rag.hybrid_search(
         query=state["rag_query"],
         user_message=effective_user_message(state),
@@ -117,7 +185,17 @@ def retrieve_context(state: AgentState) -> AgentState:
         planned_intents=planned_intents,
         force_price_requested=planned_price,
         force_cost_estimate_requested=planned_cost_estimate,
+        exhaustive_requested=planned_exhaustive,
     )
+
+    exhaustive_booking_requested = bool(
+        exhaustive_booking_semantic
+        and (planned_price or diagnostics.get("price_requested"))
+    )
+    # Generic exhaustive coverage is independent of money. The structured booking
+    # catalog remains a specialised price lane, while the generic exhaustive packet
+    # below covers hotel/service/attraction/dining and mixed destination discovery.
+    exhaustive_retrieval_requested = bool(planned_exhaustive)
 
     memory_turns = _select_memory_turns(state)
     memory_documents: list[dict] = []
@@ -172,11 +250,23 @@ def retrieve_context(state: AgentState) -> AgentState:
         state.get("original_language"),
         state.get("original_language_name"),
     )
+    resolved_price_scope_ids = [
+        str(item.get("id") or "").strip()
+        for item in (state.get("resolved_destinations") or [])
+        if str(item.get("id") or "").strip()
+    ]
+    enrichment_destination_ids = (
+        resolved_price_scope_ids
+        if resolved_price_scope_ids
+        else list(diagnostics.get("destination_ids", []) or [])
+    )
     documents, enrichment = enrich_retrieved_documents(
         documents,
-        destination_ids=list(diagnostics.get("destination_ids", []) or []),
+        destination_ids=enrichment_destination_ids,
         price_requested=bool(diagnostics.get("price_requested", False)),
         cost_estimate_requested=bool(diagnostics.get("cost_estimate_requested", False)),
+        exhaustive_booking_requested=exhaustive_booking_requested,
+        catalog_query=f"{effective_user_message(state)}\n{state.get('rag_query', '')}",
         preferred_output_currency=preferred_output_currency,
     )
     if int(enrichment.get("structured_price_document_count") or 0) > 0:
@@ -184,9 +274,29 @@ def retrieve_context(state: AgentState) -> AgentState:
 
     primary_intent = current_intents[0] if current_intents else diagnostics.get("intent")
 
+    exhaustive_retrieval_complete = bool(
+        exhaustive_retrieval_requested
+        and diagnostics.get("exhaustive_retrieval_complete", False)
+    )
+    exhaustive_retrieval_packet = _build_exhaustive_retrieval_packet(
+        documents,
+        current_intents or planned_intents,
+        complete=exhaustive_retrieval_complete,
+    ) if exhaustive_retrieval_requested else {}
+    context, context_diagnostics = rag.build_context_with_diagnostics(
+        documents, exhaustive=exhaustive_retrieval_requested
+    )
+
     return {
         "retrieved_documents": documents,
-        "context": rag.build_context(documents),
+        "context": context,
+        "context_document_count": int(context_diagnostics.get("document_count") or 0),
+        "context_branch_counts": dict(context_diagnostics.get("branch_counts") or {}),
+        "context_intents": list(context_diagnostics.get("intents") or []),
+        "context_entity_keys": list(context_diagnostics.get("entity_keys") or []),
+        "exhaustive_retrieval_requested": exhaustive_retrieval_requested,
+        "exhaustive_retrieval_complete": exhaustive_retrieval_complete,
+        "exhaustive_retrieval_packet": exhaustive_retrieval_packet,
         "retrieval_mode": retrieval_mode,
         "detected_destination": diagnostics.get("destination_id"),
         "detected_destination_name": diagnostics.get("destination_name"),
@@ -202,6 +312,11 @@ def retrieve_context(state: AgentState) -> AgentState:
         "price_requested": bool(diagnostics.get("price_requested", False)),
         "booking_evidence_preferred": bool(diagnostics.get("booking_evidence_preferred", False)),
         "cost_estimate_requested": bool(diagnostics.get("cost_estimate_requested", False)),
+        "exhaustive_catalog_requested": bool(enrichment.get("exhaustive_catalog_requested", exhaustive_booking_requested)),
+        "exhaustive_catalog_complete": bool(enrichment.get("exhaustive_catalog_complete", False)),
+        "exhaustive_catalog_count": int(enrichment.get("exhaustive_catalog_count") or 0),
+        "exhaustive_catalog_scope": dict(enrichment.get("exhaustive_catalog_scope") or {}),
+        "exhaustive_catalog_packet": dict(enrichment.get("exhaustive_catalog_packet") or {}),
         "price_data_as_of": enrichment.get("price_data_as_of"),
         "price_evidence_summary": str(enrichment.get("price_evidence_summary") or ""),
         "price_estimate_packet": enrichment.get("price_estimate_packet") or {},
@@ -362,6 +477,69 @@ def assess_information(state: AgentState) -> AgentState:
             "insufficiency_action": "no_data",
         }
 
+    if state.get("exhaustive_catalog_requested") and state.get("exhaustive_catalog_complete"):
+        catalog_count = int(state.get("exhaustive_catalog_count") or 0)
+        if catalog_count > 0:
+            best_score = max(
+                (float(item.get("score", 0.0) or 0.0) for item in documents),
+                default=0.0,
+            )
+            reason = (
+                "Exhaustive structured-catalog clear-pass: PostgreSQL returned the complete "
+                f"canonical booking-product set for the resolved scope ({catalog_count} records)."
+            )
+            print("\n===== RAG ASSESSMENT =====")
+            print(f"Question: {effective_user_message(state)}")
+            print(f"RAG query: {state.get('rag_query', '')}")
+            print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
+            print(f"Catalog scope: {state.get('exhaustive_catalog_scope') or {}}")
+            print(f"Catalog count: {catalog_count}")
+            print(f"Best score: {best_score:.4f}")
+            print("Enough: True (exhaustive structured-catalog clear-pass)")
+            print(f"Reason: {reason}")
+            print("==========================\n")
+            return {
+                "enough_information": True,
+                "assessment_reason": reason,
+                "best_relevance_score": best_score,
+                "insufficiency_action": "no_data",
+            }
+
+    if state.get("exhaustive_retrieval_requested"):
+        packet = state.get("exhaustive_retrieval_packet") or {}
+        if state.get("exhaustive_retrieval_complete") and isinstance(packet, dict):
+            entity_count = int(packet.get("entity_count") or 0)
+            if entity_count > 0:
+                best_score = max(
+                    (float(item.get("score", 0.0) or 0.0) for item in documents),
+                    default=0.0,
+                )
+                reason = (
+                    "Exhaustive retrieval clear-pass: the resolved destination/intents were "
+                    f"enumerated as a complete indexed entity set ({entity_count} unique entities), "
+                    "independent of normal top-k sampling."
+                )
+                print("\n===== RAG ASSESSMENT =====")
+                print(f"Question: {effective_user_message(state)}")
+                print(f"Retrieval mode: {state.get('retrieval_mode', 'unknown')}")
+                print(f"Exhaustive branches: {packet.get('branches') or {}}")
+                print(f"Context branches actually serialized: {state.get('context_branch_counts') or {}}")
+                print(f"Best score: {best_score:.4f}")
+                print("Enough: True (generic exhaustive clear-pass)")
+                print(f"Reason: {reason}")
+                print("==========================\n")
+                return {
+                    "enough_information": True,
+                    "assessment_reason": reason,
+                    "best_relevance_score": best_score,
+                    "insufficiency_action": "no_data",
+                }
+            return _insufficient(
+                state,
+                "Exhaustive enumeration completed for the resolved scope but found no indexed entities to answer with.",
+                0.0,
+            )
+
     # Current-task clear-passes. These protect against an LLM sufficiency judge
     # rejecting usable entity evidence just because the customer's wording contained
     # a mistaken assumption (for example "2 nơi hả?") or because it expected a
@@ -466,8 +644,15 @@ def assess_information(state: AgentState) -> AgentState:
             )
 
     if len(detected_intents) > 1 and intent_results and fast_path_intents_are_authoritative:
-        found = [name for name, result in intent_results.items() if branch_is_confident(result)]
-        missing = [name for name, result in intent_results.items() if not branch_is_confident(result)]
+        serialized_intents = set(str(value or "") for value in (state.get("context_intents") or []) if str(value or ""))
+        found = [
+            name for name, result in intent_results.items()
+            if branch_is_confident(result) and name in serialized_intents
+        ]
+        missing = [
+            name for name, result in intent_results.items()
+            if not branch_is_confident(result) or name not in serialized_intents
+        ]
         if found:
             best_score = max(
                 (float(intent_results[name].get("best_score") or 0.0) for name in found),
@@ -557,16 +742,25 @@ def assess_information(state: AgentState) -> AgentState:
     all_requested_branches_found = bool(statuses) and all(status == "found" for status in statuses)
     is_destination_scoped = bool(detected_ids) and retrieval_mode.startswith("keyword")
     is_information = state.get("request_mode", "information") == "information"
+    context_intents = set(str(value or "") for value in (state.get("context_intents") or []) if str(value or ""))
+    requested_found_intents = {
+        str(name) for name, result in intent_results.items() if str(result.get("status") or "") == "found"
+    }
+    # Retrieval coverage and serialized-context coverage are different contracts.
+    # A branch may be found upstream but absent from the 18k answer context. Never
+    # clear-pass that mismatch as if the final model had actually received it.
+    context_covers_found_branches = bool(requested_found_intents) and requested_found_intents.issubset(context_intents)
 
     if (
         is_information
         and is_destination_scoped
         and all_requested_branches_found
+        and context_covers_found_branches
         and not missing
     ):
         reason = (
             "Deterministic clear-pass: destination-scoped retrieval found every requested "
-            "branch with non-empty context above the configured relevance threshold."
+            "branch and every found branch is present in the context actually serialized for the answer model."
         )
         print("\n===== RAG ASSESSMENT =====")
         print(f"Question: {effective_user_message(state)}")
