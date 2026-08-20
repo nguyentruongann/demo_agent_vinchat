@@ -174,7 +174,7 @@
     "chatbotThinking": "The assistant is receiving your request...",
     "chatbotEscalation": "Need human concierge assistance for special group bookings?",
     "chatbotSubmitTicket": "Submit a Support Ticket",
-    "chatbotWelcome": "Welcome! I am your VinTravel AI Personal Concierge. I can assist with resort recommendations, custom 3D2N itineraries, budget breakdowns, and resort policy inquiries.",
+    "chatbotWelcome": "Hello! I’m Vinpearl AI. I can assist you with resorts, itineraries, budgets, and payments.",
     "chatbotReset": "Session restarted. How may I assist you now?",
     "chatbotPlaceholder": "Ask about resorts, room prices, itineraries, payments...",
     "reset": "Reset",
