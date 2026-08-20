@@ -166,7 +166,7 @@ def _price_contract_needs_repair(state: AgentState, answer: str) -> bool:
         return False
     normalized = str(answer or "")
     has_money = bool(_MONEY_IN_ANSWER_RE.search(normalized))
-    has_date = PRICE_DATA_AS_OF in normalized or "02/08/2026" in normalized
+    has_date = PRICE_DATA_AS_OF in normalized or "31/07/2026" in normalized
     currency_ok = not _currency_contract_violated(state, normalized)
     has_required_place = True
     if state.get("cost_estimate_requested"):
