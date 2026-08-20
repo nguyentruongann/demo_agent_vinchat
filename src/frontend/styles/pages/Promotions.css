@@ -1,411 +1,516 @@
-.promotions-page {
+/* ==========================================================================
+   2-Section Promotions Page Design System (Gold Accent Palette)
+   Section 1: "Ưu đãi nổi bật" (60/40 Unequal Grid: 1 Large + 2 Small Cards)
+   Section 2: "Ưu đãi theo điểm đến" (Filter Pills + Cards Grid)
+   ========================================================================== */
+
+.promotions-v2 {
   min-height: 100vh;
-  color: #0b2e3d;
   background: #f8fafc;
+  color: #0f172a;
+  padding: 48px 0 96px;
+  font-family: inherit;
 }
 
-.promotions-page__hero {
-  position: relative;
-  overflow: hidden;
-  padding: 72px 24px 64px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 82% 20%, rgba(234, 208, 143, 0.35), transparent 26%),
-    linear-gradient(125deg, #072f3f 0%, #0b4b61 58%, #876728 145%);
-}
-
-.promotions-page__hero::after {
-  position: absolute;
-  right: -80px;
-  bottom: -170px;
-  width: 390px;
-  height: 390px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 50%;
-  content: '';
-}
-
-.promotions-page__hero-content,
-.promotions-page__container {
-  width: min(100%, 1240px);
+.promotions-v2__container {
+  width: min(100% - 48px, 1280px);
   margin: 0 auto;
 }
 
-.promotions-page__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: #ead08f;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+.promo-section-title {
+  font-size: clamp(24px, 3vw, 28px);
+  font-weight: 850;
+  color: #0f172a;
+  margin: 0 0 24px;
+  text-align: left;
+  letter-spacing: -0.01em;
 }
 
-.promotions-page__eyebrow svg {
-  width: 17px;
-  height: 17px;
+/* ==========================================================================
+   SECTION 1: "Ưu đãi nổi bật"
+   ========================================================================== */
+
+.promo-featured-section {
+  margin-bottom: 64px;
 }
 
-.promotions-page__hero h1 {
-  max-width: 800px;
-  margin: 14px 0 12px;
-  font-size: clamp(36px, 6vw, 68px);
-  line-height: 1.03;
-  text-transform: uppercase;
-}
-
-.promotions-page__hero p {
-  max-width: 650px;
-  margin: 0;
-  color: #d9e5e9;
-  font-size: 16px;
-  line-height: 1.7;
-}
-
-.promotions-page__container {
-  padding: 34px 24px 80px;
-}
-
-.promotions-page__filters {
+.promo-featured__grid {
   display: grid;
-  grid-template-columns: minmax(300px, 1fr) 230px 200px;
-  gap: 12px;
-  margin-bottom: 30px;
+  grid-template-columns: 3fr 2fr; /* 60% / 40% ratio */
+  gap: 20px;
 }
 
-.promotions-page__search,
-.promotions-select__trigger {
-  display: flex;
-  align-items: center;
-  min-height: 52px;
-  border: 1px solid #d9e1e6;
-  border-radius: 6px;
-  color: #71808a;
-  background: #fff;
-}
-
-.promotions-page__search > svg,
-.promotions-select__leading-icon {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-left: 16px;
-  color: #b88a44;
-}
-
-.promotions-page__search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  padding: 0 14px;
-  color: #0b2e3d;
-  background: transparent;
-}
-
-.promotions-page__search button {
-  cursor: pointer !important;
-}
-
-.promotions-select {
+/* Card base */
+.promo-featured__card {
   position: relative;
-  min-width: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #072f3f;
 }
 
-.promotions-select__trigger {
-  gap: 0;
+.promo-featured__card--main {
+  min-height: 440px;
   height: 100%;
-  min-height: 52px;
-  border: 1px solid #d9e1e6;
-  padding: 0;
-  color: #0b2e3d;
-  background: #fff;
-  cursor: pointer !important;
-  font: inherit;
-  text-align: left;
 }
 
-.promotions-select__trigger > span {
-  overflow: hidden;
-  flex: 1;
-  padding: 0 12px;
-  color: #0b2e3d;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.promotions-select__chevron {
-  width: 17px;
-  height: 17px;
-  margin-right: 14px;
-  color: #0b2e3d;
-  transition: transform 160ms ease;
-}
-
-.promotions-select--open .promotions-select__trigger {
-  border-color: #c89436;
-  box-shadow: 0 0 0 3px rgba(200, 148, 54, 0.12);
-}
-
-.promotions-select--open .promotions-select__chevron {
-  transform: rotate(180deg);
-}
-
-.promotions-select__menu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 7px);
-  right: 0;
-  left: 0;
-  overflow: hidden;
-  border: 1px solid #d9e1e6;
-  border-radius: 6px;
-  padding: 6px;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(7, 47, 63, 0.16);
-}
-
-.promotions-select__option {
-  display: flex;
-  width: 100%;
-  min-height: 40px;
-  align-items: center;
-  justify-content: space-between;
-  border: 0;
-  border-radius: 4px;
-  padding: 8px 10px;
-  color: #243e49;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer !important;
-}
-
-.promotions-select__option:hover {
-  background: #f4f7f8;
-}
-
-.promotions-select__option.is-selected {
-  color: #8b621e;
-  background: #fff7e7;
-  font-weight: 800;
-}
-
-.promotions-select__option svg {
-  width: 16px;
-  height: 16px;
-}
-
-.promotions-page__search button,
-.promotions-page__state button {
-  align-self: stretch;
-  border: 0;
-  border-radius: 4px;
-  margin: 4px;
-  padding: 0 20px;
-  color: #082f3f;
-  background: #e8bf68;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer !important;
-}
-
-.promotions-page__grid {
+.promo-featured__side-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px;
 }
 
-.promotions-page__more {
-  display: flex;
-  justify-content: center;
-  margin-top: 32px;
+.promo-featured__card--small {
+  min-height: 210px;
+  height: 100%;
 }
 
-.promotions-page__more button {
-  min-height: 44px;
-  border: 1px solid #0b4b61;
-  border-radius: 4px;
-  padding: 0 26px;
-  color: #fff;
-  background: #0b4b61;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer !important;
-  transition: color 160ms ease, background-color 160ms ease;
-}
-
-.promotions-page__more button:hover {
-  color: #0b4b61;
-  background: #fff;
-}
-
-.promotion-card {
-  overflow: hidden;
-  border: 1px solid #dfe6ea;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 14px 40px rgba(7, 47, 63, 0.08);
-  transition: transform 180ms ease, box-shadow 180ms ease;
-}
-
-.promotion-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 22px 54px rgba(7, 47, 63, 0.14);
-}
-
-.promotion-card__visual {
-  display: flex;
-  aspect-ratio: 1.52 / 1;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  color: rgba(234, 208, 143, 0.9);
-  background: linear-gradient(140deg, #0b2e3d, #176078);
-}
-
-.promotion-card__visual > svg {
-  width: 52px;
-  height: 52px;
-  stroke-width: 1.2;
-}
-
-.promotion-card__visual > img {
+.promo-featured__card-img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
+  transition: transform 300ms ease;
 }
 
-.promotion-card__body {
-  display: flex;
-  min-height: 210px;
-  flex-direction: column;
-  padding: 24px 22px 20px;
+.promo-featured__card:hover .promo-featured__card-img {
+  transform: scale(1.04);
 }
 
-.promotion-card__location {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-bottom: 12px;
-  color: #e34d2b;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.4;
+.promo-featured__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(7, 30, 42, 0.94) 0%,
+    rgba(7, 30, 42, 0.45) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
-.promotion-card__location svg {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
-  stroke-width: 1.5;
+.promo-featured__card-content {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  right: 24px;
+  z-index: 2;
+  color: #ffffff;
 }
 
-.promotion-card h2 {
-  margin: 0;
-  color: #101820;
-  font-size: 18px;
-  line-height: 1.4;
+.promo-featured__card--small .promo-featured__card-content {
+  bottom: 18px;
+  left: 18px;
+  right: 18px;
 }
 
-.promotion-card__validity {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 26px;
-  color: #66727d;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.promotion-card__validity svg {
-  flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  color: #e34d2b;
-}
-
-.promotion-card__body > a,
-.promotion-card__action {
+.promo-featured__badge {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: #c9a45c;
+  color: #072f3f;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+
+.promo-featured__sub-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  color: #f5d77f;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.promo-featured__card--main h3 {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-size: clamp(20px, 2.5vw, 26px);
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.promo-featured__card--main p {
+  margin: 0 0 16px;
+  color: #e2e8f0;
+  font-size: 14px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.promo-featured__card--small h4 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* CTA Button on Main Card - Gold Palette */
+.promo-featured__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 6px;
+  background: #e8bf68;
+  color: #072f3f;
+  font-size: 12.5px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.promo-featured__btn:hover {
+  background: #c9a45c;
+  transform: translateY(-1px);
+}
+
+.promo-featured__card-overlay-link {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+
+/* Carousel / Pagination Dots */
+.promo-featured__pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.promo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.promo-dot--active {
+  width: 24px;
+  border-radius: 4px;
+  background: #c9a45c;
+}
+
+/* ==========================================================================
+   SECTION 2: "Ưu đãi theo điểm đến"
+   ========================================================================== */
+
+.promo-dest-section {
+  padding-top: 16px;
+}
+
+.promo-dest-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.promo-search-bar {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 4px 0 14px;
+  background: #ffffff;
+  transition: border-color 0.2s ease;
+}
+
+.promo-search-bar:focus-within {
+  border-color: #c9a45c;
+}
+
+.promo-search-bar input {
+  border: 0;
+  outline: 0;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  color: #0f172a;
+  background: transparent;
+  width: 200px;
+}
+
+.promo-search-bar button {
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 16px;
+  background: #e8bf68;
+  color: #082f3f;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.promo-search-bar button:hover {
+  background: #c9a45c;
+}
+
+/* Filter Pills Bar */
+.promo-pills-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: 30px;
+  scrollbar-width: none;
+}
+
+.promo-pills-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.promo-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 8px 18px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.promo-pill:hover {
+  border-color: #c9a45c;
+  color: #b88a44;
+}
+
+.promo-pill.is-active {
+  border-color: #c9a45c;
+  color: #8b6016;
+  background: #fffdf5;
+  font-weight: 850;
+}
+
+/* Section 2 Grid Cards */
+.promo-dest__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.promo-dest__card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.promo-dest__card:hover {
+  transform: translateY(-3px);
+  border-color: #cbd5e1;
+}
+
+.promo-dest__card-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.promo-dest__card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.promo-dest__card:hover .promo-dest__card-media img {
+  transform: scale(1.04);
+}
+
+.promo-dest__tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #f5d77f;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.promo-dest__card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 18px;
+}
+
+.promo-dest__card-loc {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #b88a44;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.promo-dest__card-body h3 {
+  margin: 0 0 10px;
+  color: #0f172a;
+  font-size: 15.5px;
+  font-weight: 800;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.promo-dest__card-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12.5px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.promo-dest__card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 14px;
   color: #0b4b61;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-decoration: none;
+  font-size: 12px;
+  font-weight: 850;
   text-transform: uppercase;
-  cursor: pointer !important;
+  text-decoration: none;
 }
 
-.promotion-card__body > a svg,
-.promotion-card__action svg {
-  width: 15px;
-  height: 15px;
+.promo-dest__card-link:hover {
+  color: #b88a44;
 }
 
-.promotion-card__action--disabled {
-  color: #94a3ad;
-  cursor: not-allowed;
+.promo-dest__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 36px;
 }
 
-.promotions-page__skeleton {
-  height: 440px;
+.promo-dest__more button {
+  padding: 11px 28px;
+  border-radius: 6px;
+  border: 1px solid #c9a45c;
+  background: #c9a45c;
+  color: #072f3f;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.promo-dest__more button:hover {
+  background: #e8bf68;
+}
+
+/* Skeletons & States */
+.promo-skeleton {
   border-radius: 8px;
-  background: linear-gradient(90deg, #e9eef1, #f8fafc, #e9eef1);
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
   background-size: 200% 100%;
-  animation: promotions-pulse 1.3s ease infinite;
+  animation: promo-shimmer 1.4s infinite;
 }
 
-.promotions-page__state {
+.promo-skeleton--large { min-height: 440px; }
+.promo-skeleton--small { min-height: 210px; }
+.promo-skeleton--card { min-height: 340px; }
+
+.promo-featured__skeleton-grid {
   display: grid;
-  min-height: 320px;
-  place-items: center;
-  align-content: center;
-  border: 1px solid #dfe6ea;
-  border-radius: 8px;
-  padding: 36px;
-  background: #fff;
+  grid-template-columns: 3fr 2fr;
+  gap: 20px;
+}
+
+.promo-skeleton-stack {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px;
+}
+
+.promo-state {
   text-align: center;
+  padding: 48px 24px;
+  color: #64748b;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
-.promotions-page__state > svg {
-  width: 44px;
-  height: 44px;
-  color: #c0913f;
+.promo-state--error {
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
-.promotions-page__state h2 { margin: 14px 0 4px; }
-.promotions-page__state p { max-width: 540px; margin: 6px 0 18px; color: #64748b; }
-.promotions-page__state button { min-height: 42px; }
-.promotions-page__state--error { border-color: #fed7aa; background: #fffbeb; }
-
-@keyframes promotions-pulse {
+@keyframes promo-shimmer {
   to { background-position: -200% 0; }
 }
 
-@media (max-width: 980px) {
-  .promotions-page__filters { grid-template-columns: 1fr 1fr; }
-  .promotions-page__search { grid-column: 1 / -1; }
-  .promotions-page__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Responsive (< 960px) */
+@media (max-width: 960px) {
+  .promo-dest__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .promo-featured__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .promo-featured__card--main {
+    min-height: 320px;
+  }
 }
 
 @media (max-width: 640px) {
-  .promotions-page__hero { padding: 56px 20px 48px; }
-  .promotions-page__container { padding-inline: 16px; }
-  .promotions-page__filters,
-  .promotions-page__grid { grid-template-columns: 1fr; }
-  .promotions-page__search { grid-column: auto; }
-  .promotions-page__search button { padding-inline: 12px; }
+  .promotions-v2__container {
+    width: min(100% - 32px, 1280px);
+  }
+
+  .promo-dest__grid {
+    grid-template-columns: 1fr;
+  }
 }

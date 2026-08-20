@@ -32,7 +32,7 @@ function AdminStaff() {
     } catch (err) { setError(err.message || t.staffCreateError) }
   }
 
-  async function toggleActive(account) {
+  async function _toggleActive(account) {
     try {
       await updateStaffAccount(account.id, { is_active: account.is_active === false })
       await load()

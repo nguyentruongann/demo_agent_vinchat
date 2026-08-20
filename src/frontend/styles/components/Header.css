@@ -53,7 +53,8 @@
 
 .header__brand-logo {
   display: block;
-  width: 122px;
+  width: 155px;
+  max-height: 56px;
   height: auto;
   object-fit: contain;
   transition: transform 180ms ease;
@@ -69,8 +70,8 @@
   justify-content: center;
   gap: 32px;
   color: #ffffff;
-  font-size: 14px;
-  font-weight: normal;
+  font-size: 14.5px;
+  font-weight: 500;
   letter-spacing: 0.02em;
 }
 
@@ -81,8 +82,8 @@
   padding: 4px 0;
   color: #ffffff;
   text-decoration: none;
-  font-size: 14px;
-  font-weight: normal;
+  font-size: 17px;
+  font-weight: 500;
   transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
@@ -148,11 +149,11 @@
   gap: 8px;
   border: 1px solid rgba(201, 164, 92, 0.4);
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 7px 14px;
   color: #f1f5f9;
   background: rgba(7, 47, 63, 0.4);
-  font-size: 12px;
-  font-weight: normal;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: 0.04em;
   cursor: pointer;
   transition: all 180ms ease;
@@ -189,7 +190,7 @@
 
 .header__language-menu {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 2px);
   right: 0;
   z-index: 60;
   width: 160px;
@@ -257,8 +258,8 @@
 
 .header__user-name {
   color: #f1f5f9;
-  font-size: 12px;
-  font-weight: normal;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .header__logout {
@@ -286,11 +287,11 @@
   gap: 8px;
   border: 1px solid rgba(201, 164, 92, 0.5);
   border-radius: 999px;
-  padding: 8px 18px;
+  padding: 7px 14px;
   color: #ffffff;
   background: rgba(7, 47, 63, 0.4);
   font-size: 13px;
-  font-weight: normal;
+  font-weight: 500;
   transition: all 200ms ease;
 }
 
@@ -464,7 +465,6 @@
 
 @media (max-width: 560px) {
   .header__brand-logo {
-    width: 90px;
-    padding: 5px 8px;
+    width: 84px;
   }
 }

@@ -8,6 +8,10 @@ import RichMessage from './RichMessage'
 import StructuredMessage from './StructuredMessage'
 import '../styles/components/ChatWidget.css'
 
+export function openAiChat(promptText) {
+  window.dispatchEvent(new CustomEvent('open-ai-chat', { detail: { prompt: promptText } }))
+}
+
 function ChatWidget() {
   const { language, t } = useLanguage()
   const { user, loading: authLoading } = useAuth()
@@ -24,6 +28,46 @@ function ChatWidget() {
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const previousUserIdRef = useRef(undefined)
+
+  useEffect(() => {
+    async function handleOpenAiChat(event) {
+      setIsOpen(true)
+      const prompt = event.detail?.prompt
+      if (!prompt) return
+
+      const userMsg = {
+        id: `user-${Date.now()}`,
+        sender: 'user',
+        text: prompt,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }
+
+      setMessages((prev) => [...prev, userMsg])
+      setLoading(true)
+
+      try {
+        const response = await sendChatMessage(prompt, language)
+        setMessages((prev) => [...prev, response])
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            sender: 'assistant',
+            text: t.chatError,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            language,
+            localizationKey: 'chatError',
+          },
+        ])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    window.addEventListener('open-ai-chat', handleOpenAiChat)
+    return () => window.removeEventListener('open-ai-chat', handleOpenAiChat)
+  }, [language, t.chatError])
 
   useEffect(() => {
     if (isOpen && messages.length > 0) {
@@ -120,7 +164,7 @@ function ChatWidget() {
     try {
       const response = await sendChatMessage(prompt, language)
       setMessages((prev) => [...prev, response])
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {

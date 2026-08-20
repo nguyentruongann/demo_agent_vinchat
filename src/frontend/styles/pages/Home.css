@@ -84,8 +84,16 @@
 
 .home-page__hotels-grid,
 .home-page__combos-grid {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
   gap: 32px;
+}
+
+.home-page__hotels-grid > div {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .home-page__ai-section {
@@ -164,7 +172,7 @@
   font-family: inherit;
   font-size: clamp(24px, 3.1vw, 38px);
   font-weight: 900;
-  line-height: 1.08;
+  line-height: 1.18;
   text-transform: uppercase;
 }
 

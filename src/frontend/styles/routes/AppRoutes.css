@@ -8,3 +8,25 @@
   min-height: 60vh;
   padding-top: 80px;
 }
+
+/* The chat route behaves like an application workspace rather than a content page. */
+.app-routes--chat {
+  height: 100dvh;
+  min-height: 620px;
+  overflow: hidden;
+  background: #f5f7f5;
+}
+
+.app-routes--chat .app-routes__main {
+  height: 100dvh;
+  min-height: 620px;
+  padding-top: 80px;
+  overflow: hidden;
+}
+
+@media (max-height: 700px) {
+  .app-routes--chat,
+  .app-routes--chat .app-routes__main {
+    min-height: 560px;
+  }
+}

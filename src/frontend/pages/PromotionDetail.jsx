@@ -18,6 +18,7 @@ import {
   Tag,
 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import SmartImage from '../components/SmartImage'
 import { fetchPromotionById } from '../services/api'
 import '../styles/pages/PromotionDetail.css'
 
@@ -136,13 +137,11 @@ export default function PromotionDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [copiedCode, setCopiedCode] = useState('')
-  const [imageFailed, setImageFailed] = useState(false)
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setError('')
-    setImageFailed(false)
 
     fetchPromotionById(promotionId)
       .then((data) => {
@@ -287,14 +286,7 @@ export default function PromotionDetail() {
           </div>
 
           <div className="promotion-detail-hero__visual">
-            {promo.image_url && !imageFailed ? (
-              <img src={promo.image_url} alt="" onError={() => setImageFailed(true)} />
-            ) : (
-              <div className="promotion-detail-hero__placeholder">
-                <Gift aria-hidden="true" />
-                <span>{promo.discount_text || t.specialOffer}</span>
-              </div>
-            )}
+            <SmartImage src={promo.image_url} alt="" variant="promotion" />
           </div>
         </div>
       </header>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, ChevronLeft, Clock, ExternalLink, MapPin, Maximize2, Sparkles, Users, Utensils } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import SmartImage from '../components/SmartImage'
 import { fetchHotelById } from '../services/api'
 import '../styles/pages/HotelDetail.css'
 
@@ -137,25 +138,23 @@ function HotelDetail() {
           </button>
         </section>
 
-        {selectedImg && (
-          <section className="hotel-detail-page__gallery">
-            <div className="hotel-detail-page__main-image">
-              <img src={selectedImg} alt={hotel.name} />
-            </div>
-            <div className="hotel-detail-page__thumbnails">
-              {hotel.images.map((image) => (
-                <button
-                  className={`hotel-detail-page__thumbnail ${selectedImg === image ? 'hotel-detail-page__thumbnail--active' : ''}`}
-                  key={image}
-                  type="button"
-                  onClick={() => setSelectedImg(image)}
-                >
-                  <img src={image} alt="" />
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+        <section className="hotel-detail-page__gallery">
+          <div className="hotel-detail-page__main-image">
+            <SmartImage src={selectedImg} alt={hotel.name} variant="hotel" />
+          </div>
+          <div className="hotel-detail-page__thumbnails">
+            {hotel.images.map((image) => (
+              <button
+                className={`hotel-detail-page__thumbnail ${selectedImg === image ? 'hotel-detail-page__thumbnail--active' : ''}`}
+                key={image}
+                type="button"
+                onClick={() => setSelectedImg(image)}
+              >
+                <SmartImage src={image} alt="" variant="hotel" loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </section>
 
         <nav className="hotel-detail-page__tabs" aria-label={t.overview}>
           <button className={`hotel-detail-page__tab ${activeTab === 'rooms' ? 'hotel-detail-page__tab--active' : ''}`} type="button" onClick={() => setActiveTab('rooms')}>{t.availableSuites} ({hotel.rooms.length})</button>
@@ -173,11 +172,9 @@ function HotelDetail() {
             )}
             {hotel.rooms.map((room) => (
               <article className="hotel-detail-page__room" key={room.id}>
-                {room.image_url && (
-                  <div className="hotel-detail-page__room-image">
-                    <img src={room.image_url} alt={room.name} />
-                  </div>
-                )}
+                <div className="hotel-detail-page__room-image">
+                  <SmartImage src={room.image_url} alt={room.name} variant="hotel" loading="lazy" />
+                </div>
                 <div className="hotel-detail-page__room-content">
                   <div>
                     <h3>{room.name}</h3>
@@ -230,7 +227,7 @@ function HotelDetail() {
           <section className="hotel-detail-page__rooms">
             {hotel.dining.length ? hotel.dining.map((item) => (
               <article className="hotel-detail-page__room" key={item.id}>
-                {item.image_url && <div className="hotel-detail-page__room-image"><img src={item.image_url} alt={item.name} /></div>}
+                <div className="hotel-detail-page__room-image"><SmartImage src={item.image_url} alt={item.name} variant="hotel" loading="lazy" /></div>
                 <div className="hotel-detail-page__room-content">
                   <div>
                     <h3><Utensils size={18} /> {item.name}</h3>

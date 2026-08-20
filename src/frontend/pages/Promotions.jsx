@@ -3,73 +3,19 @@ import { Link } from 'react-router-dom'
 import {
   ArrowUpRight,
   CalendarDays,
-  Check,
-  ChevronDown,
   Gift,
   MapPin,
   RefreshCw,
   Search,
-  Tag,
+  Sparkles,
 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import SmartImage from '../components/SmartImage'
 import { fetchDestinations, fetchPromotions } from '../services/api'
+import promoBanner from '../image/uu-dai-khuyen-mai_1684378388.jpg.webp'
 import '../styles/pages/Promotions.css'
 
-const INITIAL_PROMOTION_COUNT = 6
-
-function PromotionSelect({ icon: Icon, value, options, label, onChange }) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef(null)
-  const selected = options.find((option) => option.id === value) || options[0]
-
-  useEffect(() => {
-    function closeOnOutsideClick(event) {
-      if (!rootRef.current?.contains(event.target)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [])
-
-  return (
-    <div className={`promotions-select${open ? ' promotions-select--open' : ''}`} ref={rootRef}>
-      <button
-        type="button"
-        className="promotions-select__trigger"
-        aria-label={label}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') setOpen(false)
-        }}
-      >
-        <Icon className="promotions-select__leading-icon" aria-hidden="true" />
-        <span>{selected.label}</span>
-        <ChevronDown className="promotions-select__chevron" aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="promotions-select__menu" role="listbox" aria-label={label}>
-          {options.map((option) => (
-            <button
-              type="button"
-              role="option"
-              aria-selected={option.id === value}
-              className={option.id === value ? 'promotions-select__option is-selected' : 'promotions-select__option'}
-              key={option.id}
-              onClick={() => {
-                onChange(option.id)
-                setOpen(false)
-              }}
-            >
-              <span>{option.label}</span>
-              {option.id === value && <Check aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+const INITIAL_PROMOTION_COUNT = 8
 
 function formatDate(value, language) {
   if (!value) return null
@@ -99,11 +45,9 @@ function getDestinations(promotion, translate) {
 function Promotions() {
   const { language, t, translate } = useLanguage()
   const [promotions, setPromotions] = useState([])
-  const [destinationOptions, setDestinationOptions] = useState([
-    { id: 'all', label: t.allDestinations },
-  ])
-  const [destination, setDestination] = useState('all')
-  const [status, setStatus] = useState('active')
+  const [destinationsList, setDestinationsList] = useState([])
+  const [selectedDestination, setSelectedDestination] = useState('all')
+  const [status] = useState('active')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -117,45 +61,28 @@ function Promotions() {
     fetchDestinations()
       .then((items) => {
         if (!active) return
-        setDestinationOptions([
-          { id: 'all', label: t.allDestinations },
-          ...items.map((item) => ({ id: item.id, label: item.name })),
-        ])
+        setDestinationsList(items)
       })
       .catch(() => {
-        if (active) setDestinationOptions([{ id: 'all', label: t.allDestinations }])
+        if (active) setDestinationsList([])
       })
     return () => {
       active = false
     }
-  }, [language, t.allDestinations])
-
-  const statusOptions = [
-    { id: 'all', label: t.allStatuses },
-    { id: 'active', label: t.statusActive },
-    { id: 'upcoming', label: t.statusUpcoming },
-    { id: 'expired', label: t.statusExpired },
-  ]
+  }, [])
 
   useEffect(() => {
     let active = true
-    let refreshTimer
     if (loadedLanguageRef.current !== language || promotions.length === 0) {
       setLoading(true)
     }
     setError('')
 
-    fetchPromotions({ destination, status, search })
-      .then(({ items, translationFallback }) => {
+    fetchPromotions({ destination: selectedDestination, status, search })
+      .then(({ items }) => {
         if (!active) return
         setPromotions(items)
         loadedLanguageRef.current = language
-        if (translationFallback && language !== 'en') {
-          refreshTimer = window.setTimeout(
-            () => setRetryKey((value) => value + 1),
-            5000,
-          )
-        }
       })
       .catch((requestError) => {
         if (!active) return
@@ -168,17 +95,15 @@ function Promotions() {
 
     return () => {
       active = false
-      window.clearTimeout(refreshTimer)
     }
-  }, [destination, status, search, retryKey, language])
+  }, [selectedDestination, status, search, retryKey, language])
 
-  useEffect(() => {
-    setShowAll(false)
-  }, [destination, status, search])
+  // Featured promotions (top 3 for Section 1)
+  const mainFeatured = promotions[0]
+  const sideFeatured = promotions.slice(1, 3)
 
-  const visiblePromotions = showAll
-    ? promotions
-    : promotions.slice(0, INITIAL_PROMOTION_COUNT)
+  // Section 2 list
+  const visiblePromotions = showAll ? promotions : promotions.slice(0, INITIAL_PROMOTION_COUNT)
 
   const copy = Object.fromEntries(
     ['eyebrow', 'title', 'description', 'search', 'submit', 'loading', 'emptyTitle',
@@ -192,119 +117,221 @@ function Promotions() {
   }
 
   return (
-    <main className="promotions-page">
-      <section className="promotions-page__hero">
-        <div className="promotions-page__hero-content">
-          <span className="promotions-page__eyebrow">
-            <Gift aria-hidden="true" />
-            {copy.eyebrow}
-          </span>
-          <h1>{copy.title}</h1>
-          <p>{copy.description}</p>
-        </div>
-      </section>
+    <main className="promotions-v2">
+      <div className="promotions-v2__container">
+        {/* ==================================================================
+            SECTION 1: "Ưu đãi nổi bật"
+            ================================================================== */}
+        <section className="promo-featured-section">
+          <h2 className="promo-section-title">
+            {t.featuredPromotions || 'Ưu đãi nổi bật'}
+          </h2>
 
-      <div className="promotions-page__container">
-        <section className="promotions-page__filters" aria-label={t.promotionFilters}>
-          <form className="promotions-page__search" onSubmit={handleSearch}>
-            <Search aria-hidden="true" />
-            <input
-              type="search"
-              value={searchInput}
-              placeholder={copy.search}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-            <button type="submit">{copy.submit}</button>
-          </form>
-
-          <PromotionSelect
-            icon={MapPin}
-            value={destination}
-            options={destinationOptions}
-            label={t.filterByDestination}
-            onChange={setDestination}
-          />
-
-          <PromotionSelect
-            icon={Tag}
-            value={status}
-            options={statusOptions}
-            label={t.filterByStatus}
-            onChange={setStatus}
-          />
-        </section>
-
-        {loading ? (
-          <section className="promotions-page__grid" aria-label={copy.loading}>
-            {[1, 2, 3, 4, 5, 6].map((item) => (
-              <div className="promotions-page__skeleton" key={item} />
-            ))}
-          </section>
-        ) : error ? (
-          <section className="promotions-page__state promotions-page__state--error">
-            <RefreshCw aria-hidden="true" />
-            <h2>{copy.errorTitle}</h2>
-            <p>{copy.errorText}</p>
-            <button type="button" onClick={() => setRetryKey((value) => value + 1)}>
-              {copy.retry}
-            </button>
-          </section>
-        ) : promotions.length === 0 ? (
-          <section className="promotions-page__state">
-            <Gift aria-hidden="true" />
-            <h2>{copy.emptyTitle}</h2>
-            <p>{copy.emptyText}</p>
-          </section>
-        ) : (
-          <>
-            <section className="promotions-page__grid" aria-live="polite">
-            {visiblePromotions.map((promotion) => {
-              const fromDate = formatDate(promotion.validity_from, language)
-              const toDate = formatDate(promotion.validity_to, language)
-              return (
-                <article className="promotion-card" key={promotion.id}>
-                  <div className="promotion-card__visual">
-                    <Gift aria-hidden="true" />
-                    {promotion.image_url && (
-                      <img
-                        src={promotion.image_url}
-                        alt=""
-                        loading="lazy"
-                        onError={(event) => {
-                          event.currentTarget.hidden = true
-                        }}
-                      />
+          {loading ? (
+            <div className="promo-featured__skeleton-grid">
+              <div className="promo-skeleton promo-skeleton--large" />
+              <div className="promo-skeleton-stack">
+                <div className="promo-skeleton promo-skeleton--small" />
+                <div className="promo-skeleton promo-skeleton--small" />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="promo-featured__grid">
+                {/* Left Column: 60% Width, 1 Large Card */}
+                <article className="promo-featured__card promo-featured__card--main">
+                  <SmartImage
+                    src={mainFeatured?.image_url || promoBanner}
+                    alt={mainFeatured?.title || copy.title}
+                    variant="promotion"
+                    className="promo-featured__card-img"
+                  />
+                  <div className="promo-featured__overlay" />
+                  <div className="promo-featured__card-content">
+                    <span className="promo-featured__badge">
+                      <Sparkles size={14} />
+                      {mainFeatured?.discount_text || 'Hot Offer'}
+                    </span>
+                    <h3>{mainFeatured?.title || copy.title}</h3>
+                    {mainFeatured?.summary && (
+                      <p>{mainFeatured.summary}</p>
                     )}
-                  </div>
-                  <div className="promotion-card__body">
-                    <div className="promotion-card__location">
-                      <MapPin aria-hidden="true" />
-                      <span>{getDestinations(promotion, translate)}</span>
-                    </div>
-                    <h2>{promotion.title}</h2>
-                    {(fromDate || toDate) && (
-                      <div className="promotion-card__validity">
-                        <CalendarDays aria-hidden="true" />
-                        <span>{copy.validity}: {fromDate || '—'} – {toDate || '—'}</span>
-                      </div>
-                    )}
-                    <Link to={`/promotions/${promotion.id}`} className="promotion-card__action">
-                      {copy.view}<ArrowUpRight aria-hidden="true" />
+                    <Link
+                      to={mainFeatured ? `/promotions/${mainFeatured.id}` : '#'}
+                      className="promo-featured__btn"
+                    >
+                      <span>{copy.view || 'Xem thêm'}</span>
+                      <ArrowUpRight size={17} />
                     </Link>
                   </div>
                 </article>
-              )
-            })}
-            </section>
-            {!showAll && promotions.length > INITIAL_PROMOTION_COUNT && (
-              <div className="promotions-page__more">
-                <button type="button" onClick={() => setShowAll(true)}>
-                  {copy.viewMore}
-                </button>
+
+                {/* Right Column: 40% Width, 2 Small Stacked Cards (No CTA button) */}
+                <div className="promo-featured__side-grid">
+                  {sideFeatured.length > 0 ? (
+                    sideFeatured.map((item) => (
+                      <article className="promo-featured__card promo-featured__card--small" key={item.id}>
+                        <SmartImage
+                          src={item.image_url || promoBanner}
+                          alt={item.title}
+                          variant="promotion"
+                          className="promo-featured__card-img"
+                        />
+                        <div className="promo-featured__overlay" />
+                        <div className="promo-featured__card-content">
+                          <span className="promo-featured__sub-badge">
+                            {item.discount_text || 'Exclusive'}
+                          </span>
+                          <h4>{item.title}</h4>
+                        </div>
+                        <Link to={`/promotions/${item.id}`} className="promo-featured__card-overlay-link" aria-label={item.title} />
+                      </article>
+                    ))
+                  ) : (
+                    <>
+                      <article className="promo-featured__card promo-featured__card--small">
+                        <img src={promoBanner} alt="" className="promo-featured__card-img" />
+                        <div className="promo-featured__overlay" />
+                        <div className="promo-featured__card-content">
+                          <span className="promo-featured__sub-badge">Special</span>
+                          <h4>Ưu đãi kỳ nghỉ đẳng cấp Vinpearl</h4>
+                        </div>
+                      </article>
+                      <article className="promo-featured__card promo-featured__card--small">
+                        <img src={promoBanner} alt="" className="promo-featured__card-img" />
+                        <div className="promo-featured__overlay" />
+                        <div className="promo-featured__card-content">
+                          <span className="promo-featured__sub-badge">Limited</span>
+                          <h4>Tận hưởng trọn vẹn dịch vụ 5 sao</h4>
+                        </div>
+                      </article>
+                    </>
+                  )}
+                </div>
               </div>
-            )}
-          </>
-        )}
+
+              {/* Pagination Dots (Carousel Indicator) */}
+              <div className="promo-featured__pagination" aria-hidden="true">
+                <span className="promo-dot promo-dot--active" />
+                <span className="promo-dot" />
+                <span className="promo-dot" />
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* ==================================================================
+            SECTION 2: "Ưu đãi theo điểm đến"
+            ================================================================== */}
+        <section className="promo-dest-section">
+          <div className="promo-dest-header">
+            <h2 className="promo-section-title">
+              {t.offersByDestination || 'Ưu đãi theo điểm đến'}
+            </h2>
+
+            <form className="promo-search-bar" onSubmit={handleSearch}>
+              <Search size={16} />
+              <input
+                type="search"
+                value={searchInput}
+                placeholder={copy.search}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              <button type="submit">{copy.submit || 'Tìm'}</button>
+            </form>
+          </div>
+
+          {/* Filter Pills (Rounded Pills with Scroll Horizontal) */}
+          <div className="promo-pills-bar">
+            <button
+              type="button"
+              className={`promo-pill ${selectedDestination === 'all' ? 'is-active' : ''}`}
+              onClick={() => setSelectedDestination('all')}
+            >
+              {t.allDestinations || 'Tất cả'}
+            </button>
+            {destinationsList.map((dest) => (
+              <button
+                type="button"
+                key={dest.id}
+                className={`promo-pill ${selectedDestination === dest.id ? 'is-active' : ''}`}
+                onClick={() => setSelectedDestination(dest.id)}
+              >
+                {dest.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Destination Cards Grid */}
+          {loading ? (
+            <div className="promo-dest__grid">
+              {[1, 2, 3, 4].map((i) => (
+                <div className="promo-skeleton promo-skeleton--card" key={i} />
+              ))}
+            </div>
+          ) : error ? (
+            <div className="promo-state promo-state--error">
+              <RefreshCw size={24} />
+              <p>{copy.errorText}</p>
+              <button type="button" onClick={() => setRetryKey((v) => v + 1)}>
+                {copy.retry}
+              </button>
+            </div>
+          ) : visiblePromotions.length === 0 ? (
+            <div className="promo-state">
+              <Gift size={28} />
+              <p>{copy.emptyText}</p>
+            </div>
+          ) : (
+            <>
+              <div className="promo-dest__grid">
+                {visiblePromotions.map((item) => {
+                  const fromDate = formatDate(item.validity_from, language)
+                  const toDate = formatDate(item.validity_to, language)
+                  return (
+                    <article className="promo-dest__card" key={item.id}>
+                      <div className="promo-dest__card-media">
+                        <SmartImage
+                          src={item.image_url}
+                          alt={item.title}
+                          variant="promotion"
+                        />
+                        {item.discount_text && (
+                          <span className="promo-dest__tag">{item.discount_text}</span>
+                        )}
+                      </div>
+                      <div className="promo-dest__card-body">
+                        <div className="promo-dest__card-loc">
+                          <MapPin size={14} />
+                          <span>{getDestinations(item, translate)}</span>
+                        </div>
+                        <h3>{item.title}</h3>
+                        {(fromDate || toDate) && (
+                          <div className="promo-dest__card-date">
+                            <CalendarDays size={14} />
+                            <span>{fromDate || '—'} – {toDate || '—'}</span>
+                          </div>
+                        )}
+                        <Link to={`/promotions/${item.id}`} className="promo-dest__card-link">
+                          <span>{copy.view || 'Xem chi tiết'}</span>
+                          <ArrowUpRight size={15} />
+                        </Link>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+
+              {!showAll && promotions.length > INITIAL_PROMOTION_COUNT && (
+                <div className="promo-dest__more">
+                  <button type="button" onClick={() => setShowAll(true)}>
+                    {copy.viewMore || 'Xem thêm ưu đãi'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </section>
       </div>
     </main>
   )
