@@ -1,5 +1,6 @@
 import { Filter, RotateCcw } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import CustomSelect from './CustomSelect'
 import '../styles/components/FilterSidebar.css'
 
 function FilterSidebar({
@@ -36,19 +37,19 @@ function FilterSidebar({
         <label className="filter-sidebar__label" htmlFor="destination-filter">
           {t.searchDest}
         </label>
-        <select
-          className="filter-sidebar__select"
+        <CustomSelect
           id="destination-filter"
           value={selectedDest}
-          onChange={(event) => setSelectedDest(event.target.value)}
-        >
-          <option value="all">{t.allDestinations}</option>
-          {destinations.map((destination) => (
-            <option key={destination.id} value={destination.id}>
-              {destination.name}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: 'all', label: t.allDestinations },
+            ...destinations.map((destination) => ({
+              value: destination.id,
+              label: destination.name,
+            })),
+          ]}
+          onChange={(val) => setSelectedDest(val)}
+          aria-label={t.searchDest}
+        />
       </div>
 
       <div className="filter-sidebar__group">

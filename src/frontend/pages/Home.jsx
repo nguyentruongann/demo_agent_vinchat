@@ -5,6 +5,7 @@ import DestinationCard from '../components/DestinationCard'
 import HeroSearch from '../components/HeroSearch'
 import HotelCard from '../components/HotelCard'
 import { useLanguage } from '../context/LanguageContext'
+import SmartImage from '../components/SmartImage'
 import { fetchDestinations, fetchHotels, fetchPromotions } from '../services/api'
 import '../styles/pages/Home.css'
 
@@ -72,7 +73,7 @@ function Home() {
       <section className="home-page__offers-section"><div className="home-page__section home-page__offers-inner">
         <div className="home-page__section-heading home-page__section-heading--center reveal-on-scroll"><span className="home-page__eyebrow">{t.travelPackagesEyebrow}</span><h2>{t.offersTitle}</h2></div>
         <div className="home-page__combos-grid">{offers.map((offer, index) => <article className={`home-page__combo-card reveal-on-scroll reveal-delay-${(index % 3) + 1}`} key={offer.id}>
-          {offer.image_url && <div className="home-page__combo-media"><img src={offer.image_url} alt={offer.title} /><span className="home-page__combo-tag">{offer.discount_text || t.navOffers}</span></div>}
+          <div className="home-page__combo-media"><SmartImage src={offer.image_url} alt={offer.title} variant="promotion" loading="lazy" /><span className="home-page__combo-tag">{offer.discount_text || t.navOffers}</span></div>
           <div className="home-page__combo-body"><div><h4>{offer.title}</h4><p>{offer.summary}</p></div><div className="home-page__combo-footer">{offer.validity_to && <span><CalendarDays size={16} /> {offer.validity_to}</span>}<Link className="home-page__combo-link" to="/promotions">{t.viewDetails}</Link></div></div>
         </article>)}</div>
       </div></section>

@@ -845,6 +845,57 @@ def _single_confirmed_destination_from_selected_turns(
     return [catalog_item]
 
 
+
+def _single_confirmed_user_focus_destination(
+    memory_destination_candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return one unambiguous user-owned destination from structured memory.
+
+    This is a deterministic fail-safe for factual follow-ups when the CLOSED LLM
+    selector emits malformed/unsupported refs.  It intentionally ignores assistant
+    proposals and retrieval-only destinations: only a destination previously owned
+    by the user may become the fallback hard scope.  If more than one user-focus
+    destination is present, return nothing rather than guessing.
+    """
+    by_id: dict[str, dict[str, Any]] = {}
+    for item in memory_destination_candidates or []:
+        destination_id = str(item.get("id") or "").strip()
+        source = str(item.get("source") or "").strip()
+        confirmed = _truthy(item.get("confirmed")) or source in _USER_FOCUS_DESTINATION_SOURCES
+        if not destination_id or not confirmed or source not in _USER_FOCUS_DESTINATION_SOURCES:
+            continue
+        by_id.setdefault(destination_id, item)
+
+    if len(by_id) != 1:
+        return []
+
+    item = dict(next(iter(by_id.values())))
+    item["confirmed"] = True
+    return [item]
+
+
+def _fallback_scoped_rag_query(
+    guarded_query: str,
+    destinations: list[dict[str, Any]],
+) -> str:
+    """Attach only deterministic destination memory to a current-only query.
+
+    The guarded query remains authoritative for the current task.  This helper adds
+    the single recovered destination subject without asking another LLM to rewrite
+    the request, preventing a failed memory selector from broadening a follow-up to
+    the entire KB.
+    """
+    query = str(guarded_query or "").strip()
+    names = [_destination_name(item) for item in destinations if _destination_name(item)]
+    if not names:
+        return query
+    normalized_query = normalize_text(query)
+    missing_names = [name for name in names if normalize_text(name) not in normalized_query]
+    if not missing_names:
+        return query
+    suffix = ", ".join(missing_names)
+    return f"{query} for {suffix}".strip() if query else suffix
+
 def resolve_conversation_context(state: AgentState) -> AgentState:
     """Resolve current context first; consult memory only when the turn depends on it.
 
@@ -941,6 +992,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         "A destination named only as wrong, negated, replaced, or explicitly excluded is an exclusion. Never use a memory destination in these "
         "two current_* fields. If a current destination is positively named, it must never disappear merely because old memory exists. "
         "Never treat an assistant_proposal or retrieval_evidence destination as a user-confirmed choice in this gate. "
+        "REFERENCE INTEGRITY IS STRICT: current_target_destination_ids and current_excluded_destination_ids may contain ONLY exact IDs copied from current_explicit_destinations. If the current message contains no explicit destination for a field, return an empty array. Never output placeholders or guessed IDs. "
         "Return JSON only."
     )
     dependency_payload = {
@@ -958,8 +1010,8 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     dependency_schema = '''{
   "request_kind": "independent|factual_continuation|conversation_meta",
   "needs_memory": false,
-  "current_target_destination_ids": ["current-explicit-id"],
-  "current_excluded_destination_ids": ["current-explicit-id"],
+  "current_target_destination_ids": [],
+  "current_excluded_destination_ids": [],
   "reason": "brief semantic dependency reason",
   "confidence": 0.0
 }'''
@@ -992,14 +1044,25 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         explicit,
     )
     if current_binding_invalid:
-        # Invalid IDs are a control-output integrity problem. Fail closed to current
-        # explicit positive context, with all prior memory disabled.
-        return _fallback_resolution(
-            explicit,
-            guarded_query,
-            "Memory dependency gate returned unsupported current destination bindings; memory disabled safely.",
-            request_kind="independent",
-            input_task=input_task,
+        fatal_binding_errors = [
+            item for item in current_binding_invalid
+            if str(item).startswith("malformed:") or str(item).startswith("overlap:")
+        ]
+        if fatal_binding_errors:
+            # Structural/contradictory binding output cannot be interpreted safely.
+            return _fallback_resolution(
+                explicit,
+                guarded_query,
+                "Memory dependency gate returned malformed/contradictory current destination bindings; memory disabled safely.",
+                request_kind="independent",
+                input_task=input_task,
+            )
+        # Unsupported IDs are already rejected by the CLOSED parser. Keeping valid
+        # current bindings prevents a single hallucinated placeholder from erasing
+        # otherwise sound continuation memory.
+        print(
+            "[CONTEXT RESOLUTION] ignored unsupported current destination bindings: "
+            f"{current_binding_invalid}"
         )
 
     dependency_reason = str(
@@ -1098,7 +1161,8 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         "focus materially supplies the omitted relation/subject; recency alone is not enough. Never invent refs. If current_input_task is place_structure_clarification, select the most recent turn/entities that caused the customer's confusion and write the rag_query to clarify whether they are one place with multiple components/names, not to review room types unless rooms were explicitly requested. If several assistant_proposal destinations were offered and the current request does not identify one, prefer selecting the prior turn and/or all relevant entities over guessing one destination. Old assistant prose is not fresh "
         "factual evidence. REQUEST_TASK_PLAN is authoritative for customer-visible coverage: preserve EVERY atomic task in the standalone rag_query, in order when practical; never drop a later clause just because an earlier clause resolved the reference. "
         "Return a standalone faithful English rag_query that combines the CURRENT request with only the selected memory meaning, preserving all task goals, constraints, comparisons, corrections, exclusions, quantities, dates, and requested relations. Current explicit targets/exclusions "
-        "are authoritative and must not be replaced by stale memory. Set user_confirms_selected_memory_destination=true only when the CURRENT message clearly accepts/chooses a prior assistant proposal (for example 'chọn phương án đó', 'đi chỗ đó', 'book gói đó'). Return JSON only."
+        "are authoritative and must not be replaced by stale memory. Set user_confirms_selected_memory_destination=true only when the CURRENT message clearly accepts/chooses a prior assistant proposal (for example 'chọn phương án đó', 'đi chỗ đó', 'book gói đó'). "
+        "REFERENCE INTEGRITY IS STRICT: every destination ID, entity ref, and turn ref in your output MUST be copied verbatim from the corresponding candidate list in UNTRUSTED_CONTEXT_JSON. Never output schema examples, placeholders, guessed refs, or IDs that are not present. If no exact ref is needed, return an empty array for that field. Return JSON only."
     )
     selector_payload = {
         "current_message": current_message,
@@ -1118,11 +1182,11 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         "recent_structured_focus_turns": focus_turns,
     }
     selector_schema = '''{
-  "selected_memory_destination_ids": ["prior-destination-id"],
-  "selected_memory_entity_refs": ["entity:1"],
-  "selected_turn_refs": ["turn:5"],
-  "excluded_memory_destination_ids": ["prior-destination-id"],
-  "excluded_memory_entity_refs": ["entity:1"],
+  "selected_memory_destination_ids": [],
+  "selected_memory_entity_refs": [],
+  "selected_turn_refs": [],
+  "excluded_memory_destination_ids": [],
+  "excluded_memory_entity_refs": [],
   "user_confirms_selected_memory_destination": false,
   "rag_query": "standalone faithful English retrieval query",
   "reason": "brief memory-selection reason",
@@ -1140,6 +1204,32 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             ),
         )
     except Exception as exc:
+        recovered_user_focus = (
+            _single_confirmed_user_focus_destination(memory_destination_candidates)
+            if not current_targets else []
+        )
+        if recovered_user_focus:
+            result = _resolution_result(
+                explicit=explicit,
+                selected_destinations=recovered_user_focus,
+                selected_entities=[],
+                selected_turn_refs=[],
+                excluded_destinations=current_exclusions,
+                excluded_entities=[],
+                uses_memory=True,
+                request_kind="factual_continuation",
+                reason=(
+                    "Memory selector call failed; recovered the single confirmed user-focus destination "
+                    f"deterministically to preserve continuation scope: {exc}"
+                ),
+                confidence=min(dependency_confidence if dependency_confidence > 0 else 0.95, 0.95),
+                source="memory",
+                rag_query=_fallback_scoped_rag_query(guarded_query, recovered_user_focus),
+                input_task=input_task,
+            )
+            _print_resolution(current_message, destination_candidates, entity_candidates, result)
+            return result
+
         result = _resolution_result(
             explicit=explicit,
             selected_destinations=current_targets,
@@ -1149,7 +1239,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             excluded_entities=[],
             uses_memory=False,
             request_kind="independent",
-            reason=f"Memory selection failed; prior context disabled safely: {exc}",
+            reason=f"Memory selection failed and no unambiguous confirmed user-focus fallback exists: {exc}",
             confidence=0.0,
             source="current_explicit" if current_targets else "none",
             rag_query=guarded_query,
@@ -1182,24 +1272,34 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         turn_refs=turn_refs,
     )
 
-    if invalid_refs:
-        result = _resolution_result(
-            explicit=explicit,
-            selected_destinations=current_targets,
-            selected_entities=[],
-            selected_turn_refs=[],
-            excluded_destinations=current_exclusions,
-            excluded_entities=[],
-            uses_memory=False,
-            request_kind="independent",
-            reason="Memory selector returned unsupported refs; prior context disabled safely.",
-            confidence=0.0,
-            source="current_explicit" if current_targets else "none",
-            rag_query=guarded_query,
-            input_task=input_task,
+    selector_had_invalid_refs = bool(invalid_refs)
+    if selector_had_invalid_refs:
+        # Invalid model refs are rejected individually, but valid CLOSED refs must
+        # survive.  Discarding the entire memory selection here used to erase a
+        # confirmed destination (e.g. Phu Quoc) and broaden short follow-ups such as
+        # "chi phí ra sao" to the whole KB.
+        print(f"[CONTEXT RESOLUTION] ignored unsupported memory refs: {invalid_refs}")
+
+    valid_memory_refs_used = _memory_refs_used(
+        selected_memory_destinations,
+        selected_memory_entities,
+        selected_turn_refs,
+        excluded_memory_destinations,
+        excluded_memory_entities,
+    )
+
+    deterministic_fallback_used = False
+    if not valid_memory_refs_used and not current_targets:
+        # Stage 1/planner has already proven this turn needs prior context. If the
+        # Stage-2 selector fails to provide a usable ref, recover ONLY an
+        # unambiguous confirmed user-focus destination. Never guess among multiple
+        # destinations and never promote assistant proposals/retrieval evidence.
+        recovered_user_focus = _single_confirmed_user_focus_destination(
+            memory_destination_candidates
         )
-        _print_resolution(current_message, destination_candidates, entity_candidates, result)
-        return result
+        if recovered_user_focus:
+            selected_memory_destinations = recovered_user_focus
+            deterministic_fallback_used = True
 
     selected_memory_destinations = _confirmed_selection_destinations(
         selected_memory_destinations,
@@ -1224,8 +1324,9 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         excluded_memory_entities,
     )
     if not uses_memory:
-        # The second-stage selector found no concrete dependency. Treat the turn as
-        # standalone rather than preserving a nominal continuation label.
+        # If the current message already has an explicit target, it can safely stand
+        # alone when Stage 2 selects nothing. Without a current target we still fail
+        # closed rather than guessing among ambiguous prior subjects.
         result = _resolution_result(
             explicit=explicit,
             selected_destinations=current_targets,
@@ -1235,7 +1336,10 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             excluded_entities=[],
             uses_memory=False,
             request_kind="independent",
-            reason="Continuation gate found no usable memory ref; current request treated as independent.",
+            reason=(
+                "Continuation gate found no usable memory ref and no unambiguous confirmed user-focus fallback; "
+                "current request treated as independent without importing stale memory."
+            ),
             confidence=_bounded_confidence(selection.get("confidence")),
             source="current_explicit" if current_targets else "none",
             rag_query=guarded_query,
@@ -1244,7 +1348,13 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         _print_resolution(current_message, destination_candidates, entity_candidates, result)
         return result
 
-    resolved_query = str(selection.get("rag_query") or "").strip() or guarded_query
+    if deterministic_fallback_used:
+        resolved_query = _fallback_scoped_rag_query(
+            guarded_query,
+            selected_memory_destinations,
+        )
+    else:
+        resolved_query = str(selection.get("rag_query") or "").strip() or guarded_query
     final_destinations = _dedupe_destinations(current_targets + selected_memory_destinations)
     final_exclusions = _dedupe_destinations(current_exclusions + excluded_memory_destinations)
     source = "memory"
@@ -1257,6 +1367,17 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         dependency_confidence if dependency_confidence > 0 else 1.0,
         selection_confidence if selection_confidence > 0 else 1.0,
     )
+    if deterministic_fallback_used:
+        selection_reason = (
+            "Memory selector produced no usable closed ref; recovered the single confirmed user-focus destination "
+            "deterministically to preserve factual follow-up scope."
+        )
+        confidence = min(confidence, 0.95)
+    elif selector_had_invalid_refs:
+        selection_reason = (
+            f"{selection_reason} Unsupported refs were ignored individually: {invalid_refs}."
+        )[:500]
+        confidence = min(confidence, 0.90)
 
     result = _resolution_result(
         explicit=explicit,

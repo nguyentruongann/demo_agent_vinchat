@@ -132,6 +132,36 @@
  * @property {number} total
  */
 
+/**
+ * @typedef {Object} FaqItem
+ * @property {string} id
+ * @property {string} category
+ * @property {string | null} [subcategory]
+ * @property {string} question
+ * @property {string} answer
+ * @property {string | null} [destination_id]
+ * @property {string | null} [content_language]
+ * @property {number | null} [sort_order]
+ */
+
+/**
+ * @typedef {Object} CategoryCount
+ * @property {string} name
+ * @property {number} count
+ */
+
+/**
+ * @typedef {Object} FaqListResponse
+ * @property {FaqItem[]} items
+ * @property {CategoryCount[]} categories
+ * @property {number} page
+ * @property {number} page_size
+ * @property {number} total
+ * @property {string} content_language
+ * @property {string} requested_language
+ * @property {boolean} translation_fallback
+ */
+
 // Keep this file as an ES module so its typedefs can be imported explicitly:
 // /** @typedef {import('../types').Hotel} Hotel */
 export {}

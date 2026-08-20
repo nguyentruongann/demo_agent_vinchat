@@ -1,0 +1,62 @@
+/* Inline links inside assistant-generated content.
+   Keep them visibly interactive without turning long answers into link chips. */
+.inline-md__link {
+  display: inline;
+  color: #147568;
+  font-weight: 650;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(20, 117, 104, 0.38);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    text-decoration-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.inline-md__link:hover {
+  color: #0b4f47;
+  text-decoration-color: currentColor;
+  background: rgba(20, 117, 104, 0.08);
+  border-radius: 4px;
+}
+
+.inline-md__link:focus-visible {
+  outline: 2px solid rgba(20, 117, 104, 0.45);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.inline-md__link-label {
+  overflow-wrap: anywhere;
+}
+
+.inline-md__link-external {
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 0.78em;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: 0.12em;
+  opacity: 0.7;
+}
+
+.inline-md__link:hover .inline-md__link-external {
+  opacity: 1;
+}
+
+/* User bubbles are rendered as plain text today, but this keeps the visual
+   contrast correct if InlineMarkdown is reused there later. */
+.chatbot-page__bubble--user .inline-md__link {
+  color: #ffffff;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inline-md__link {
+    transition: none;
+  }
+}

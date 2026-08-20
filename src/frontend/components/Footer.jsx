@@ -8,14 +8,14 @@ import {
   Instagram
 } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext'
+import vinpearlLogoWhiteGold from '../image/vp-logo-white-gold.svg'
 import '../styles/components/Footer.css'
 
-const VINPEARL_LOGO_URL =
-  'https://statics.vinpearl.com/files/images/new-homepage/vp-logo-blue.svg'
-const QR_CODE_URL = 'https://statics.vinpearl.com/QR-code.png' // fallback URL
-const APP_STORE_URL = 'https://statics.vinpearl.com/app-store.svg'
-const GOOGLE_PLAY_URL = 'https://statics.vinpearl.com/google-play.svg'
-const BCT_URL = 'https://statics.vinpearl.com/bocongthuong.png'
+const VINPEARL_LOGO_URL = vinpearlLogoWhiteGold
+const _QR_CODE_URL = 'https://statics.vinpearl.com/QR-code.png' // fallback URL
+const _APP_STORE_URL = 'https://statics.vinpearl.com/app-store.svg'
+const _GOOGLE_PLAY_URL = 'https://statics.vinpearl.com/google-play.svg'
+const _BCT_URL = 'https://statics.vinpearl.com/bocongthuong.png'
 
 function Footer() {
   const { t } = useLanguage()
@@ -70,7 +70,7 @@ function Footer() {
                 <li><Link className="footer__link" to="/about">{t.vpAboutUs}</Link></li>
                 <li><Link className="footer__link" to="/">{t.vpContact}</Link></li>
                 <li><Link className="footer__link" to="/">{t.vpCareers}</Link></li>
-                <li><Link className="footer__link" to="/">{t.vpFAQ}</Link></li>
+                <li><Link className="footer__link" to="/faq">{t.vpFAQ}</Link></li>
                 <li><Link className="footer__link" to="/">{t.vpSitemap}</Link></li>
               </ul>
             </div>

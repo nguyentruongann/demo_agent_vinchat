@@ -177,7 +177,7 @@ function RichMessage({ text, isUser }) {
  *
  * @param {{ sources: Array<{source_file: string, path?: string, category?: string}>, language?: string }} props
  */
-export function SourceChips({ sources, language }) {
+export function SourceChips({ sources }) {
   const { t } = useLanguage()
   if (!sources || sources.length === 0) return null
 
