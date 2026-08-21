@@ -164,7 +164,8 @@
 }
 
 .topic-card--open .topic-card__body-wrap {
-  max-height: 600px; /* large enough for most content */
+  max-height: 5000px;
+  overflow: visible;
 }
 
 .topic-card__body {

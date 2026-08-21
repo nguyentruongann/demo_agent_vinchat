@@ -71,7 +71,7 @@ function ChatWidget() {
 
   useEffect(() => {
     if (isOpen && messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }
   }, [messages, loading, isOpen])
 

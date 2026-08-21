@@ -289,6 +289,8 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên chat này.") from exc
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     sources = _build_sources(state)
