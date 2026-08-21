@@ -10,6 +10,7 @@ import chromadb
 import numpy as np
 from src.backend.config import get_settings
 from src.backend.services.onnx_embeddings import OnnxE5Embedder, OnnxEmbeddingConfig
+from src.backend.services.gemini_embeddings import GeminiEmbedding, GeminiEmbeddingConfig
 from src.backend.services.faq_matcher import FAQMatcher
 from src.backend.services.query_parser import (
     INTENT_ENTITY_TYPES,
@@ -139,21 +140,27 @@ class RAGService:
         settings = get_settings()
         settings.chroma_dir.mkdir(parents=True, exist_ok=True)
         self.settings = settings
-        if settings.embedding_backend != "onnx_int8":
-            raise RuntimeError(
-                "This deployment build supports EMBEDDING_BACKEND=onnx_int8 only. "
-                "Use the ONNX INT8 backend to keep Railway memory usage low."
+        if settings.embedding_backend == "gemini_api":
+            if not settings.gemini_api_key:
+                raise RuntimeError("GEMINI_API_KEY is required when EMBEDDING_BACKEND=gemini_api")
+            self.model = GeminiEmbedding(
+                GeminiEmbeddingConfig(
+                    api_key=settings.gemini_api_key,
+                    model=settings.gemini_embedding_model,
+                    batch_size=settings.embedding_batch_size,
+                )
             )
-        self.model = OnnxE5Embedder(
-            OnnxEmbeddingConfig(
-                model_name=settings.local_embedding_model,
-                onnx_file=settings.embedding_onnx_file,
-                provider=settings.embedding_onnx_provider,
-                batch_size=settings.embedding_batch_size,
-                max_length=settings.embedding_max_length,
-                intra_op_threads=settings.embedding_onnx_threads,
+        else:
+            self.model = OnnxE5Embedder(
+                OnnxEmbeddingConfig(
+                    model_name=settings.local_embedding_model,
+                    onnx_file=settings.embedding_onnx_file,
+                    provider=settings.embedding_onnx_provider,
+                    batch_size=settings.embedding_batch_size,
+                    max_length=settings.embedding_max_length,
+                    intra_op_threads=settings.embedding_onnx_threads,
+                )
             )
-        )
         self.chroma = chromadb.PersistentClient(path=str(settings.chroma_dir))
         self.collection = self.chroma.get_or_create_collection(
             name=settings.chroma_collection,
@@ -170,11 +177,17 @@ class RAGService:
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         passages = [f"passage: {text}" for text in texts]
-        embeddings = self.model.encode(passages)
+        if self.settings.embedding_backend == "gemini_api":
+            embeddings = self.model.encode(passages)
+        else:
+            embeddings = self.model.encode(passages)
         return embeddings.tolist()
 
     def embed_query(self, query: str) -> list[float]:
-        embedding = self.model.encode([f"query: {query}"])[0]
+        if self.settings.embedding_backend == "gemini_api":
+            embedding = self.model.encode_query([query])[0]
+        else:
+            embedding = self.model.encode([f"query: {query}"])[0]
         return embedding.tolist()
 
     def embed_queries(self, queries: list[str]) -> np.ndarray:
@@ -185,7 +198,9 @@ class RAGService:
         """
         cleaned = [str(query or "").strip() for query in queries if str(query or "").strip()]
         if not cleaned:
-            return np.empty((0, 384), dtype=np.float32)
+            return np.empty((0, 3072), dtype=np.float32)
+        if self.settings.embedding_backend == "gemini_api":
+            return self.model.encode_query(cleaned)
         return self.model.encode([f"query: {query}" for query in cleaned])
 
     def _ensure_not_empty(self) -> None:
@@ -211,7 +226,10 @@ class RAGService:
         if not cleaned:
             return []
 
-        embeddings = self.model.encode([f"query: {query}" for query in cleaned]).tolist()
+        if self.settings.embedding_backend == "gemini_api":
+            embeddings = self.model.encode_query(cleaned).tolist()
+        else:
+            embeddings = self.model.encode([f"query: {query}" for query in cleaned]).tolist()
         result = self.collection.query(
             query_embeddings=embeddings,
             n_results=top_k or self.settings.top_k,
@@ -1778,12 +1796,22 @@ class RAGService:
                     else ""
                 )
             )
-            if total + len(block) > self.settings.max_context_chars:
-                if exhaustive:
-                    # Do not terminate serialization just because one source is too
-                    # large. Later round-robin sources may still fit and may belong to
-                    # branches not represented yet.
-                    continue
+            # Exhaustive discovery queries need wider context, but they still need
+            # a hard ceiling. Without this limit, the exhaustive catalog retrieval
+            # can serialize an entire destination catalog into the LLM prompt.
+            # Keep normal RAG behavior unchanged and only expand the budget for
+            # explicit exhaustive requests.
+            context_limit = (
+                getattr(
+                    self.settings,
+                    "exhaustive_max_context_chars",
+                    self.settings.max_context_chars,
+                )
+                if exhaustive
+                else self.settings.max_context_chars
+            )
+
+            if total + len(block) > context_limit:
                 break
             blocks.append(block)
             total += len(block)

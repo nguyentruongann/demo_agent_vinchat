@@ -8,86 +8,140 @@ services:
     environment:
       PORT: "8000"
 
+      # =========================
       # API key
+      # =========================
       AGENT_API_KEY: ${AGENT_API_KEY:-dev-local-secret-key}
 
+
+      # =========================
       # Redis
+      # =========================
       REDIS_URL: redis://redis:6379/0
 
-      # PostgreSQL chạy trên máy Windows host
+
+      # =========================
+      # PostgreSQL
+      # =========================
       DATABASE_URL: postgresql+pg8000://${POSTGRES_USER:-vinpearl}:${POSTGRES_PASSWORD:-vinpearl}@host.docker.internal:5432/${POSTGRES_DB:-vinpearl}
+
 
       # =========================
       # LLM
       # =========================
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       LLM_MODEL: ${LLM_MODEL:-gemini/gemini-3.5-flash-lite}
+
       LLM_API_KEY: ${LLM_API_KEY}
       LLM_API_KEY_BACKUP: ${LLM_API_KEY_BACKUP:-}
 
+
       # =========================
       # Embedding
+      # Gemini Embedding API
       # =========================
-      LOCAL_EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
-      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
-      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-128}
 
-      # Hugging Face
-      # Cache model vào volume /app/storage để không phải tải lại khi recreate container
+      # chuyển backend embedding sang API
+      EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-gemini_api}
+
+      # model embedding Gemini
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+
+      # API key dùng cho embedding
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+
+      # =========================
+      # Local embedding fallback
+      # =========================
+      # giữ lại để fallback khi dev local
+      LOCAL_EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
+
+      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
+
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-50}
+
+
+
+      # =========================
+      # HuggingFace
+      # Không còn cần download embedding model
+      # giữ lại nếu code khác dùng
+      # =========================
       HF_HOME: /app/storage/huggingface
 
-      # Tắt Xet/CAS do môi trường hiện tại đang gặp lỗi reconstruction
       HF_HUB_DISABLE_XET: "1"
 
-      # Không bắt buộc với model public.
-      # Nếu có token Hugging Face thì khai báo trong file .env
       HF_TOKEN: ${HF_TOKEN:-}
+
+
 
       # =========================
       # RAG
       # =========================
       TOP_K: ${TOP_K:-5}
+
       MAX_CONTEXT_CHARS: ${MAX_CONTEXT_CHARS:-12000}
-      MIN_RELEVANCE_SCORE: ${MIN_RELEVANCE_SCORE:-0.35}
+
+      # Context mở rộng cho các câu hỏi dạng khám phá toàn bộ danh mục
+      # Ví dụ: "có những dịch vụ vui chơi gì?"
+      EXHAUSTIVE_MAX_CONTEXT_CHARS: ${EXHAUSTIVE_MAX_CONTEXT_CHARS:-24000}
+
+      MIN_RELEVANCE_SCORE: ${MIN_RELEVANCE_SCORE:-0.5}
+
+
 
       # =========================
       # Startup
       # =========================
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
 
-      # Bình thường để false.
-      # Chỉ bật true khi muốn seed lại PostgreSQL.
       BOOTSTRAP_CORE_DATA: ${BOOTSTRAP_CORE_DATA:-false}
 
-      # Bình thường để false.
-      # Chỉ bật true khi muốn rebuild lại Chroma từ PostgreSQL.
       REBUILD_CHROMA_ON_START: ${REBUILD_CHROMA_ON_START:-false}
+
+
 
       # =========================
       # Chroma
       # =========================
+
       CHROMA_DIR: /app/storage/chroma_local
-      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-vinpearl_multilingual_e5_small}
+
+      # đổi collection mới
+      # vì vector Gemini khác vector E5
+      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-vinpearl_gemini_embedding_001}
+
+
 
       # =========================
       # App
       # =========================
       APP_ENV: ${APP_ENV:-development}
+
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+
 
       # =========================
       # Auth
       # =========================
       ADMIN_BOOTSTRAP_KEY: ${ADMIN_BOOTSTRAP_KEY:-dev-admin-bootstrap-key}
+
       AUTH_SESSION_DAYS: ${AUTH_SESSION_DAYS:-7}
+
       PASSWORD_PBKDF2_ITERATIONS: ${PASSWORD_PBKDF2_ITERATIONS:-600000}
+
+
 
     depends_on:
       redis:
         condition: service_healthy
 
+
     volumes:
       - chroma_data:/app/storage
+
 
     healthcheck:
       test:
@@ -95,37 +149,52 @@ services:
         - python
         - -c
         - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+
       interval: 30s
+
       timeout: 10s
+
       retries: 3
+
       start_period: 60s
+
 
     restart: unless-stopped
 
 
+
   redis:
     image: redis:7-alpine
+
 
     command:
       - redis-server
       - --appendonly
       - "yes"
 
+
     volumes:
       - redis_data:/data
+
 
     healthcheck:
       test:
         - CMD
         - redis-cli
         - ping
+
       interval: 5s
+
       timeout: 3s
+
       retries: 10
 
+
     restart: unless-stopped
+
 
 
 volumes:
   chroma_data:
   redis_data:
+  

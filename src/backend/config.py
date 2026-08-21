@@ -19,7 +19,9 @@ class Settings(BaseSettings):
 
     # Local embeddings (ONNX INT8 keeps Railway memory usage low).
     local_embedding_model: str = "intfloat/multilingual-e5-small"
-    embedding_backend: str = "onnx_int8"
+    embedding_backend: str = "gemini_api"
+    gemini_embedding_model: str = "gemini-embedding-001"
+    gemini_api_key: str | None = None
     embedding_onnx_file: str = "onnx/model_qint8_avx512_vnni.onnx"
     embedding_onnx_provider: str = "CPUExecutionProvider"
     embedding_onnx_threads: int = 1
@@ -36,7 +38,7 @@ class Settings(BaseSettings):
     # Data / vector store
     data_dir: Path = Path("./data")
     chroma_dir: Path = Path("./storage/chroma_local")
-    chroma_collection: str = "vinpearl_multilingual_e5_small_onnx_int8"
+    chroma_collection: str = "vinpearl_gemini_embedding_001"
 
     # Conversation memory
     memory_enabled: bool = True
