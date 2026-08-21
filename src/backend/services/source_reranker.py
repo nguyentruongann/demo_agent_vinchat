@@ -522,36 +522,51 @@ class SourceReranker:
         corpus_candidates: list[dict[str, Any]] = []
         entity_norms = [normalize_text(value) for value in answer_entities]
         entity_norms = [value for value in entity_norms if len(value) >= 4]
+        seed_entity_types = {
+            str((item.get("metadata", {}) or {}).get("entity_type") or "").strip()
+            for item in seed_items
+        }
+        # Policy/contact answers often bold generic section headings such as
+        # "Contact Vinpearl" or "Email". Searching all Chroma rows with those
+        # phrases previously attached unrelated promotion pages to a grounded
+        # policy answer. Corpus expansion is useful only when retrieval established
+        # a real catalog entity/destination; otherwise citations must remain a
+        # subset of the evidence that actually reached the answer model.
+        allow_corpus_expansion = bool(
+            destination_ids
+            or seed_entity_types & (PRIMARY_ENTITY_TYPES | SECONDARY_ENTITY_TYPES)
+        )
 
-        for item in self._load_cache():
-            if destination_ids and not self._matches_destination(
-                item, destination_ids, destination_aliases
-            ):
-                continue
-            searchable = item["searchable"]
-            entity_name_norm = normalize_text(
-                str((item.get("metadata", {}) or {}).get("entity_name") or "")
-            )
-            matched = False
-            for entity_norm in entity_norms:
-                if (
-                    cls_phrase := self._phrase_in_text(searchable, entity_norm)
-                ) or (entity_name_norm and (
-                    entity_name_norm in entity_norm or entity_norm in entity_name_norm
-                )):
-                    matched = bool(cls_phrase or entity_name_norm)
-                    if matched:
-                        break
-                # Token overlap helps when answer says "Hanoi Grand World" while
-                # source metadata says "Grand World".
-                terms = self._entity_terms(entity_norm)
-                if terms:
-                    overlap = sum(1 for token in terms if self._phrase_in_text(searchable, token))
-                    if overlap >= min(2, len(terms)):
-                        matched = True
-                        break
-            if matched:
-                corpus_candidates.append(item)
+        if allow_corpus_expansion:
+            for item in self._load_cache():
+                if destination_ids and not self._matches_destination(
+                    item, destination_ids, destination_aliases
+                ):
+                    continue
+                searchable = item["searchable"]
+                entity_name_norm = normalize_text(
+                    str((item.get("metadata", {}) or {}).get("entity_name") or "")
+                )
+                matched = False
+                for entity_norm in entity_norms:
+                    if (
+                        cls_phrase := self._phrase_in_text(searchable, entity_norm)
+                    ) or (entity_name_norm and (
+                        entity_name_norm in entity_norm or entity_norm in entity_name_norm
+                    )):
+                        matched = bool(cls_phrase or entity_name_norm)
+                        if matched:
+                            break
+                    # Token overlap helps when answer says "Hanoi Grand World" while
+                    # source metadata says "Grand World".
+                    terms = self._entity_terms(entity_norm)
+                    if terms:
+                        overlap = sum(1 for token in terms if self._phrase_in_text(searchable, token))
+                        if overlap >= min(2, len(terms)):
+                            matched = True
+                            break
+                if matched:
+                    corpus_candidates.append(item)
 
         merged: dict[str, dict[str, Any]] = {}
         for item in seed_items + corpus_candidates:
@@ -583,7 +598,12 @@ class SourceReranker:
             # not appear in the frontend source list.
             if not best_url:
                 continue
-            minimum_score = 65.0
+            # Retrieved rows are the evidence actually shown to the answer model.
+            # In policy/contact answers their formal document title may not be
+            # repeated verbatim, so requiring the catalog-entity threshold would
+            # hide the correct regulation URL. Keep the stricter threshold only for
+            # optional corpus-expanded candidates.
+            minimum_score = 25.0 if item.get("id") in original_retrieved_ids else 65.0
             if score < minimum_score:
                 continue
             ranked.append(
