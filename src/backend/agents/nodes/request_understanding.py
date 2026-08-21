@@ -79,6 +79,18 @@ def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
         if intent in _ALLOWED_RETRIEVAL_INTENTS and intent not in retrieval_intents:
             retrieval_intents.append(intent)
 
+    retrieval_queries: list[str] = []
+    seen_retrieval_queries: set[str] = set()
+    for value in raw.get("retrieval_queries") or []:
+        text = str(value or "").strip()
+        normalized = normalize_text(text)
+        if not normalized or normalized in seen_retrieval_queries:
+            continue
+        seen_retrieval_queries.add(normalized)
+        retrieval_queries.append(text[:500])
+        if len(retrieval_queries) >= 3:
+            break
+
     references: list[str] = []
     for value in raw.get("reference_phrases") or []:
         text = str(value or "").strip()
@@ -101,6 +113,7 @@ def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
         "memory_reason": str(raw.get("memory_reason") or "").strip()[:300],
         "reference_phrases": references,
         "retrieval_intents": retrieval_intents,
+        "retrieval_queries": retrieval_queries,
         "needs_retrieval": _bool(raw.get("needs_retrieval", True)),
         "depends_on": depends_on,
     }
@@ -265,12 +278,15 @@ def understand_current_request(state: AgentState) -> AgentState:
         "Do not answer, do not retrieve facts, and do not assume the customer's wording is factually correct. "
         "Decompose the message into atomic tasks: each semantically independent question, requested action, comparison, clarification, review, price calculation, policy check, recommendation, or follow-up outcome is a separate task. "
         "There is no special two-clause limit: preserve all requested clauses in their original order. Do not collapse later clauses into the first one merely because they concern the same place. "
+        "When a customer gives multiple independent requirements or preferences and also asks how, where, or to whom they should communicate them, create one task for each independently answerable requirement plus a separate informational contact/communication-guidance task. Do not collapse the communication channel into the requirements themselves. "
         "A task may depend on an earlier task. Example: 'ở đây có 2 nơi hả, review chi tiết từng nơi' MUST become (1) verify whether they are actually two places, and (2) provide the requested detailed review using the corrected structure from task 1. "
         "If the customer states an assumption as a question ('có 2 nơi hả?', 'phòng này ở 5 người được hả?'), represent the task as VERIFY/CLARIFY that assumption, not as a confirmed fact. "
         "Set needs_memory=true only when that task contains an omitted/relative reference whose target requires prior conversation, such as 'ở đây', 'cái đó', 'gói trên', 'từng nơi' after previously discussed items, or when the user explicitly asks to reuse/review earlier information. "
         "Memory need is task-specific: one clause may need memory while another is fully explicit. "
         "Use task_type only from this closed set: place_structure_clarification, detailed_review, property_detail, brand_detail, comparison, price_estimate, price_lookup, hotel_recommendation, destination_recommendation, policy_qa, memory_recall, amenity_check, availability_check, itinerary, support_action, general_qa. "
         "retrieval_intents may contain only: hotel, booking_product, attraction, dining, service, promotion, event, golf, mice, policy, payment. "
+        "Write every goal as a standalone faithful English retrieval query, even when the current request is in another language. A request that only asks for a contact channel or how to notify the company is informational guidance, not an operation on a customer record; represent it as policy_qa or general_qa and include policy evidence when appropriate. "
+        "For each task, also return retrieval_queries with one or two concise English search variants. The first must preserve the concrete request; the second should express the broader source-style concept that an official FAQ or policy is likely to use, without adding facts. For example, concrete guest preferences may be abstracted as a special requirement, while still preserving the requested contact/procedure relation. "
         "Choose retrieval_intents by evidence type, not by broad brand words: a task asking for prices/listing of bookable tickets, passes, packages, combos, vouchers, memberships, or similar purchasable catalog items should include booking_product; promotion is for discounts/offers/deals, and hotel is for properties/rooms. Infer this semantically rather than requiring literal English labels. "
         "For every task also set result_scope to exactly normal or exhaustive. Use exhaustive when the customer semantically requests the COMPLETE SET of matching records/items/options (for example all/every/complete/full list, list everything, what are all available types/packages, show the whole catalog), regardless of the exact vocabulary or language used. Do not require any particular keyword; infer the requested coverage from meaning. Use normal when representative, best, nearest, a few, one, or otherwise non-complete evidence is enough. "
         "Return JSON only."
@@ -291,6 +307,7 @@ def understand_current_request(state: AgentState) -> AgentState:
       "memory_reason": "why prior turns are required, or empty",
       "reference_phrases": ["that package"],
       "retrieval_intents": ["hotel"],
+      "retrieval_queries": ["concrete faithful search query", "broader source-style paraphrase"],
       "needs_retrieval": true,
       "depends_on": []
     }
@@ -361,6 +378,8 @@ def understand_current_request(state: AgentState) -> AgentState:
             f"memory={task.get('needs_memory')} retrieval={task.get('retrieval_intents')} "
             f"goal={task.get('goal')}"
         )
+        if task.get("retrieval_queries"):
+            print(f"    retrieval_queries={task.get('retrieval_queries')}")
     print(f"Requires memory: {requires_memory}")
     print(f"Summary: {summary}")
     print("=========================================\n")

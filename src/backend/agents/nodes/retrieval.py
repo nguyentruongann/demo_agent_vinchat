@@ -108,6 +108,45 @@ def _planned_retrieval_requirements(state: AgentState) -> tuple[list[str], bool,
     return intents, price_requested, cost_estimate_requested, exhaustive_catalog_requested
 
 
+def _planned_retrieval_queries(state: AgentState) -> list[dict]:
+    """Return atomic task goals as bounded semantic retrieval variants.
+
+    The request planner already decomposes customer-visible outcomes, but the old
+    retrieval path used only the combined ``rag_query`` and discarded those atomic
+    goals. A compound query could therefore retrieve smoking regulations while
+    crowding out the separate FAQ that explains whom to contact. Keep task identity
+    and task-local intents so RAG can batch the variants and preserve diagnostics.
+    """
+    output: list[dict] = []
+    seen: set[str] = set()
+    for task in state.get("request_tasks") or []:
+        if not isinstance(task, dict) or task.get("needs_retrieval") is False:
+            continue
+        base_task_id = str(task.get("task_id") or f"t{len(output) + 1}")
+        intents = [
+            str(value or "").strip().lower()
+            for value in (task.get("retrieval_intents") or [])
+            if str(value or "").strip()
+        ]
+        candidates = [task.get("goal"), *(task.get("retrieval_queries") or [])]
+        for query_index, value in enumerate(candidates):
+            query = str(value or "").strip()
+            normalized = " ".join(query.lower().split())
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            output.append({
+                "task_id": (
+                    base_task_id
+                    if query_index == 0
+                    else f"{base_task_id}.q{query_index}"
+                ),
+                "query": query,
+                "intents": intents,
+            })
+    return output
+
+
 def _build_exhaustive_retrieval_packet(
     documents: list[dict],
     requested_intents: list[str],
@@ -173,6 +212,7 @@ def _build_exhaustive_retrieval_packet(
 def retrieve_context(state: AgentState) -> AgentState:
     rag = get_rag_service()
     planned_intents, planned_price, planned_cost_estimate, planned_exhaustive = _planned_retrieval_requirements(state)
+    planned_queries = _planned_retrieval_queries(state)
     exhaustive_booking_semantic = bool(
         planned_exhaustive and "booking_product" in planned_intents
     )
@@ -183,6 +223,7 @@ def retrieve_context(state: AgentState) -> AgentState:
         excluded_destination_ids=state.get("excluded_destination_ids") or [],
         excluded_entity_names=state.get("excluded_entity_names") or [],
         planned_intents=planned_intents,
+        planned_queries=planned_queries,
         force_price_requested=planned_price,
         force_cost_estimate_requested=planned_cost_estimate,
         exhaustive_requested=planned_exhaustive,

@@ -12,6 +12,7 @@ from src.backend.config import get_settings
 from src.backend.services.onnx_embeddings import OnnxE5Embedder, OnnxEmbeddingConfig
 from src.backend.services.gemini_embeddings import GeminiEmbedding, GeminiEmbeddingConfig
 from src.backend.services.faq_matcher import FAQMatcher
+from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import (
     INTENT_ENTITY_TYPES,
     build_intent_query,
@@ -136,6 +137,68 @@ class RAGService:
     _corpus_cache_collection: str | None = None
     _corpus_cache_count: int = -1
 
+    @staticmethod
+    def _verify_faq_candidates(
+        query_variants: list[tuple[str, str]],
+        candidates: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Semantically verify near-miss FAQ candidates after deterministic gates.
+
+        Dense similarity alone is intentionally not authoritative, but multilingual
+        paraphrases can miss the lexical/predicate thresholds by a small amount. A
+        bounded verifier sees only the top candidates and may select one when its
+        documented answer directly supports a requested task. It cannot create new
+        evidence or search outside the supplied FAQ rows.
+        """
+        if not candidates:
+            return None
+        llm = LLMService()
+        result = llm.json(
+            system_prompt=(
+                "You are a strict semantic equivalence verifier for official Vinpearl FAQ retrieval. "
+                "The deterministic vector/lexical gate rejected all candidates, so independently inspect meaning rather than shared words. "
+                "Select exactly one candidate only when its QUESTION and documented ANSWER directly support at least one factual or procedural outcome requested by the customer. "
+                "For a compound request, a candidate may support one atomic part (for example the requested contact channel) because other evidence will be merged later. "
+                "Prefer the most specific applicable candidate. Do not select a merely adjacent policy, and do not assume that deadlines or conditions for changing an existing package apply to a new preference unless the request says so. "
+                "Treat faithful multilingual synonyms and paraphrases as equivalent. If no candidate is safely applicable, select 0. Return JSON only."
+            ),
+            user_prompt=(
+                "QUERY_VARIANTS_JSON:\n"
+                + json.dumps(
+                    [
+                        {"source": source, "query": value}
+                        for source, value in query_variants
+                    ],
+                    ensure_ascii=False,
+                )
+                + "\n\nFAQ_CANDIDATES_JSON:\n"
+                + json.dumps(candidates, ensure_ascii=False)
+                + "\n\nReturn exactly:\n"
+                + '{"selected_candidate_position":0,"confidence":0.0,"reason":"brief evidence-based reason"}'
+            ),
+        )
+        try:
+            position = int(result.get("selected_candidate_position") or 0)
+        except (TypeError, ValueError):
+            position = 0
+        try:
+            confidence = max(0.0, min(1.0, float(result.get("confidence") or 0.0)))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        if position < 0 or position > len(candidates):
+            position = 0
+        verified = {
+            "selected_candidate_position": position,
+            "confidence": confidence,
+            "reason": str(result.get("reason") or "").strip()[:500],
+        }
+        print(
+            "[FAQ VERIFIER] "
+            f"selected={position} confidence={confidence:.4f} "
+            f"reason={verified['reason']}"
+        )
+        return verified
+
     def __init__(self) -> None:
         settings = get_settings()
         settings.chroma_dir.mkdir(parents=True, exist_ok=True)
@@ -173,6 +236,7 @@ class RAGService:
             embed_passages=self.embed_documents,
             embed_queries=self.embed_queries,
             fallback_rows=self._load_faq_fallback_rows,
+            semantic_verifier=self._verify_faq_candidates,
         )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
@@ -889,6 +953,7 @@ class RAGService:
         excluded_destination_ids: list[str] | None = None,
         excluded_entity_names: list[str] | None = None,
         planned_intents: list[str] | None = None,
+        planned_queries: list[dict[str, Any]] | None = None,
         force_price_requested: bool = False,
         force_cost_estimate_requested: bool = False,
         exhaustive_requested: bool = False,
@@ -963,6 +1028,23 @@ class RAGService:
             if planned_name in INTENT_ENTITY_TYPES and planned_name not in intents:
                 intents.append(planned_name)
                 planned_added.append(planned_name)
+        task_query_variants: list[tuple[str, str, list[str]]] = []
+        seen_task_queries: set[str] = set()
+        for index, raw in enumerate(planned_queries or [], start=1):
+            if not isinstance(raw, dict):
+                continue
+            task_query = str(raw.get("query") or "").strip()
+            normalized_task_query = normalize_text(task_query)
+            if not normalized_task_query or normalized_task_query in seen_task_queries:
+                continue
+            seen_task_queries.add(normalized_task_query)
+            task_id = str(raw.get("task_id") or f"t{index}").strip() or f"t{index}"
+            task_intents = [
+                str(value or "").strip().lower()
+                for value in (raw.get("intents") or [])
+                if str(value or "").strip().lower() in INTENT_ENTITY_TYPES
+            ]
+            task_query_variants.append((f"task:{task_id}", task_query, task_intents))
         primary_intent = intents[0] if intents else parsed.get("intent")
         named_entities = self._find_named_entity_mentions(user_message, query)
         named_entity_types = {str(item.get("type") or "").strip().lower() for item in named_entities}
@@ -1007,9 +1089,12 @@ class RAGService:
         # catalog/property retrieval path. Exact FAQ equality is still allowed inside
         # FAQMatcher; this only disables semantic FAQ hijacking such as matching
         # "Where are Vinpearl's properties?" for "chi tiết về Vinpearl Cua Hoi Resort".
+        broad_discovery_request = (
+            len(intents) >= 3
+            and generic_discovery_intents.issubset(set(intents))
+        )
         skip_faq_semantic = (
-            len(intents) > 1
-            or (len(intents) >= 3 and generic_discovery_intents.issubset(set(intents)))
+            broad_discovery_request
             or (entity_detail_request and not policy_or_faq_intent)
         )
         faq_routing_context = " ".join(
@@ -1029,9 +1114,16 @@ class RAGService:
             top_k=min(3, max(1, k)),
             skip_semantic=skip_faq_semantic,
             routing_context=faq_routing_context,
+            additional_queries=[
+                (source, task_query)
+                for source, task_query, _task_intents in task_query_variants
+            ],
         )
 
-        if faq_diagnostics.get("accepted") and faq_documents:
+        supplemental_faq_documents: list[dict[str, Any]] = []
+        supplemental_faq_intent: str | None = None
+
+        if faq_diagnostics.get("accepted") and faq_documents and not is_multi_intent:
             primary_destination = destinations[0] if destinations else None
             destination_ids = [str(item.get("id") or "") for item in destinations]
             destination_names = [
@@ -1117,7 +1209,44 @@ class RAGService:
             )
             return faq_documents, diagnostics
 
-        if faq_diagnostics.get("mode") not in {None, "faq_skipped"}:
+        if faq_diagnostics.get("accepted") and faq_documents and is_multi_intent:
+            supplemental_faq_intent = next(
+                (value for value in ("policy", "payment") if value in intents),
+                primary_intent or "faq",
+            )
+            primary_destination = destinations[0] if destinations else None
+            for item in faq_documents:
+                copied = dict(item)
+                copied["matched_intent"] = supplemental_faq_intent
+                if primary_destination:
+                    copied["matched_destination_id"] = str(primary_destination.get("id") or "")
+                    copied["matched_destination_name"] = str(
+                        primary_destination.get("name_vi")
+                        or primary_destination.get("name_en")
+                        or primary_destination.get("id")
+                        or ""
+                    )
+                    metadata = dict(copied.get("metadata", {}) or {})
+                    if not metadata.get("destination_id"):
+                        metadata["destination_id"] = str(primary_destination.get("id") or "")
+                    copied["metadata"] = metadata
+                supplemental_faq_documents.append(copied)
+            print(
+                "[FAQ RETRIEVAL] "
+                f"mode={faq_diagnostics.get('mode')} accepted=true supplemental=true "
+                f"intent={supplemental_faq_intent} "
+                f"question={faq_diagnostics.get('matched_question')!r} "
+                f"score={faq_diagnostics.get('best_score')} "
+                f"semantic={faq_diagnostics.get('best_semantic_score')} "
+                f"lexical={faq_diagnostics.get('best_lexical_score')} "
+                f"predicate_count={faq_diagnostics.get('best_predicate_count')} "
+                f"predicate_ratio={faq_diagnostics.get('best_predicate_ratio')}"
+            )
+
+        if (
+            not faq_diagnostics.get("accepted")
+            and faq_diagnostics.get("mode") not in {None, "faq_skipped"}
+        ):
             print(
                 "[FAQ RETRIEVAL] "
                 f"mode={faq_diagnostics.get('mode')} accepted=false "
@@ -1450,6 +1579,16 @@ class RAGService:
                 semantic_queries.append(("rewritten", rewritten_query))
                 seen_queries.add(normalized_rewritten)
 
+            # Atomic task goals are independent retrieval evidence. They are batched
+            # with the original/rewritten queries, so a short contact-guidance task
+            # can retrieve its FAQ even when the combined query is dominated by a
+            # room, dining, price, or policy constraint.
+            for task_source, task_query, _task_intents in task_query_variants:
+                normalized_task_query = normalize_text(task_query)
+                if normalized_task_query and normalized_task_query not in seen_queries:
+                    semantic_queries.append((task_source, task_query))
+                    seen_queries.add(normalized_task_query)
+
             # For corpus-wide retrieval, add one focused query per detected intent
             # in the SAME embedding/Chroma batch. This prevents a strong but wrong
             # entity type in the global top-k from crowding out valid evidence for
@@ -1664,6 +1803,39 @@ class RAGService:
             if any(result.get("status") == "not_found" for result in intent_results.values()):
                 mode += "_partial"
 
+        # A high-confidence FAQ for a compound request supplements the normal
+        # branch evidence instead of replacing it. The previous early return marked
+        # every intent as found from one FAQ and could hide independently requested
+        # policies/services. Prepending the authoritative row also prevents a lower
+        # scoring generic policy chunk from crowding it out of the final context.
+        if supplemental_faq_documents:
+            documents = self._dedupe_documents(supplemental_faq_documents + documents)
+            documents = documents[: max(k, len(supplemental_faq_documents))]
+            faq_intent_key = str(supplemental_faq_intent or primary_intent or "faq")
+            branch_document_count = sum(
+                1 for item in documents
+                if str(item.get("matched_intent") or "") == faq_intent_key
+            )
+            existing_result = dict(intent_results.get(faq_intent_key, {}) or {})
+            existing_result.update({
+                "status": "found",
+                "document_count": max(1, branch_document_count),
+                "candidate_count": max(
+                    int(existing_result.get("candidate_count") or 0),
+                    int(faq_diagnostics.get("candidate_count") or 0),
+                ),
+                "best_score": round(max(
+                    float(existing_result.get("best_score") or 0.0),
+                    float(faq_diagnostics.get("best_score") or 0.0),
+                ), 4),
+                "query": str(query or user_message or ""),
+                "missing_destination_ids": list(existing_result.get("missing_destination_ids") or []),
+                "faq_match": True,
+                "matched_question": faq_diagnostics.get("matched_question"),
+            })
+            intent_results[faq_intent_key] = existing_result
+            mode += "+faq_supplement"
+
         primary = destinations[0] if destinations else None
         destination_names = [
             str(item.get("name_vi") or item.get("name_en") or item.get("id") or "")
@@ -1695,6 +1867,7 @@ class RAGService:
             "booking_focus_document_count": len(booking_focus_documents),
             "intent_origin": ("request_plan" if planned_added else str(parsed.get("intent_origin") or "none")),
             "intent_results": intent_results,
+            "faq_match": faq_diagnostics,
             "keyword_candidate_count": all_candidates,
             "missing_destination_ids": missing_destination_ids,
             "named_entities": [

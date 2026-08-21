@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +11,7 @@ from typing import Any, Callable
 import numpy as np
 
 from src.backend.config import get_settings
-from src.backend.services.query_parser import normalize_text
+from src.backend.services.query_parser import normalize_intent_text, normalize_text
 
 
 # The FAQ matcher is intentionally independent from destination/intent routing.
@@ -26,7 +27,7 @@ _STOPWORDS = {
     "who", "this", "that", "these", "those", "there", "any", "please", "tell",
     "toi", "minh", "ban", "co", "la", "duoc", "khong", "cho", "cua", "va",
     "voi", "tu", "tai", "o", "ve", "nay", "do", "mot", "nhung", "cac", "the",
-    "nao", "gi", "bao", "nhieu", "lam", "sao", "xin", "hay",
+    "nao", "gi", "nhieu", "lam", "sao", "xin", "hay",
 }
 
 # Generic conversational/support words are poor discriminators between FAQ rows.
@@ -144,11 +145,16 @@ class FAQMatcher:
         embed_passages: Callable[[list[str]], list[list[float]]],
         embed_queries: Callable[[list[str]], np.ndarray],
         fallback_rows: Callable[[], list[dict[str, Any]]] | None = None,
+        semantic_verifier: Callable[
+            [list[tuple[str, str]], list[dict[str, Any]]],
+            dict[str, Any] | None,
+        ] | None = None,
     ) -> None:
         self.settings = get_settings()
         self._embed_passages = embed_passages
         self._embed_queries = embed_queries
         self._fallback_rows = fallback_rows
+        self._semantic_verifier = semantic_verifier
         self._entries: list[FAQEntry] | None = None
         self._question_vectors: np.ndarray | None = None
         self._enriched_vectors: np.ndarray | None = None
@@ -278,9 +284,25 @@ class FAQMatcher:
             return value[:-1]
         return value
 
+    @staticmethod
+    def _normalized_lexical_text(value: str) -> str:
+        """Normalize FAQ lexical text without erasing Vietnamese ``báo``.
+
+        ``normalize_text`` intentionally strips accents, so both the verb ``báo``
+        (notify/report) and the price phrase ``bao nhiêu`` become ``bao``. Treating
+        the single token as a stopword removed a meaningful predicate from FAQ
+        confidence checks. Remove only the actual question phrase before using the
+        accent-insensitive representation; keep standalone ``báo``/``bao`` tokens.
+        """
+        raw = normalize_intent_text(value)
+        normalized = normalize_text(value)
+        if re.search(r"\bbao\s+nhiêu\b", raw) or re.search(r"\bbao\s+nhieu\b", raw):
+            normalized = re.sub(r"\bbao\s+nhieu\b", " ", normalized)
+        return re.sub(r"\s+", " ", normalized).strip()
+
     @classmethod
     def _tokens(cls, value: str) -> set[str]:
-        normalized = normalize_text(value)
+        normalized = cls._normalized_lexical_text(value)
         return {
             cls._canonical_token(token)
             for token in normalized.split()
@@ -291,7 +313,7 @@ class FAQMatcher:
     def _anchor_tokens(cls, value: str) -> set[str]:
         return {
             cls._canonical_token(token)
-            for token in normalize_text(value).split()
+            for token in cls._normalized_lexical_text(value).split()
             if len(token) >= 3 and token not in _GENERIC_ANCHOR_TOKENS
         }
 
@@ -539,10 +561,19 @@ class FAQMatcher:
         )
 
     @staticmethod
-    def _dedupe_query_variants(original_query: str, rewritten_query: str) -> list[tuple[str, str]]:
+    def _dedupe_query_variants(
+        original_query: str,
+        rewritten_query: str,
+        additional_queries: list[tuple[str, str]] | None = None,
+    ) -> list[tuple[str, str]]:
         output: list[tuple[str, str]] = []
         seen: set[str] = set()
-        for source, value in (("original", original_query), ("rewritten", rewritten_query)):
+        candidates = [
+            ("original", original_query),
+            ("rewritten", rewritten_query),
+            *(additional_queries or []),
+        ]
+        for source, value in candidates:
             text = str(value or "").strip()
             normalized = normalize_text(text)
             if not normalized or normalized in seen:
@@ -562,12 +593,17 @@ class FAQMatcher:
         top_k: int = 3,
         skip_semantic: bool = False,
         routing_context: str = "",
+        additional_queries: list[tuple[str, str]] | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         entries = self._load_entries()
         if not entries:
             return [], {"accepted": False, "reason": "FAQ JSON unavailable"}
 
-        variants = self._dedupe_query_variants(original_query, rewritten_query)
+        variants = self._dedupe_query_variants(
+            original_query,
+            rewritten_query,
+            additional_queries,
+        )
         if not variants:
             return [], {"accepted": False, "reason": "Empty FAQ query"}
 
@@ -778,6 +814,55 @@ class FAQMatcher:
                 "reason": signal,
             })
 
+        verifier_result: dict[str, Any] | None = None
+        if selected_rank is None and self._semantic_verifier is not None:
+            verifier_candidates: list[dict[str, Any]] = []
+            for rank_index, candidate in enumerate(
+                ranked[:max_validation_candidates],
+                start=1,
+            ):
+                entry = entries[int(candidate["entry_index"])]
+                verifier_candidates.append({
+                    "position": rank_index,
+                    "question": entry.question,
+                    "answer": entry.answer[:1400],
+                    "category": entry.category,
+                    "subcategory": entry.subcategory,
+                    "semantic_score": round(float(candidate.get("semantic_score") or 0.0), 4),
+                    "lexical_score": round(float(candidate.get("lexical_score") or 0.0), 4),
+                    "predicate_count": int(candidate.get("predicate_count") or 0),
+                    "predicate_ratio": round(float(candidate.get("predicate_ratio") or 0.0), 4),
+                })
+            try:
+                raw_verifier_result = self._semantic_verifier(
+                    variants,
+                    verifier_candidates,
+                )
+                verifier_result = (
+                    dict(raw_verifier_result)
+                    if isinstance(raw_verifier_result, dict)
+                    else None
+                )
+                selected_position = int(
+                    (verifier_result or {}).get("selected_candidate_position") or 0
+                )
+                verifier_confidence = float(
+                    (verifier_result or {}).get("confidence") or 0.0
+                )
+                if (
+                    1 <= selected_position <= max_validation_candidates
+                    and verifier_confidence >= 0.82
+                ):
+                    selected_rank = selected_position - 1
+                    selected_signal = "semantic equivalence verifier"
+            except Exception as exc:
+                verifier_result = {
+                    "selected_candidate_position": 0,
+                    "confidence": 0.0,
+                    "reason": f"Verifier unavailable: {type(exc).__name__}",
+                }
+                print(f"[FAQ VERIFIER] skipped after error: {type(exc).__name__}: {exc}")
+
         # Diagnostics still expose the highest-scoring raw candidate when nothing
         # passes, but when rank #2/#3 is the first valid candidate we report that row
         # as the actual match.
@@ -817,6 +902,7 @@ class FAQMatcher:
                 "candidate_count": len(entries),
                 "validated_candidate_count": max_validation_candidates,
                 "rejected_candidates": rejection_details,
+                "semantic_verifier": verifier_result,
                 "reason": "No top FAQ candidate passed the conservative cross-signal confidence gate.",
             }
 
@@ -854,7 +940,8 @@ class FAQMatcher:
             "matched_query_source": best["query_source"],
             "candidate_count": len(entries),
             "selected_candidate_rank": int(best_rank_index) + 1,
-            "rejected_higher_ranked_candidates": rejection_details,
+            "rejected_higher_ranked_candidates": rejection_details[:best_rank_index],
+            "semantic_verifier": verifier_result,
             "reason": (
                 "High-confidence cross-signal match to canonical Vinpearl FAQ "
                 f"({acceptance_signal})."
