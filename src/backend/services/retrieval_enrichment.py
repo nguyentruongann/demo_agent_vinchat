@@ -33,7 +33,7 @@ from src.backend.services.query_parser import normalize_text
 from src.data_postgre.db import CORE_TABLES
 
 
-PRICE_DATA_AS_OF = "2/8/2026"
+PRICE_DATA_AS_OF = "31/7/2026"
 DEFAULT_OUTPUT_CURRENCY_BY_LANGUAGE = {"vi": "VND", "en": "USD"}
 
 
@@ -508,10 +508,24 @@ def _room_price_rows(connection, destination_ids: list[str], per_destination: in
     return selected
 
 
-def _booking_price_rows(connection, destination_ids: list[str], per_destination: int = 5) -> list[dict[str, Any]]:
+def _booking_price_rows(
+    connection,
+    destination_ids: list[str],
+    per_destination: int = 5,
+    *,
+    catalog_query: str = "",
+    hydrated_documents: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     booking = CORE_TABLES.get("booking_product")
     if booking is None or not destination_ids:
         return []
+
+    scope = _resolve_booking_catalog_scope(
+        connection,
+        destination_ids,
+        catalog_query,
+        hydrated_documents or [],
+    )
 
     stmt = (
         select(booking)
@@ -524,6 +538,12 @@ def _booking_price_rows(connection, destination_ids: list[str], per_destination:
             )
         )
     )
+    booking_code = str(scope.get("booking_code") or "").strip()
+    venue_name = str(scope.get("venue_name") or "").strip()
+    if booking_code:
+        stmt = stmt.where(booking.c.booking_code == booking_code)
+    elif venue_name:
+        stmt = stmt.where(booking.c.venue_name == venue_name)
     rows = [dict(row) for row in connection.execute(stmt).mappings().all()]
 
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -535,8 +555,20 @@ def _booking_price_rows(connection, destination_ids: list[str], per_destination:
     selected: list[dict[str, Any]] = []
     for destination_id in destination_ids:
         candidates = grouped.get(destination_id, [])
+        for item in candidates:
+            labels = [
+                item.get("product_name"), item.get("venue_name"),
+                item.get("service_group"), item.get("product_type"),
+                item.get("category"), item.get("booking_code"),
+                item.get("ticket_code"),
+            ]
+            item["_catalog_scope_score"] = max(
+                (_catalog_scope_score(catalog_query, str(value or "")) for value in labels),
+                default=0.0,
+            )
         candidates.sort(
             key=lambda item: (
+                -float(item.get("_catalog_scope_score") or 0.0),
                 bool(item.get("sold_out")),
                 0 if item.get("minimum_price") is not None else 1,
                 Decimal(str(item.get("minimum_price") or item.get("maximum_price") or 10**18)),
@@ -546,19 +578,48 @@ def _booking_price_rows(connection, destination_ids: list[str], per_destination:
 
         # Keep price examples diverse so an aggregate-trip question sees more than
         # five nearly identical variants from one product family.
+        limit = max(1, per_destination)
         picked: list[dict[str, Any]] = []
         seen_groups: set[str] = set()
         for row in candidates:
             group = str(row.get("service_group") or row.get("product_type") or row.get("category") or "").strip().casefold()
-            if group and group in seen_groups and len(picked) < max(1, per_destination - 1):
+            if group and group in seen_groups:
                 continue
             picked.append(row)
             if group:
                 seen_groups.add(group)
-            if len(picked) >= max(1, per_destination):
+            if len(picked) >= limit:
                 break
+        if len(picked) < limit:
+            picked_ids = {id(row) for row in picked}
+            for row in candidates:
+                if id(row) in picked_ids:
+                    continue
+                picked.append(row)
+                if len(picked) >= limit:
+                    break
+        for row in picked:
+            row.pop("_catalog_scope_score", None)
         selected.extend(picked)
     return selected
+
+
+def _structured_price_lanes(
+    retrieval_intents: list[str] | None,
+    *,
+    cost_estimate_requested: bool,
+) -> tuple[bool, bool]:
+    """Return (include_rooms, include_booking_products) for a price request."""
+    if cost_estimate_requested:
+        return True, True
+    intents = {
+        str(value or "").strip().lower()
+        for value in (retrieval_intents or [])
+        if str(value or "").strip()
+    }
+    if not intents:
+        return True, True
+    return "hotel" in intents, bool(intents & {"booking_product", "attraction"})
 
 
 def _token_similarity(left: str, right: str) -> float:
@@ -1132,6 +1193,7 @@ def enrich_retrieved_documents(
     destination_ids: list[str] | None = None,
     price_requested: bool = False,
     cost_estimate_requested: bool = False,
+    retrieval_intents: list[str] | None = None,
     exhaustive_booking_requested: bool = False,
     catalog_query: str = "",
     preferred_output_currency: str | None = None,
@@ -1224,10 +1286,22 @@ def enrich_retrieved_documents(
                     # small grounded price lane, but with fewer rows.
                     room_limit = 3 if cost_estimate_requested else 2
                     booking_limit = 5 if cost_estimate_requested else 3
-                    for row in _room_price_rows(connection, price_destination_ids, per_destination=room_limit):
-                        price_documents.append(_price_doc_from_room(row))
-                    for row in _booking_price_rows(connection, price_destination_ids, per_destination=booking_limit):
-                        price_documents.append(_price_doc_from_booking(row))
+                    include_rooms, include_booking = _structured_price_lanes(
+                        retrieval_intents,
+                        cost_estimate_requested=cost_estimate_requested,
+                    )
+                    if include_rooms:
+                        for row in _room_price_rows(connection, price_destination_ids, per_destination=room_limit):
+                            price_documents.append(_price_doc_from_room(row))
+                    if include_booking:
+                        for row in _booking_price_rows(
+                            connection,
+                            price_destination_ids,
+                            per_destination=booking_limit,
+                            catalog_query=catalog_query,
+                            hydrated_documents=base_documents,
+                        ):
+                            price_documents.append(_price_doc_from_booking(row))
 
             # If the requested output language/currency is VND, enrich summaries
             # with deterministic converted display values so the final LLM never has

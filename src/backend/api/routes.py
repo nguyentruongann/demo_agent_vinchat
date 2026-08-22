@@ -2,9 +2,10 @@ import re
 from uuid import uuid4
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..agents.graph import agent_graph
+from ..config import get_settings
 from ..models.chat import (
     ChatHistoryMessage,
     ChatRequest,
@@ -13,11 +14,12 @@ from ..models.chat import (
     ChatSessionSummary,
     SourceItem,
 )
-from ..services.memory import MemoryService
 from ..services.auth import get_current_user, get_optional_user
-from src.data_postgre.db.app import AppUser
+from ..services.memory import MemoryService
+from ..services.rate_limit import enforce_rate_limit
 from ..services.query_parser import load_destination_catalog, normalize_text
 from ..services.source_reranker import get_source_reranker
+from src.data_postgre.db.app import AppUser
 
 router = APIRouter(prefix="/api/v1", tags=["agent"])
 
@@ -266,9 +268,20 @@ def _build_sources(state: dict) -> list[SourceItem]:
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_optional_user)) -> ChatResponse:
-    session_id = request.session_id or f"SES-{uuid4().hex}"
+def chat(
+    payload: ChatRequest,
+    http_request: Request,
+    current_user: AppUser | None = Depends(get_optional_user),
+) -> ChatResponse:
+    session_id = payload.session_id or f"SES-{uuid4().hex}"
     user_id = str(current_user.id) if current_user else None
+    client_host = http_request.client.host if http_request.client else "unknown"
+    enforce_rate_limit(
+        bucket="chat",
+        identity=user_id or client_host,
+        limit=get_settings().chat_rate_limit_per_minute,
+        window_seconds=60,
+    )
 
     # Authorize/claim the session before entering LangGraph. This prevents a
     # caller from supplying another user's session UUID and inheriting its memory.
@@ -280,18 +293,22 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
     try:
         state = agent_graph.invoke(
             {
-                "user_message": request.message,
+                "user_message": payload.message,
                 "session_id": session_id,
                 "user_id": user_id,
-                "page_context": request.page_context,
+                "page_context": payload.page_context,
             }
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên chat này.") from exc
     except Exception as exc:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        import logging
+        trace_id = uuid4().hex
+        logging.getLogger(__name__).exception("chat_failed trace_id=%s", trace_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal service error. Reference: {trace_id}",
+        ) from exc
 
     sources = _build_sources(state)
 
@@ -337,7 +354,7 @@ def chat(request: ChatRequest, current_user: AppUser | None = Depends(get_option
             "logic_category": state.get("logic_category"),
             "logic_reason": state.get("logic_reason"),
             "logic_confidence": state.get("logic_confidence"),
-        },
+        } if get_settings().expose_chat_debug else None,
     )
 
 

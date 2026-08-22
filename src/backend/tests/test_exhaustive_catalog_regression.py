@@ -71,6 +71,50 @@ def test_unique_short_property_alias_still_works():
     assert result[0]["name"].startswith("Vinpearl Cua Hoi Resort")
 
 
+def test_named_property_scope_keeps_its_rooms_and_excludes_peer_properties():
+    service = RAGService.__new__(RAGService)
+    metadatas = [
+        {
+            "entity_type": "property",
+            "entity_id": "id=vinpearl-resort-nha-trang",
+            "entity_name": "Vinpearl Resort Nha Trang",
+            "destination_id": "nha-trang",
+        }
+    ]
+    service._load_corpus_cache = MethodType(
+        lambda self: {"metadatas": metadatas}, service
+    )
+    scope = service._named_entity_scope([
+        {
+            "name": "Vinpearl Resort Nha Trang",
+            "type": "property",
+            "indices": [0],
+        }
+    ])
+
+    target_room = {
+        "metadata": {
+            "entity_type": "room",
+            "entity_id": "id=vinpearl-resort-nha-trang--room-1",
+            "entity_name": "Grand Deluxe Twin Bed",
+            "property_id": "vinpearl-resort-nha-trang",
+        }
+    }
+    peer_property = {
+        "metadata": {
+            "entity_type": "property",
+            "entity_id": "id=vinpearl-resort-spa-nha-trang-bay",
+            "entity_name": "Vinpearl Resort & Spa Nha Trang Bay",
+        }
+    }
+
+    assert service._document_matches_named_entity_scope(target_room, scope) is True
+    assert service._document_matches_named_entity_scope(peer_property, scope) is False
+    assert service._is_room_catalog_query(
+        "What types of rooms are available at Vinpearl Resort Nha Trang?"
+    ) is True
+
+
 def test_catalog_scope_score_is_semantic_and_typo_tolerant():
     query = "cho mình trọn bộ vé và giá ở vinwonder nha trang"
 

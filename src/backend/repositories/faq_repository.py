@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy import func, or_, select
 
 from src.backend.services.db import open_session
-from src.data_postgre.db.core import Faq
+from src.data_postgre.db.core import Faq, Source
 
 
 def _base_filter(
@@ -21,7 +21,7 @@ def _base_filter(
     destination: str | None,
 ):
     """Trả danh sách SQLAlchemy filter conditions dùng chung cho items và count."""
-    conditions = []
+    conditions = [Faq.is_active.is_(True)]
 
     if q:
         term = f"%{q}%"
@@ -133,3 +133,37 @@ def list_faqs(
             "categories": categories,
             "total": total,
         }
+
+
+def load_faq_corpus() -> list[dict[str, Any]]:
+    """Load the active FAQ-first retrieval corpus exclusively from PostgreSQL."""
+    with open_session() as session:
+        statement = (
+            select(Faq, Source.canonical_url, Source.url)
+            .outerjoin(Source, Faq.source_id == Source.id)
+            .where(Faq.is_active.is_(True))
+            .order_by(Faq.sort_order.asc().nullslast(), Faq.question.asc(), Faq.id.asc())
+        )
+        rows = session.execute(statement).all()
+
+    output: list[dict[str, Any]] = []
+    seen_questions: set[str] = set()
+    for row_number, (faq, canonical_url, source_url) in enumerate(rows):
+        question = str(faq.question or "").strip()
+        answer = str(faq.answer or "").strip()
+        question_key = " ".join(question.casefold().split())
+        if not question_key or not answer or question_key in seen_questions:
+            continue
+        seen_questions.add(question_key)
+        output.append({
+            "index": row_number,
+            "id": str(faq.id),
+            "question": question,
+            "answer": answer,
+            "category": str(faq.category or "General").strip() or "General",
+            "subcategory": str(faq.subcategory or "").strip(),
+            "source_url": str(canonical_url or source_url or "https://vinpearl.com/en/faqs").strip(),
+            "language": str(faq.content_language or "en").strip() or "en",
+            "source_path": "postgresql:core.faq",
+        })
+    return output

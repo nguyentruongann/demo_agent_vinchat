@@ -62,6 +62,10 @@ class AgentState(TypedDict, total=False):
     request_understanding_summary: str
     request_understanding_confidence: float
     request_understanding_source: str
+    # Per-atomic-task evidence diagnostics.  Intent labels alone are not enough:
+    # two independent questions may legitimately use the same evidence lane
+    # (for example check-in time + booking-hotline guidance are both policy QA).
+    task_retrieval_results: dict[str, dict[str, Any]]
     exhaustive_catalog_requested: bool
     exhaustive_catalog_complete: bool
     exhaustive_catalog_count: int
@@ -112,6 +116,7 @@ class AgentState(TypedDict, total=False):
     context_branch_counts: dict[str, int]
     context_intents: list[str]
     context_entity_keys: list[str]
+    context_task_ids: list[str]
 
     # Generic semantic exhaustive-retrieval contract. This is separate from the
     # specialised structured booking-price catalog below and applies to any typed
@@ -127,6 +132,11 @@ class AgentState(TypedDict, total=False):
     detected_destinations: list[dict[str, Any]]
     detected_destination_ids: list[str]
     detected_destination_names: list[str]
+    # Closed named-entity scope validated against indexed metadata during retrieval.
+    # This is a downstream fallback when a deictic follow-up selected a memory turn
+    # and produced an exact standalone query, but the context resolver did not have
+    # a direct entity ref to place in ``resolved_entity_names`` yet.
+    retrieval_entity_scope: dict[str, Any]
     detected_intent: str | None          # backward-compatible primary intent
     detected_intents: list[str]          # all intents in the current turn
     explicit_intents: list[str]          # intent words grounded in current user wording

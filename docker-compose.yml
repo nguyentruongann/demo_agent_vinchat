@@ -41,38 +41,19 @@ services:
       # Gemini Embedding API
       # =========================
 
-      # chuyển backend embedding sang API
-      EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-gemini_api}
+      # Gemini is the only supported embedding backend.
+      EMBEDDING_BACKEND: gemini_api
 
       # model embedding Gemini
-      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      GEMINI_EMBEDDING_MODEL: gemini-embedding-001
 
       # API key dùng cho embedding
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-
-
-      # =========================
-      # Local embedding fallback
-      # =========================
-      # giữ lại để fallback khi dev local
-      LOCAL_EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
-
-      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
-
-      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-50}
-
-
-
-      # =========================
-      # HuggingFace
-      # Không còn cần download embedding model
-      # giữ lại nếu code khác dùng
-      # =========================
-      HF_HOME: /app/storage/huggingface
-
-      HF_HUB_DISABLE_XET: "1"
-
-      HF_TOKEN: ${HF_TOKEN:-}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-16}
+      EMBEDDING_DIMENSION: "3072"
+      EMBEDDING_MAX_RETRIES: ${EMBEDDING_MAX_RETRIES:-4}
+      EMBEDDING_RETRY_BASE_SECONDS: ${EMBEDDING_RETRY_BASE_SECONDS:-1}
+      EMBEDDING_RETRY_MAX_SECONDS: ${EMBEDDING_RETRY_MAX_SECONDS:-20}
 
 
 
@@ -108,9 +89,9 @@ services:
 
       CHROMA_DIR: /app/storage/chroma_local
 
-      # đổi collection mới
-      # vì vector Gemini khác vector E5
-      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-vinpearl_gemini_embedding_001}
+      # Never reuse an E5/ONNX collection: Gemini vectors have dimension 3072.
+      CHROMA_COLLECTION: vinpearl_gemini_embedding_001_v2
+      KNOWLEDGE_SCHEMA_VERSION: "2"
 
 
 

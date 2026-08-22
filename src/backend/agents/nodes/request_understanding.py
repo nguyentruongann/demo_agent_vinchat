@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.agents.state import AgentState
 from src.backend.services.llm import LLMService
-from src.backend.services.query_parser import normalize_text
+from src.backend.services.query_parser import (
+    detect_intents,
+    detect_retrieval_facets,
+    normalize_text,
+)
 
 
 _ALLOWED_TASK_TYPES = {
@@ -46,6 +51,28 @@ _ALLOWED_RETRIEVAL_INTENTS = {
 }
 
 
+_BOOKING_PURCHASE_MARKERS = (
+    "mua ve", "dat ve", "nen mua ve", "goi ve", "combo ve",
+    "buy ticket", "book ticket", "purchase ticket", "ticket purchase",
+    "ticket package", "booking package",
+)
+
+_BOOKING_PROCEDURE_MARKERS = (
+    "bat dau", "the nao", "cach ", "huong dan", "o dau", "nen ",
+    "how ", "where ", "start", "guide", "which ", "should ",
+)
+
+_RELATIVE_AREA_MARKERS = (
+    "nhung khu do", "cac khu do", "may khu do", "nhung khu nay", "cac khu nay",
+    "nhung khu vua noi", "cac khu vua noi", "those zones", "those areas",
+    "these zones", "these areas", "the zones above", "the areas above",
+)
+
+_LODGING_MARKERS = (
+    "hotel", "resort", "room", "villa", "khach san", "phong", "biet thu",
+)
+
+
 def _bounded_confidence(value: Any) -> float:
     try:
         number = float(value)
@@ -58,6 +85,65 @@ def _bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _repair_task_contract(task: dict[str, Any]) -> dict[str, Any]:
+    """Repair purchase guidance and deictic zone-price planner mistakes.
+
+    The verbatim customer clause is authoritative. Buying/booking guidance is
+    demoted only when it has procedural purchase semantics and the deterministic
+    facet detector finds no explicit numeric money question.
+    """
+    output = dict(task)
+    source_text = str(output.get("source_text") or output.get("goal") or "").strip()
+    padded = f" {normalize_text(source_text)} "
+    purchase_guidance = (
+        any(marker in padded for marker in _BOOKING_PURCHASE_MARKERS)
+        and any(marker in padded for marker in _BOOKING_PROCEDURE_MARKERS)
+    )
+    explicit_price = bool(
+        detect_retrieval_facets(source_text, "").get("price_requested")
+    )
+    task_type = str(output.get("task_type") or "general_qa")
+
+    intents = list(output.get("retrieval_intents") or [])
+    if purchase_guidance and "booking_product" not in intents:
+        intents.append("booking_product")
+    if (
+        task_type in {"price_lookup", "price_estimate"}
+        and purchase_guidance
+        and not explicit_price
+    ):
+        output["task_type_repaired_from"] = task_type
+        output["task_type"] = "general_qa"
+
+    relative_area_price = bool(
+        explicit_price
+        and any(marker in normalize_text(source_text) for marker in _RELATIVE_AREA_MARKERS)
+    )
+    if relative_area_price:
+        output["needs_memory"] = True
+        output["memory_reason"] = (
+            "The plural area/zone reference must be resolved from the immediately preceding turn."
+        )
+        if not any(marker in normalize_text(source_text) for marker in _LODGING_MARKERS):
+            intents = [intent for intent in intents if intent != "hotel"]
+        for intent in ("attraction", "booking_product"):
+            if intent not in intents:
+                intents.append(intent)
+        output["result_scope"] = "normal"
+        output["retrieval_queries"] = [
+            "VinWonders admission ticket prices and whether the zones mentioned in the immediately preceding turn are separately priced or included",
+            source_text[:500],
+        ]
+    if explicit_price and str(output.get("task_type") or "") == "general_qa":
+        output["task_type"] = "price_lookup"
+    output["retrieval_intents"] = intents
+
+    output["price_requested"] = bool(
+        output.get("task_type") in {"price_lookup", "price_estimate"}
+    )
+    return output
 
 
 def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
@@ -103,11 +189,20 @@ def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
         if ref and ref not in depends_on:
             depends_on.append(ref[:40])
 
-    return {
+    return _repair_task_contract({
         "task_id": f"t{index}",
         "task_type": task_type,
         "result_scope": result_scope,
         "goal": goal[:500],
+        # Preserve the exact customer clause as a separate field.  ``goal`` is an
+        # English retrieval rewrite, while ``source_text`` is required for exact FAQ
+        # matching, Vietnamese predicate preservation, and auditability.
+        "source_text": str(
+            raw.get("source_text")
+            or raw.get("original_text")
+            or raw.get("question")
+            or ""
+        ).strip()[:500],
         "must_answer": True,
         "needs_memory": _bool(raw.get("needs_memory")),
         "memory_reason": str(raw.get("memory_reason") or "").strip()[:300],
@@ -116,7 +211,304 @@ def _normalize_task(raw: dict[str, Any], index: int) -> dict[str, Any] | None:
         "retrieval_queries": retrieval_queries,
         "needs_retrieval": _bool(raw.get("needs_retrieval", True)),
         "depends_on": depends_on,
-    }
+    })
+
+
+_REQUEST_MARKERS = (
+    "cho toi biet", "cho minh biet", "tu van", "goi y", "so sanh", "review",
+    "liet ke", "huong dan", "can lam gi", "nen chon", "nen mua", "nen o",
+    "tell me", "recommend", "compare", "list", "show me", "how do i",
+    "what should", "which should",
+)
+
+_MEMORY_REFERENCE_MARKERS = (
+    "cai do", "cho do", "goi do", "noi do", "o do", "ben do", "cai kia",
+    "cho kia", "goi kia", "vua noi", "luc nay", "o tren", "phia tren",
+    "nhung khu do", "cac khu do", "may khu do", "nhung khu nay", "cac khu nay",
+    "that one", "that place", "there", "the above", "mentioned earlier",
+    "those zones", "those areas", "these zones", "these areas",
+)
+
+
+def _atomic_clause_candidates(message: str) -> list[str]:
+    """Extract explicit question/request clauses without pretending to be an LLM.
+
+    This is a deterministic *coverage guard*, not the main semantic planner.  It is
+    intentionally conservative: question marks, semicolons/newlines, and numbered or
+    bulleted requests are boundaries; ordinary descriptive sentences remain attached
+    to the semantic LLM plan instead of becoming fake tasks.
+    """
+    raw = str(message or "").strip()
+    if not raw:
+        return []
+
+    # Make numbered/bulleted lists visible as boundaries while preserving their text.
+    prepared = re.sub(r"\s+(?=(?:[-*•]|\d+[.)])\s+)", "\n", raw)
+    pieces = re.split(r"(?<=[?？;；])\s*|\n+", prepared)
+
+    def split_compound_question(piece: str) -> list[str]:
+        """Split comma-joined predicates only when every side is interrogative."""
+        if "?" not in piece and "？" not in piece:
+            return [piece]
+        body = piece.rstrip().rstrip("?？").strip()
+        parts = [value.strip() for value in re.split(r"\s*,\s*", body) if value.strip()]
+        if len(parts) <= 1:
+            return [piece]
+
+        question_markers = (
+            "khong", "sao", "nao", "may gio", "bao nhieu", "the nao",
+            "khi nao", "luc nao", "duoc chu", "right", "how", "what",
+            "when", "where", "which", "can ", "does ", "do ", "is ", "are ",
+        )
+        if not all(
+            any(marker in f" {normalize_text(part)} " for marker in question_markers)
+            for part in parts
+        ):
+            return [piece]
+        return [f"{part}?" for part in parts]
+
+    expanded_pieces = [
+        clause
+        for piece in pieces
+        for clause in split_compound_question(piece)
+    ]
+    output: list[str] = []
+    seen: set[str] = set()
+    for piece in expanded_pieces:
+        clause = re.sub(r"^(?:[-*•]|\d+[.)])\s*", "", piece).strip()
+        if not clause:
+            continue
+        normalized = normalize_text(clause)
+        is_explicit_question = "?" in clause or "？" in clause
+        is_explicit_request = any(marker in normalized for marker in _REQUEST_MARKERS)
+        if not (is_explicit_question or is_explicit_request):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        output.append(clause[:500])
+    return output
+
+
+def _fallback_task_for_clause(clause: str, index: int) -> dict[str, Any]:
+    """Create one safe retrieval task when an explicit clause escaped the LLM plan."""
+    normalized = normalize_text(clause)
+    padded = f" {normalized} "
+
+    def has_any(markers: tuple[str, ...]) -> bool:
+        return any(f" {normalize_text(marker)} " in padded for marker in markers)
+
+    intents = list(detect_intents(clause))
+    facets = detect_retrieval_facets(clause, clause)
+
+    payment_markers = (
+        "thanh toan", "chuyen khoan", "ngan hang", "the ngan hang", "the tin dung",
+        "bank transfer", "bank account", "payment", "credit card", "debit card",
+    )
+    policy_markers = (
+        "chinh sach", "quy dinh", "nhan phong", "tra phong", "check in", "check out",
+        "hotline", "lien he", "tong dai", "contact", "bring food", "mang do an",
+        "tre em", "child policy", "hoan huy", "doi lich", "refund", "cancel",
+    )
+    booking_markers = (
+        # Do not add accent-stripped single tokens ``ve``/``goi`` here: Vietnamese
+        # "vé/về" and "gói/gọi" collapse to the same forms. detect_intents() keeps
+        # accents and already handles the unambiguous ticket/package meanings.
+        "combo", "pass", "ticket", "package", "voucher", "dat phong",
+        "book room", "booking",
+    )
+    if has_any(payment_markers):
+        for intent in ("payment", "policy"):
+            if intent not in intents:
+                intents.append(intent)
+    elif has_any(policy_markers) and "policy" not in intents:
+        intents.append("policy")
+    if has_any(booking_markers) and "booking_product" not in intents:
+        intents.append("booking_product")
+
+    if facets.get("cost_estimate_requested"):
+        task_type = "price_estimate"
+    elif facets.get("price_requested"):
+        task_type = "price_lookup"
+    elif {"policy", "payment"} & set(intents):
+        task_type = "policy_qa"
+    else:
+        task_type = "general_qa"
+
+    needs_memory = has_any(_MEMORY_REFERENCE_MARKERS)
+    return _repair_task_contract({
+        "task_id": f"t{index}",
+        "task_type": task_type,
+        "result_scope": "normal",
+        "goal": clause[:500],
+        "source_text": clause[:500],
+        "must_answer": True,
+        "needs_memory": needs_memory,
+        "memory_reason": (
+            "The atomic clause contains a relative reference to earlier conversation context."
+            if needs_memory else ""
+        ),
+        "reference_phrases": [],
+        "retrieval_intents": intents,
+        "retrieval_queries": [clause[:500]],
+        "needs_retrieval": True,
+        "depends_on": [],
+    })
+
+
+def _ensure_explicit_clause_coverage(
+    message: str,
+    tasks: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    """Guarantee one task per explicit question/list item.
+
+    The semantic planner remains authoritative for meaning.  This guard only repairs
+    the observable failure mode where it returns fewer tasks than the number of
+    explicit customer questions.  Existing tasks are aligned in order and missing
+    clauses receive bounded multilingual retrieval tasks.
+    """
+    clauses = _atomic_clause_candidates(message)
+    if len(clauses) <= 1:
+        return tasks, 0
+
+    def align_task_to_clause(task: dict[str, Any], clause: str) -> dict[str, Any]:
+        """Force one-to-one verbatim provenance and keep it as the first query."""
+        aligned = dict(task)
+        aligned["source_text"] = clause
+        queries = [clause, *(aligned.get("retrieval_queries") or [])]
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for value in queries:
+            text = str(value or "").strip()
+            key = normalize_text(text)
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(text[:500])
+        aligned["retrieval_queries"] = deduped[:3]
+        return aligned
+
+    if len(tasks) >= len(clauses):
+        # A superficially valid plan may still put the whole compound message into
+        # every source_text.  When the counts match, ordered one-to-one alignment is
+        # deterministic and prevents those tasks from collapsing again at FAQ/RAG.
+        if len(tasks) == len(clauses):
+            tasks = [
+                align_task_to_clause(task, clause)
+                for task, clause in zip(tasks, clauses)
+            ]
+        return tasks, 0
+
+    repaired: list[dict[str, Any]] = []
+    for index, clause in enumerate(clauses):
+        if index < len(tasks):
+            repaired.append(align_task_to_clause(tasks[index], clause))
+        else:
+            repaired.append(_fallback_task_for_clause(clause, index + 1))
+
+    # Keep semantic tasks that go beyond punctuation-level clauses (for example a
+    # planner may split a comparison into verification + recommendation).
+    repaired.extend(dict(task) for task in tasks[len(clauses):])
+    for index, task in enumerate(repaired, start=1):
+        task["task_id"] = f"t{index}"
+    return repaired, max(0, len(repaired) - len(tasks))
+
+
+_FACET_LABELS = {
+    "hotel": "hotels and rooms",
+    "booking_product": "bookable products and numeric prices",
+    "attraction": "attractions and entertainment",
+    "dining": "dining and restaurants",
+    "service": "services and amenities",
+    "promotion": "promotions and offers",
+    "event": "events and shows",
+    "golf": "golf",
+    "mice": "meetings and events facilities",
+    "policy": "policies and rules",
+    "payment": "payment guidance",
+}
+
+
+def _ensure_requested_facet_coverage(
+    message: str,
+    tasks: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    """Split implicit multi-facet requests even if both LLM passes collapse them."""
+    explicit_intents = [
+        intent for intent in detect_intents(message)
+        if intent in _ALLOWED_RETRIEVAL_INTENTS and intent != "booking_product"
+    ]
+    facets = detect_retrieval_facets(message, message)
+    price_requested = bool(facets.get("price_requested"))
+    cost_estimate_requested = bool(facets.get("cost_estimate_requested"))
+    if not (len(explicit_intents) >= 3 or (len(explicit_intents) >= 2 and price_requested)):
+        return tasks, 0
+
+    full_message_key = normalize_text(message)
+
+    def is_atomic_for(task: dict[str, Any], intent: str) -> bool:
+        task_intents = list(task.get("retrieval_intents") or [])
+        source_key = normalize_text(task.get("source_text") or "")
+        return intent in task_intents and (
+            len(task_intents) == 1 or (source_key and source_key != full_message_key)
+        )
+
+    repaired = [dict(task) for task in tasks]
+    if len(repaired) == 1 and len(repaired[0].get("retrieval_intents") or []) > 1:
+        repaired = []
+
+    additions = 0
+    for intent in explicit_intents:
+        if any(is_atomic_for(task, intent) for task in repaired):
+            continue
+        label = _FACET_LABELS[intent]
+        repaired.append({
+            "task_id": "",
+            "task_type": "policy_qa" if intent in {"policy", "payment"} else "general_qa",
+            "result_scope": "normal",
+            "goal": f"Answer the requested part about {label}.",
+            "source_text": str(message or "").strip()[:500],
+            "must_answer": True,
+            "needs_memory": False,
+            "memory_reason": "",
+            "reference_phrases": [],
+            "retrieval_intents": [intent],
+            "retrieval_queries": [f"{message} | Focus only on {label}"[:500]],
+            "needs_retrieval": True,
+            "depends_on": [],
+        })
+        additions += 1
+
+    price_covered = any(
+        str(task.get("task_type") or "") in {"price_lookup", "price_estimate"}
+        for task in repaired
+    )
+    if price_requested and not price_covered:
+        price_intents = [
+            intent for intent in explicit_intents
+            if intent in {"hotel", "attraction", "dining", "service", "promotion"}
+        ]
+        price_intents.append("booking_product")
+        repaired.append({
+            "task_id": "",
+            "task_type": "price_estimate" if cost_estimate_requested else "price_lookup",
+            "result_scope": "normal",
+            "goal": "Provide the requested grounded cost or price information.",
+            "source_text": str(message or "").strip()[:500],
+            "must_answer": True,
+            "needs_memory": False,
+            "memory_reason": "",
+            "reference_phrases": [],
+            "retrieval_intents": price_intents,
+            "retrieval_queries": [f"{message} | Focus on numeric prices and cost"[:500]],
+            "needs_retrieval": True,
+            "depends_on": [],
+            "price_requested": True,
+        })
+        additions += 1
+
+    for index, task in enumerate(repaired, start=1):
+        task["task_id"] = f"t{index}"
+    return repaired, additions
 
 
 def _audit_missing_tasks(
@@ -137,7 +529,7 @@ def _audit_missing_tasks(
             "Also audit each existing task's result_scope semantically. result_scope=exhaustive means the customer wants the COMPLETE SET of matching items/records/options, regardless of the exact vocabulary or language used; result_scope=normal means a representative/single/non-complete result is acceptable. "
             "If a task's scope is wrong, put only that task_id and the corrected result_scope in scope_updates. Do not use a keyword checklist; infer coverage from meaning. "
             "Also audit retrieval_intents by evidence type. If the task asks for purchasable/bookable tickets, passes, packages, combos, vouchers, memberships, or equivalent catalog products, booking_product should be present; promotion is only for actual discounts/offers/deals, hotel is for properties/rooms. Only emit retrieval_updates when the existing evidence types are materially wrong or incomplete. "
-            "When an update is needed, each scope_updates item must be exactly {task_id, result_scope}; each retrieval_updates item must be exactly {task_id, retrieval_intents}. Missing tasks use the same task object shape as the planner, including result_scope. "
+            "When an update is needed, each scope_updates item must be exactly {task_id, result_scope}; each retrieval_updates item must be exactly {task_id, retrieval_intents}. Missing tasks use the same task object shape as the planner, including result_scope and a verbatim source_text clause copied from CURRENT_REQUEST. "
             "This includes third, fourth, fifth, or later clauses; there is no two-clause limit. Do not add paraphrase duplicates and do not invent wishes the customer did not express. "
             "If nothing is missing and no scope/evidence-type correction is needed, return missing_tasks=[], scope_updates=[], retrieval_updates=[]. Use the same closed task_type and retrieval_intents vocabularies as the planner. Return JSON only."
         ),
@@ -211,6 +603,7 @@ def _deterministic_fallback_tasks(message: str) -> list[dict[str, Any]]:
             "task_type": "place_structure_clarification",
             "result_scope": "normal",
             "goal": "Determine whether the places/items the customer refers to are actually separate places.",
+            "source_text": str(message or "").strip()[:500],
             "must_answer": True,
             "needs_memory": True,
             "memory_reason": "The assumed count/identity refers to information previously shown or discussed.",
@@ -225,6 +618,7 @@ def _deterministic_fallback_tasks(message: str) -> list[dict[str, Any]]:
             "task_type": "detailed_review",
             "result_scope": "normal",
             "goal": "Provide the detailed review requested by the customer for the correctly resolved place(s) or components.",
+            "source_text": str(message or "").strip()[:500],
             "must_answer": True,
             "needs_memory": bool(tasks),
             "memory_reason": "The review target may depend on the preceding clarification/reference.",
@@ -240,6 +634,7 @@ def _deterministic_fallback_tasks(message: str) -> list[dict[str, Any]]:
             "task_type": "general_qa",
             "result_scope": "normal",
             "goal": str(message or "").strip()[:500] or "Answer the current customer request.",
+            "source_text": str(message or "").strip()[:500],
             "must_answer": True,
             "needs_memory": False,
             "memory_reason": "",
@@ -287,12 +682,13 @@ def understand_current_request(state: AgentState) -> AgentState:
         "retrieval_intents may contain only: hotel, booking_product, attraction, dining, service, promotion, event, golf, mice, policy, payment. "
         "Write every goal as a standalone faithful English retrieval query, even when the current request is in another language. A request that only asks for a contact channel or how to notify the company is informational guidance, not an operation on a customer record; represent it as policy_qa or general_qa and include policy evidence when appropriate. "
         "For each task, also return retrieval_queries with one or two concise English search variants. The first must preserve the concrete request; the second should express the broader source-style concept that an official FAQ or policy is likely to use, without adding facts. For example, concrete guest preferences may be abstracted as a special requirement, while still preserving the requested contact/procedure relation. "
+        "For each task, source_text MUST be the smallest faithful verbatim clause copied from current_message_sanitized that expresses that task. Never put the whole compound message into every source_text. "
         "Choose retrieval_intents by evidence type, not by broad brand words: a task asking for prices/listing of bookable tickets, passes, packages, combos, vouchers, memberships, or similar purchasable catalog items should include booking_product; promotion is for discounts/offers/deals, and hotel is for properties/rooms. Infer this semantically rather than requiring literal English labels. "
+        "Use price_lookup only when the customer explicitly asks for a numeric price, cost, fare, fee, budget, total, estimate, or how much. Asking how/where to buy or book, how to start, which purchase channel to use, or requesting ticket-purchase guidance WITHOUT a money question is general_qa with booking_product evidence; the mere presence of ticket/package/booking words never makes it price_lookup. "
         "For every task also set result_scope to exactly normal or exhaustive. Use exhaustive when the customer semantically requests the COMPLETE SET of matching records/items/options (for example all/every/complete/full list, list everything, what are all available types/packages, show the whole catalog), regardless of the exact vocabulary or language used. Do not require any particular keyword; infer the requested coverage from meaning. Use normal when representative, best, nearest, a few, one, or otherwise non-complete evidence is enough. "
         "Return JSON only."
     )
     payload = {
-        "current_message_original": state.get("user_message", ""),
         "current_message_sanitized": message,
         "has_prior_conversation": bool(state.get("conversation_turns")),
         "page_context_present": bool(state.get("page_context")),
@@ -303,6 +699,7 @@ def understand_current_request(state: AgentState) -> AgentState:
       "task_type": "general_qa",
       "result_scope": "normal",
       "goal": "one complete customer-visible outcome",
+      "source_text": "verbatim clause from the customer's current message",
       "needs_memory": false,
       "memory_reason": "why prior turns are required, or empty",
       "reference_phrases": ["that package"],
@@ -357,17 +754,25 @@ def understand_current_request(state: AgentState) -> AgentState:
             for index, task in enumerate(tasks, start=1):
                 task["task_id"] = f"t{index}"
 
+        tasks, clause_additions = _ensure_explicit_clause_coverage(message, tasks)
+        tasks, facet_additions = _ensure_requested_facet_coverage(message, tasks)
+        deterministic_additions = clause_additions + facet_additions
+
         summary = str(result.get("overall_goal") or "").strip()[:800]
-        if missing_tasks or not summary:
+        if missing_tasks or deterministic_additions or not summary:
             summary = " | ".join(task["goal"] for task in tasks)
         confidence = _bounded_confidence(result.get("confidence"))
         source = "llm_task_decomposition"
     except Exception as exc:
         tasks = _deterministic_fallback_tasks(message)
+        tasks, clause_additions = _ensure_explicit_clause_coverage(message, tasks)
+        tasks, facet_additions = _ensure_requested_facet_coverage(message, tasks)
+        deterministic_additions = clause_additions + facet_additions
         summary = " | ".join(task["goal"] for task in tasks)
         confidence = 0.0
         source = f"deterministic_fallback:{type(exc).__name__}"
 
+    tasks = [_repair_task_contract(task) for task in tasks]
     requires_memory = any(bool(task.get("needs_memory")) for task in tasks)
     print("\n===== CURRENT REQUEST UNDERSTANDING =====")
     print(f"Question: {message}")
@@ -376,7 +781,7 @@ def understand_current_request(state: AgentState) -> AgentState:
         print(
             f"  {task.get('task_id')} type={task.get('task_type')} scope={task.get('result_scope', 'normal')} "
             f"memory={task.get('needs_memory')} retrieval={task.get('retrieval_intents')} "
-            f"goal={task.get('goal')}"
+            f"source_text={task.get('source_text')} goal={task.get('goal')}"
         )
         if task.get("retrieval_queries"):
             print(f"    retrieval_queries={task.get('retrieval_queries')}")

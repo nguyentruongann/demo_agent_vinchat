@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
+import os
 import re
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -120,23 +123,22 @@ class FAQEntry:
 
 
 class FAQMatcher:
-    """High-recall FAQ-first matcher over the canonical 174-row FAQ JSON.
+    """High-recall FAQ-first matcher over active PostgreSQL ``core.faq`` rows.
 
     Why this exists:
     - destination-scoped retrieval can legally exclude FAQ rows when the detected
       intent prefers catalog entities such as ``attraction``;
     - exact FAQ matching only after the destination branch is too late;
-    - the FAQ file itself is the authoritative source for FAQ answers, so it should
-      have a dedicated retrieval lane that does not depend on generic catalog filters.
+    - normalized PostgreSQL FAQ rows are authoritative, so this lane does not depend
+      on source files or generic catalog filters.
 
     The matcher uses three signals, in order:
     1) exact normalized question equality;
     2) lexical overlap against the English standalone query;
-    3) multilingual E5 semantic similarity against both question-only and
+    3) multilingual Gemini semantic similarity against both question-only and
        category/subcategory-enriched FAQ passages.
 
-    The embedding callbacks are provided by ``RAGService`` so the ONNX model is
-    instantiated only once for the whole process.
+    The embedding callbacks are provided by ``RAGService`` so the Gemini client is shared.
     """
 
     def __init__(
@@ -144,7 +146,7 @@ class FAQMatcher:
         *,
         embed_passages: Callable[[list[str]], list[list[float]]],
         embed_queries: Callable[[list[str]], np.ndarray],
-        fallback_rows: Callable[[], list[dict[str, Any]]] | None = None,
+        rows_loader: Callable[[], list[dict[str, Any]]] | None = None,
         semantic_verifier: Callable[
             [list[tuple[str, str]], list[dict[str, Any]]],
             dict[str, Any] | None,
@@ -153,84 +155,35 @@ class FAQMatcher:
         self.settings = get_settings()
         self._embed_passages = embed_passages
         self._embed_queries = embed_queries
-        self._fallback_rows = fallback_rows
+        self._rows_loader = rows_loader
         self._semantic_verifier = semantic_verifier
         self._entries: list[FAQEntry] | None = None
         self._question_vectors: np.ndarray | None = None
         self._enriched_vectors: np.ndarray | None = None
-        self._loaded_path: Path | None = None
         self._question_idf: dict[str, float] | None = None
 
     # ------------------------------------------------------------------
     # Data loading
     # ------------------------------------------------------------------
-    def _candidate_paths(self) -> list[Path]:
-        service_path = Path(__file__).resolve()
-        src_dir = service_path.parents[2]
-        cwd = Path.cwd()
-
-        candidates = [
-            src_dir / "data_crawl" / "Faqs" / "vinpearl_faqs.json",
-            src_dir / "data_crawl" / "faqs" / "vinpearl_faqs.json",
-            cwd / "src" / "data_crawl" / "Faqs" / "vinpearl_faqs.json",
-            cwd / "src" / "data_crawl" / "faqs" / "vinpearl_faqs.json",
-            cwd / "data" / "faqs" / "vinpearl_faqs.json",
-            cwd / "data_crawl" / "Faqs" / "vinpearl_faqs.json",
-            Path(self.settings.data_dir) / "faqs" / "vinpearl_faqs.json",
-        ]
-
-        output: list[Path] = []
-        seen: set[str] = set()
-        for path in candidates:
-            key = str(path.resolve()) if path.exists() else str(path.absolute())
-            if key in seen:
-                continue
-            seen.add(key)
-            output.append(path)
-        return output
-
     def _load_entries(self) -> list[FAQEntry]:
         if self._entries is not None:
             return self._entries
-
-        faq_path = next((path for path in self._candidate_paths() if path.is_file()), None)
-        payload: dict[str, Any] = {}
-        source_label = ""
         rows: list[dict[str, Any]] = []
-
-        if faq_path is not None:
+        if self._rows_loader is not None:
             try:
-                payload = json.loads(faq_path.read_text(encoding="utf-8"))
-                rows = [item for item in (payload.get("items") or []) if isinstance(item, dict)]
-                source_label = str(faq_path)
+                rows = [item for item in self._rows_loader() if isinstance(item, dict)]
             except Exception as exc:
-                print(f"[FAQ MATCHER] failed to load {faq_path}: {exc}")
-                rows = []
-
-        # Deployment fallback: some Docker images copy only backend code + Chroma and
-        # omit data_crawl. The normalized FAQ rows are already present in Chroma, so
-        # reuse them instead of silently disabling FAQ-first retrieval.
-        if not rows and self._fallback_rows is not None:
-            try:
-                rows = [item for item in self._fallback_rows() if isinstance(item, dict)]
-                source_label = "chroma:faq"
-                payload = {
-                    "source_url": "https://vinpearl.com/en/faqs",
-                    "language": "en",
-                    "item_count": len(rows),
-                }
-                print(f"[FAQ MATCHER] raw FAQ JSON unavailable; loaded {len(rows)} FAQ rows from Chroma fallback")
-            except Exception as exc:
-                print(f"[FAQ MATCHER] Chroma FAQ fallback failed: {exc}")
+                print(f"[FAQ MATCHER] PostgreSQL FAQ load failed; FAQ-first lane disabled: {type(exc).__name__}: {exc}")
                 rows = []
 
         if not rows:
-            print("[FAQ MATCHER] no FAQ source available; FAQ-first lane disabled")
+            print("[FAQ MATCHER] no active PostgreSQL FAQ rows; FAQ-first lane disabled")
             self._entries = []
             return self._entries
 
-        source_url = str(payload.get("source_url") or "https://vinpearl.com/en/faqs").strip()
-        language = str(payload.get("language") or "en").strip() or "en"
+        source_url = "https://vinpearl.com/en/faqs"
+        language = "en"
+        source_label = "postgresql:core.faq"
 
         entries: list[FAQEntry] = []
         for index, item in enumerate(rows):
@@ -251,12 +204,8 @@ class FAQMatcher:
                 )
             )
 
-        self._loaded_path = faq_path
         self._entries = entries
-        print(
-            f"[FAQ MATCHER] loaded {len(entries)} FAQ rows from {source_label} "
-            f"(declared item_count={payload.get('item_count')})"
-        )
+        print(f"[FAQ MATCHER] loaded {len(entries)} active FAQ rows from {source_label}")
         return entries
 
     # ------------------------------------------------------------------
@@ -535,6 +484,109 @@ class FAQMatcher:
         score = 0.52 * recall + 0.28 * precision + 0.20 * context_recall + containment_bonus
         return max(0.0, min(1.0, score))
 
+    def _vector_cache_fingerprint(self, entries: list[FAQEntry]) -> str:
+        backend = "gemini_api"
+        model = self.settings.gemini_embedding_model
+        payload = {
+            "cache_version": 1,
+            "embedding_backend": backend,
+            "embedding_model": str(model or "unknown"),
+            "entries": [
+                {
+                    "index": entry.index,
+                    "question": entry.question,
+                    "search_text": entry.enriched_search_text,
+                }
+                for entry in entries
+            ],
+        }
+        serialized = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        return hashlib.sha256(serialized).hexdigest()
+
+    def _vector_cache_path(self, entries: list[FAQEntry]) -> Path:
+        backend = "gemini_api"
+        model = self.settings.gemini_embedding_model
+        label = re.sub(r"[^a-zA-Z0-9_.-]+", "_", f"{backend}_{model or 'unknown'}")
+        fingerprint = self._vector_cache_fingerprint(entries)
+        return (
+            Path(getattr(self.settings, "chroma_dir", "./storage/chroma_local"))
+            / "faq_vector_cache"
+            / f"vinpearl_faq_{label}_{fingerprint[:20]}.npz"
+        )
+
+    def _load_vector_cache(self, entries: list[FAQEntry]) -> bool:
+        path = self._vector_cache_path(entries)
+        if not path.is_file():
+            return False
+        expected_fingerprint = self._vector_cache_fingerprint(entries)
+        try:
+            with np.load(path, allow_pickle=False) as payload:
+                fingerprint = str(payload["fingerprint"].item())
+                question_vectors = np.asarray(payload["question_vectors"], dtype=np.float32)
+                enriched_vectors = np.asarray(payload["enriched_vectors"], dtype=np.float32)
+            valid = bool(
+                fingerprint == expected_fingerprint
+                and question_vectors.ndim == 2
+                and enriched_vectors.ndim == 2
+                and question_vectors.shape[0] == len(entries)
+                and enriched_vectors.shape[0] == len(entries)
+                and question_vectors.shape[1] == enriched_vectors.shape[1]
+                and np.isfinite(question_vectors).all()
+                and np.isfinite(enriched_vectors).all()
+            )
+            if not valid:
+                print(f"[FAQ MATCHER] ignored invalid vector cache: {path}")
+                return False
+            self._question_vectors = question_vectors
+            self._enriched_vectors = enriched_vectors
+            print(
+                f"[FAQ MATCHER] loaded cached vector index: rows={len(entries)} "
+                f"vectors={question_vectors.shape}/{enriched_vectors.shape} path={path}"
+            )
+            return True
+        except Exception as exc:
+            print(
+                "[FAQ MATCHER] vector cache load failed; rebuilding: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            return False
+
+    def _save_vector_cache(
+        self,
+        entries: list[FAQEntry],
+        question_vectors: np.ndarray,
+        enriched_vectors: np.ndarray,
+    ) -> None:
+        path = self._vector_cache_path(entries)
+        temporary_path: Path | None = None
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w+b",
+                prefix=f".{path.stem}.",
+                suffix=".npz",
+                dir=path.parent,
+                delete=False,
+            ) as handle:
+                temporary_path = Path(handle.name)
+                np.savez_compressed(
+                    handle,
+                    fingerprint=np.asarray(self._vector_cache_fingerprint(entries)),
+                    question_vectors=np.asarray(question_vectors, dtype=np.float32),
+                    enriched_vectors=np.asarray(enriched_vectors, dtype=np.float32),
+                )
+            os.replace(temporary_path, path)
+            print(f"[FAQ MATCHER] saved vector index cache: {path}")
+        except Exception as exc:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+            print(
+                "[FAQ MATCHER] vector cache save skipped: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
     def _ensure_vectors(self) -> None:
         if self._question_vectors is not None and self._enriched_vectors is not None:
             return
@@ -543,6 +595,9 @@ class FAQMatcher:
         if not entries:
             self._question_vectors = np.empty((0, 384), dtype=np.float32)
             self._enriched_vectors = np.empty((0, 384), dtype=np.float32)
+            return
+
+        if self._load_vector_cache(entries):
             return
 
         question_vectors = np.asarray(
@@ -555,6 +610,7 @@ class FAQMatcher:
         )
         self._question_vectors = question_vectors
         self._enriched_vectors = enriched_vectors
+        self._save_vector_cache(entries, question_vectors, enriched_vectors)
         print(
             f"[FAQ MATCHER] built question index: rows={len(entries)} "
             f"vectors={question_vectors.shape}/{enriched_vectors.shape}"
@@ -597,7 +653,7 @@ class FAQMatcher:
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         entries = self._load_entries()
         if not entries:
-            return [], {"accepted": False, "reason": "FAQ JSON unavailable"}
+            return [], {"accepted": False, "reason": "PostgreSQL FAQ corpus unavailable"}
 
         variants = self._dedupe_query_variants(
             original_query,

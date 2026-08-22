@@ -61,7 +61,7 @@ def _promotion_status(promotion: Promotion, today: date) -> str:
         return "active"
 
     fallback = (promotion.status_at_crawl or "unknown").lower()
-    return fallback if fallback in {"active", "upcoming", "expired"} else "active"
+    return fallback if fallback in {"active", "upcoming", "expired"} else "unknown"
 
 
 def _date_text(value: Any) -> str | None:
@@ -80,7 +80,7 @@ def list_promotions(
     status = (status or "all").strip().lower()
     search = (search or "").strip() or None
 
-    if status not in {"all", "active", "upcoming", "expired"}:
+    if status not in {"all", "active", "upcoming", "expired", "unknown"}:
         status = "all"
 
     with open_session() as session:

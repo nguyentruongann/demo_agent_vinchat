@@ -1,8 +1,20 @@
 from src.backend.services.faq_matcher import FAQMatcher
 
 
+# Self-contained rows emulate the active ``core.faq`` repository result.
+_POSTGRES_FAQ_ROWS = [
+    {"index": 0, "question": "How many pieces/kilos of luggage can I check in?", "answer": "The baggage allowance lists permitted pieces and checked baggage weight.", "category": "Transportation", "subcategory": "Baggage", "source_path": "postgresql:core.faq"},
+    {"index": 1, "question": "How to buy an entrance ticket to VinWonders Nam Hoi An?", "answer": "Purchase through official sales channels.", "category": "VinWonders Nam Hoi An", "subcategory": "Tickets", "source_path": "postgresql:core.faq"},
+    {"index": 2, "question": "Where are Vinpearl's properties?", "answer": "Properties are available at multiple destinations.", "category": "Properties", "subcategory": "Locations", "source_path": "postgresql:core.faq"},
+]
+
+
 def _matcher() -> FAQMatcher:
-    return FAQMatcher(embed_passages=lambda values: [], embed_queries=lambda values: [])
+    return FAQMatcher(
+        embed_passages=lambda values: [],
+        embed_queries=lambda values: [],
+        rows_loader=lambda: list(_POSTGRES_FAQ_ROWS),
+    )
 
 
 def test_translated_baggage_query_keeps_predicate_alignment() -> None:
@@ -86,6 +98,7 @@ def test_exact_english_faq_path_remains_threshold_free() -> None:
     assert diagnostics["accepted"] is True
     assert diagnostics["mode"] == "faq_exact"
     assert documents[0]["metadata"]["entity_name"] == "How many pieces/kilos of luggage can I check in?"
+    assert documents[0]["metadata"]["source_file"] == "postgresql:core.faq"
 
 
 def test_resolved_destination_words_do_not_count_as_predicate_evidence() -> None:

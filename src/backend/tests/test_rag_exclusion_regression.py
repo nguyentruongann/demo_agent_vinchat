@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import MethodType, SimpleNamespace
 
-from src.backend.services import rag as rag_module
+from src.backend.services import rag_core as rag_module
 
 
 class _FaqMatcher:

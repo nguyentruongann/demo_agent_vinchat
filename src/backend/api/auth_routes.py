@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -26,13 +26,20 @@ from src.backend.services.auth import (
     user_public,
 )
 from src.backend.services.db import open_session
+from src.backend.services.rate_limit import enforce_rate_limit
 from src.data_postgre.db.app import AppUser
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)
-def register(payload: RegisterRequest) -> AuthResponse:
+def register(payload: RegisterRequest, request: Request) -> AuthResponse:
+    enforce_rate_limit(
+        bucket="auth-register",
+        identity=request.client.host if request.client else "unknown",
+        limit=get_settings().auth_rate_limit_per_minute,
+        window_seconds=60,
+    )
     with open_session() as db:
         user = create_user(
             db,
@@ -48,7 +55,13 @@ def register(payload: RegisterRequest) -> AuthResponse:
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(payload: LoginRequest) -> AuthResponse:
+def login(payload: LoginRequest, request: Request) -> AuthResponse:
+    enforce_rate_limit(
+        bucket="auth-login",
+        identity=request.client.host if request.client else "unknown",
+        limit=get_settings().auth_rate_limit_per_minute,
+        window_seconds=60,
+    )
     with open_session() as db:
         user = authenticate(db, payload.identifier, payload.password)
         token = issue_session(db, user)
@@ -69,7 +82,13 @@ def logout(authorization: str | None = Header(default=None)) -> dict[str, bool]:
 
 
 @router.post("/bootstrap-admin", response_model=AuthResponse, status_code=201)
-def bootstrap_admin(payload: BootstrapAdminRequest) -> AuthResponse:
+def bootstrap_admin(payload: BootstrapAdminRequest, request: Request) -> AuthResponse:
+    enforce_rate_limit(
+        bucket="auth-bootstrap",
+        identity=request.client.host if request.client else "unknown",
+        limit=get_settings().auth_rate_limit_per_minute,
+        window_seconds=60,
+    )
     settings = get_settings()
     if not settings.admin_bootstrap_key or payload.bootstrap_key != settings.admin_bootstrap_key:
         raise HTTPException(status_code=403, detail="Bootstrap key không hợp lệ.")
