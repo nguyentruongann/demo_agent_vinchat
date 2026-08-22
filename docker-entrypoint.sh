@@ -16,7 +16,7 @@ if [ "${BOOTSTRAP_CORE_DATA:-false}" = "true" ]; then
   echo "[startup] load core data"
   python -m scripts.load_core
   echo "[startup] build knowledge index"
-  python -m src.backend.services.ingest_postgres
+  python -m src.backend.services.ingest_postgres --reset
 fi
 
 # Optional rebuild of Chroma. For production, attach a Railway Volume to
