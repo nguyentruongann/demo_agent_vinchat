@@ -39,7 +39,7 @@ def _reset_chroma_collection() -> None:
     settings = get_settings()
 
     chroma = chromadb.PersistentClient(
-        path=settings.chroma_path
+        path=settings.chroma_dir
     )
 
     try:
