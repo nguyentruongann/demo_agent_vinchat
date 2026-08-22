@@ -1,6 +1,5 @@
 import json
 import random
-import re
 import time
 from typing import Any
 
@@ -36,6 +35,7 @@ class LLMService:
         user_prompt: str,
         *,
         temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         last_error: Exception | None = None
 
@@ -77,7 +77,7 @@ class LLMService:
                         "temperature": (
                             self.temperature if temperature is None else float(temperature)
                         ),
-                        "max_tokens": self.max_tokens,
+                        "max_tokens": self.max_tokens if max_tokens is None else int(max_tokens),
                         "timeout": self.timeout,
                         "api_key": api_key,
                     }
@@ -150,7 +150,8 @@ class LLMService:
         Free-form answer generation still uses ``self.temperature`` through
         :meth:`text`. JSON calls in this project are routing, intent, memory,
         sufficiency, triage, or grounding decisions; letting them inherit the
-        creative answer temperature makes the agent graph non-deterministic.
+        creative answer temperature makes the agent graph non-deterministic. One
+        compact repair attempt handles truncated control output safely.
         """
         raw = self.text(
             system_prompt=(
@@ -163,21 +164,42 @@ class LLMService:
         )
 
         try:
-            return json.loads(raw)
-
-        except json.JSONDecodeError:
-            match = re.search(
-                r"\{.*\}",
-                raw,
-                flags=re.DOTALL,
+            return self._parse_json_object(raw)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            repair_raw = self.text(
+                system_prompt=(
+                    "Repair the supplied invalid or truncated output into one compact valid JSON object. "
+                    "Keep only recoverable values, never reproduce long narrative text, and return JSON only."
+                ),
+                user_prompt="INVALID_OUTPUT:\n" + raw[:12000] + "\n\nReturn one compact JSON object.",
+                temperature=0.0,
+                max_tokens=min(max(self.max_tokens, 256), 600),
             )
-
-            if not match:
+            try:
+                return self._parse_json_object(repair_raw)
+            except (json.JSONDecodeError, ValueError, TypeError) as exc:
                 raise ValueError(
-                    "The model did not return valid JSON. "
-                    f"Raw output: {raw}"
-                )
+                    "The model returned invalid JSON after one bounded repair attempt "
+                    f"(original_chars={len(raw)}, repaired_chars={len(repair_raw)})."
+                ) from exc
 
-            return json.loads(
-                match.group(0)
-            )
+    @staticmethod
+    def _parse_json_object(raw: str) -> dict[str, Any]:
+        text_value = str(raw or "").strip()
+        if not text_value:
+            raise ValueError("empty JSON response")
+        decoder = json.JSONDecoder()
+        starts = [0, *(i for i, character in enumerate(text_value) if character == "{")]
+        last_error: Exception | None = None
+        for start in dict.fromkeys(starts):
+            try:
+                value, _end = decoder.raw_decode(text_value[start:])
+            except json.JSONDecodeError as exc:
+                last_error = exc
+                continue
+            if isinstance(value, dict):
+                return value
+            last_error = ValueError("structured response is not a JSON object")
+        if last_error is not None:
+            raise last_error
+        raise ValueError("no JSON object found")

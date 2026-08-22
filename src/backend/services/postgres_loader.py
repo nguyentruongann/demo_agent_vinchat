@@ -2,7 +2,7 @@
 
 Goal
 ----
-Use 100% of normalized BUSINESS/CORE data as the RAG corpus.
+Use 100% of normalized PostgreSQL BUSINESS/CORE data as the RAG corpus.
 
 This loader intentionally does NOT cherry-pick only a few entity tables.
 It walks every SQLAlchemy CORE table, every row and every non-null column,
@@ -29,7 +29,7 @@ from typing import Any, Iterable
 from sqlalchemy import create_engine, select
 
 from src.backend.config import get_settings
-from src.backend.services.data_loader import _chunk_text
+from src.backend.services.text_chunker import chunk_text
 from src.data_postgre.db import CORE_TABLES
 
 
@@ -314,7 +314,7 @@ def _row_to_documents(
     full_text = "\n".join(lines)
 
     # Long normalized rows (policy/promotion/attraction etc.) may exceed one chunk.
-    chunks = _chunk_text(full_text, max_chars=2200, overlap=180)
+    chunks = chunk_text(full_text, max_chars=2200, overlap=180)
     if not chunks:
         chunks = [full_text]
 

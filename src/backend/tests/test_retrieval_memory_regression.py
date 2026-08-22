@@ -71,6 +71,21 @@ def test_memory_retrieval_does_not_leak_old_intents_into_current_turn(monkeypatc
         def build_context(documents):
             return "\n".join(item["text"] for item in documents)
 
+        @staticmethod
+        def build_context_with_diagnostics(documents, **_kwargs):
+            context = "\n".join(item["text"] for item in documents)
+            intents = sorted({
+                str((item.get("metadata") or {}).get("entity_type") or "")
+                for item in documents
+                if str((item.get("metadata") or {}).get("entity_type") or "")
+            })
+            return context, {
+                "document_count": len(documents),
+                "branch_counts": {},
+                "intents": intents,
+                "task_counts": {},
+            }
+
     monkeypatch.setattr(retrieval_node, "get_rag_service", lambda: FakeRag())
     monkeypatch.setattr(retrieval_node, "get_settings", lambda: SimpleNamespace(top_k=5))
 
@@ -95,6 +110,166 @@ def test_memory_retrieval_does_not_leak_old_intents_into_current_turn(monkeypatc
     assert result["detected_intents"] == ["attraction"]
     assert "hotel" not in result["intent_results"]
     assert {item["id"] for item in result["retrieved_documents"]} == {"current", "old"}
+
+
+def test_old_turn_documents_are_filtered_to_current_property_scope() -> None:
+    documents = [
+        {
+            "id": "target-room",
+            "metadata": {
+                "entity_type": "room",
+                "entity_name": "Grand Deluxe Twin Bed",
+                "property_id": "vinpearl-resort-nha-trang",
+            },
+        },
+        {
+            "id": "peer-property",
+            "metadata": {
+                "entity_type": "property",
+                "entity_name": "Vinpearl Resort & Spa Nha Trang Bay",
+                "entity_id": "id=vinpearl-resort-spa-nha-trang-bay",
+            },
+        },
+        {
+            "id": "unrelated-attraction",
+            "metadata": {
+                "entity_type": "attraction",
+                "entity_name": "VinWonders Nha Trang",
+            },
+        },
+    ]
+    scope = {
+        "names": ["Vinpearl Resort Nha Trang"],
+        "normalized_names": ["vinpearl resort nha trang"],
+        "entity_ids": ["vinpearl-resort-nha-trang", "id=vinpearl-resort-nha-trang"],
+    }
+
+    filtered, discarded = retrieval_node._filter_memory_documents_to_entity_scope(
+        documents, scope
+    )
+
+    assert [item["id"] for item in filtered] == ["target-room"]
+    assert discarded == 2
+
+
+def test_exhaustive_entity_followup_does_not_replay_old_broad_query(monkeypatch) -> None:
+    calls: list[str] = []
+
+    class FakeRag:
+        def hybrid_search(self, **kwargs):
+            query = kwargs["query"]
+            calls.append(query)
+            if query == "old broad Nha Trang hotels":
+                raise AssertionError("old broad memory evidence must not be replayed")
+            return (
+                [
+                    {
+                        "id": "room-1",
+                        "text": "Grand Deluxe Twin Bed",
+                        "score": 1.0,
+                        "matched_intent": "hotel",
+                        "metadata": {
+                            "entity_type": "room",
+                            "entity_id": "id=room-1",
+                            "entity_name": "Grand Deluxe Twin Bed",
+                            "property_id": "vinpearl-resort-nha-trang",
+                        },
+                    }
+                ],
+                {
+                    "mode": "named_entity:keyword_then_embedding+exhaustive",
+                    "intent": "hotel",
+                    "intents": ["hotel"],
+                    "explicit_intents": ["hotel"],
+                    "intent_results": {
+                        "hotel": {
+                            "status": "found",
+                            "document_count": 1,
+                            "candidate_count": 1,
+                            "best_score": 1.0,
+                            "missing_destination_ids": [],
+                        }
+                    },
+                    "destinations": [{"id": "nha-trang", "name_vi": "Nha Trang"}],
+                    "destination_ids": ["nha-trang"],
+                    "destination_names": ["Nha Trang"],
+                    "keyword_candidate_count": 1,
+                    "missing_destination_ids": [],
+                    "exhaustive_retrieval_complete": True,
+                    "named_entity_scope": {
+                        "names": ["Vinpearl Resort Nha Trang"],
+                        "normalized_names": ["vinpearl resort nha trang"],
+                        "entity_ids": ["vinpearl-resort-nha-trang"],
+                    },
+                },
+            )
+
+        @staticmethod
+        def build_context_with_diagnostics(documents, exhaustive=False, task_aware=False):
+            return (
+                "\n".join(item["text"] for item in documents),
+                {
+                    "document_count": len(documents),
+                    "branch_counts": {"hotel": len(documents)},
+                    "intents": ["hotel"],
+                    "entity_keys": [item["id"] for item in documents],
+                    "task_counts": {},
+                    "task_ids": [],
+                },
+            )
+
+    def fake_enrich(documents, **_kwargs):
+        return documents, {
+            "structured_price_document_count": 0,
+            "structured_enrichment_count": 0,
+            "price_estimate_packet": {},
+            "price_estimate_destination_ids": [],
+            "preferred_output_currency": "VND",
+            "currency_conversion_guidance": "",
+        }
+
+    monkeypatch.setattr(retrieval_node, "get_rag_service", lambda: FakeRag())
+    monkeypatch.setattr(
+        retrieval_node,
+        "get_settings",
+        lambda: SimpleNamespace(top_k=5, min_relevance_score=0.35),
+    )
+    monkeypatch.setattr(retrieval_node, "enrich_retrieved_documents", fake_enrich)
+
+    state = {
+        "rag_query": "room types at Vinpearl Resort Nha Trang",
+        "user_message": "Chỗ đó có những loại phòng nào?",
+        "resolved_destinations": [{"id": "nha-trang", "name_vi": "Nha Trang"}],
+        "resolved_entity_names": ["Vinpearl Resort Nha Trang"],
+        "selected_memory_turn_refs": ["turn:1"],
+        "conversation_turns": [
+            {
+                "memory_ref": "turn:1",
+                "route": "rag",
+                "rag_query": "old broad Nha Trang hotels",
+                "user_message": "khách sạn Nha Trang",
+            }
+        ],
+        "request_tasks": [
+            {
+                "task_id": "t1",
+                "task_type": "property_detail",
+                "result_scope": "exhaustive",
+                "retrieval_intents": ["hotel"],
+                "needs_retrieval": True,
+            }
+        ],
+    }
+
+    result = retrieval_node.retrieve_context(state)
+
+    assert calls == ["room types at Vinpearl Resort Nha Trang"]
+    assert result["memory_augmented"] is False
+    assert [item["id"] for item in result["retrieved_documents"]] == ["room-1"]
+    assert result["exhaustive_retrieval_packet"]["entity_count"] == 1
+    assert result["exhaustive_retrieval_packet"]["entity_scope"]["names"] == [
+        "Vinpearl Resort Nha Trang"
+    ]
 
 
 def test_assistant_suggested_destination_is_recallable_but_not_user_focus() -> None:

@@ -1,56 +1,30 @@
-from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
+from src.backend.agents.state import AgentState
 from src.backend.services.llm import LLMService
 from src.backend.services.retrieval_enrichment import PRICE_DATA_AS_OF
 
 
-def validate_grounding(state: AgentState) -> AgentState:
-    """Validate positive claims against context while allowing KB-absence statements."""
-    draft = str(state.get("answer") or "").strip()
-    context = str(state.get("context") or "").strip()
-    intent_results = state.get("intent_results", {}) or {}
+def _safe_grounding_answer(state: AgentState) -> str:
+    if str(state.get("original_language") or "").lower().startswith("vi"):
+        return (
+            "Mình chưa thể kiểm chứng an toàn câu trả lời từ dữ liệu hiện có. "
+            "Bạn vui lòng hỏi cụ thể hơn một ý để mình kiểm tra lại."
+        )
+    return (
+        "I could not safely verify the answer against the available data. "
+        "Please ask a narrower question so I can check it again."
+    )
 
-    if not draft:
-        return {
-            "grounding_passed": False,
-            "grounding_reason": "Answer is empty.",
-        }
 
-    # A pure no-data response can legitimately have no retrieved context.
-    if not context and not intent_results and not state.get("exhaustive_catalog_packet") and not state.get("exhaustive_retrieval_packet"):
-        return {
-            "grounding_passed": False,
-            "grounding_reason": "Answer and retrieval metadata cannot be grounded.",
-        }
-
-    llm = LLMService()
-    result = llm.json(
-        system_prompt=(
-            "You are a strict grounding validator for a RAG system. Positive factual claims and "
-            "named entities are supported only by RETRIEVED_CONTEXT plus any explicitly complete trusted exhaustive packet supplied below. INTENT_RETRIEVAL_STATUS is "
-            "trusted system retrieval metadata and may support only a narrow statement such as "
-            "'the current knowledge base did not retrieve/record enough information for golf'. "
-            "It NEVER supports the stronger claim that golf or any entity does not exist in reality. "
-            "For multi-intent answers, validate each section independently. A missing branch may be "
-            "reported as KB-not-found while found branches must remain grounded in context. "
-            "When RETRIEVED_CONTEXT contains a matching type=faq source, a faithful translation or concise "
-            "paraphrase of that FAQ's Answer field is grounded even if it does not repeat the English wording verbatim. "
-            "For price/cost answers, transparent arithmetic derived solely from numeric RETRIEVED_CONTEXT values is grounded. "
-            "A clearly labeled estimation assumption that a hotel room price_from/standard-rate is used as an approximate nightly "
-            "rate is also permitted when the user explicitly requested a trip/lodging cost estimate. Do not allow invented exchange "
-            "rates or unsupported prices. PRICE_DATA_AS_OF is trusted system provenance metadata, so a statement that price information "
-            "is updated as of that date is grounded even when the date is not repeated inside a source row. "
-            "When EXHAUSTIVE_RETRIEVAL_REQUESTED=true and EXHAUSTIVE_RETRIEVAL_PACKET.complete=true, every entity name/type, matched intent, destination, source URL, and source-faithful evidence excerpt in that packet is trusted evidence; a corrected answer must preserve the complete unique entity set instead of collapsing it to one or a top-k sample. "
-            "When EXHAUSTIVE_CATALOG_REQUESTED=true and EXHAUSTIVE_CATALOG_PACKET.complete=true, every product and price field in that packet is trusted structured evidence; a corrected answer must preserve the complete requested catalog instead of collapsing it to a sample. "
-            "When PRICE_REQUESTED=true and RETRIEVED_CONTEXT/EXHAUSTIVE_CATALOG_PACKET contains numeric money evidence, any corrected_answer must preserve at least "
-            "one supported numeric price/range/estimate and the PRICE_DATA_AS_OF statement; grounding correction must not collapse a useful "
-            "price answer into a generic website referral. "
-            "If unsupported content exists, return a corrected answer removing only unsupported claims "
-            "and preserving grounded partial sections. Introduce no new facts. corrected_answer MUST be "
-            "entirely in TARGET_RESPONSE_LANGUAGE. Do not fall back to English just because the context is English. "
-            "Return JSON with exactly: grounded, reason, unsupported_claims, corrected_answer."
-        ),
-        user_prompt=f"""
+def _validation_payload(
+    state: AgentState,
+    *,
+    draft: str,
+    context: str,
+    intent_results: dict,
+    task_results: dict,
+) -> str:
+    return f"""
 TARGET_RESPONSE_LANGUAGE: {state.get("original_language_name") or state.get("original_language", "en")} ({state.get("original_language", "en")})
 
 USER_QUESTION:
@@ -75,21 +49,83 @@ EXHAUSTIVE_CATALOG_PACKET:
 INTENT_RETRIEVAL_STATUS:
 {intent_results}
 
+TASK_RETRIEVAL_STATUS:
+{task_results}
+
+REQUEST_TASK_PLAN:
+{state.get('request_tasks') or []}
+
+CURRENT_INPUT_TASK_TYPE:
+{state.get('input_task_type') or 'general'}
+
+RESOLVED_ENTITY_TARGETS:
+{state.get('resolved_entity_names') or (state.get('retrieval_entity_scope') or {}).get('names') or []}
+
 RETRIEVED_CONTEXT:
 {context}
 
 DRAFT_ANSWER:
 {draft}
+"""
 
-Return exactly this JSON shape:
-{{
-  "grounded": true,
-  "reason": "brief reason",
-  "unsupported_claims": [],
-  "corrected_answer": ""
-}}
-""",
+
+def validate_grounding(state: AgentState) -> AgentState:
+    """Validate claims without allowing malformed control JSON to crash chat."""
+    draft = str(state.get("answer") or "").strip()
+    context = str(state.get("context") or "").strip()
+    intent_results = state.get("intent_results", {}) or {}
+    task_results = state.get("task_retrieval_results", {}) or {}
+
+    if not draft:
+        return {"grounding_passed": False, "grounding_reason": "Answer is empty."}
+
+    if (
+        not context
+        and not intent_results
+        and not task_results
+        and not state.get("exhaustive_catalog_packet")
+        and not state.get("exhaustive_retrieval_packet")
+    ):
+        return {
+            "grounding_passed": False,
+            "grounding_reason": "Answer and retrieval metadata cannot be grounded.",
+        }
+
+    llm = LLMService()
+    payload = _validation_payload(
+        state,
+        draft=draft,
+        context=context,
+        intent_results=intent_results,
+        task_results=task_results,
     )
+    try:
+        result = llm.json(
+            system_prompt=(
+                "You are a strict grounding validator for a RAG system. Positive factual claims and named entities "
+                "must be supported by RETRIEVED_CONTEXT or an explicitly complete trusted packet. Retrieval status may "
+                "support only a narrow statement that the current knowledge base did not retrieve enough information; "
+                "it never proves non-existence in reality. Validate every atomic task independently and preserve grounded "
+                "partial sections. Enforce resolved entity target alignment unless comparison/alternatives were requested. "
+                "A faithful translation or concise paraphrase of a matching FAQ answer is grounded. Transparent arithmetic "
+                "from retrieved numeric values is grounded, as is the trusted PRICE_DATA_AS_OF provenance. Complete packets "
+                "must retain their complete unique entity/product set. Judge only; do not rewrite in this call. Keep reason "
+                "and unsupported_claims concise. Never copy DRAFT_ANSWER or RETRIEVED_CONTEXT into a JSON string. "
+                "Return JSON with exactly: grounded, reason, unsupported_claims."
+            ),
+            user_prompt=(
+                payload
+                + "\nReturn exactly this JSON shape:\n"
+                + '{"grounded":true,"reason":"brief reason","unsupported_claims":[]}'
+            ),
+        )
+    except Exception as exc:
+        return {
+            "answer": _safe_grounding_answer(state),
+            "grounding_passed": False,
+            "grounding_reason": "Grounding validator failed safely: " + type(exc).__name__,
+            "unsupported_claims": [],
+        }
 
     grounded = bool(result.get("grounded", False))
     reason = str(result.get("reason") or "No grounding reason returned.").strip()
@@ -100,11 +136,26 @@ Return exactly this JSON shape:
     if grounded:
         final_answer = draft
     else:
-        corrected = str(result.get("corrected_answer") or "").strip()
-        final_answer = corrected or (
-            "The current knowledge base does not contain enough grounded information "
-            "to answer this request safely."
-        )
+        try:
+            corrected = llm.text(
+                system_prompt=(
+                    "You correct a RAG answer after a separate grounding judgement. Return only the corrected "
+                    "customer-facing answer, not JSON. Remove only unsupported claims, preserve every grounded task/section "
+                    "and supported numeric price, introduce no new facts, and write entirely in the requested target language."
+                ),
+                user_prompt=(
+                    payload
+                    + "\n\nGROUNDING_REASON:\n" + reason
+                    + "\n\nUNSUPPORTED_CLAIMS:\n" + str(unsupported)
+                    + "\n\nReturn only the corrected answer."
+                ),
+                temperature=0.0,
+                max_tokens=max(llm.max_tokens, 2500),
+            ).strip()
+        except Exception as exc:
+            reason = f"{reason} Correction failed safely: {type(exc).__name__}."[:500]
+            corrected = ""
+        final_answer = corrected or _safe_grounding_answer(state)
 
     print("\n===== GROUNDING VALIDATION =====")
     print(f"Grounded: {grounded}")

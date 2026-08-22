@@ -13,6 +13,7 @@ import argparse
 
 from src.backend.services.postgres_loader import load_postgres_documents
 from src.backend.services.rag import RAGService
+from src.backend.services.knowledge_manifest import write_manifest
 
 
 def _batches(items: list[dict], size: int):
@@ -34,7 +35,7 @@ def main() -> None:
 
         rag.collection = rag.chroma.get_or_create_collection(
             name=collection_name,
-            metadata={"hnsw:space": "cosine"},
+            metadata=rag._collection_contract(),
         )
 
         print(f"[Chroma] reset collection: {collection_name}")
@@ -58,7 +59,11 @@ def main() -> None:
         written += len(batch)
         print(f"[Chroma] upserted {written}/{len(documents)}")
 
-    print(f"Done. Collection '{rag.settings.chroma_collection}' now has {rag.collection.count()} documents.")
+    manifest = write_manifest(rag, rag.settings)
+    print(
+        f"Done. Collection '{rag.settings.chroma_collection}' now has "
+        f"{rag.collection.count()} documents. Manifest: {manifest}"
+    )
 
 
 if __name__ == "__main__":

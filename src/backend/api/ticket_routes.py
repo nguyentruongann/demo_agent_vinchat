@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 
+from src.backend.config import get_settings
 from src.backend.models.ticket import ManualTicketCreate, TicketPublic
 from src.backend.services.auth import get_current_user, get_optional_user, normalize_phone
 from src.backend.services.db import open_session
+from src.backend.services.rate_limit import enforce_rate_limit
 from src.backend.services.ticket import TicketService
 from src.data_postgre.db.app import AppUser, Ticket
 
@@ -33,8 +35,16 @@ def _public(ticket: Ticket) -> TicketPublic:
 @router.post("", response_model=TicketPublic, status_code=201)
 def create_manual_ticket(
     payload: ManualTicketCreate,
+    request: Request,
     current: AppUser | None = Depends(get_optional_user),
 ) -> TicketPublic:
+    identity = str(current.id) if current else (request.client.host if request.client else "unknown")
+    enforce_rate_limit(
+        bucket="ticket-create",
+        identity=identity,
+        limit=get_settings().ticket_rate_limit_per_minute,
+        window_seconds=60,
+    )
     ticket_id = TicketService().create(
         message=payload.content,
         language=payload.language,

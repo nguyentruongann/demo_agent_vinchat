@@ -17,16 +17,15 @@ class Settings(BaseSettings):
     llm_timeout: float = 60.0
     llm_max_retries: int = 2
 
-    # Local embeddings (ONNX INT8 keeps Railway memory usage low).
-    local_embedding_model: str = "intfloat/multilingual-e5-small"
+    # Gemini embedding contract. Keep one provider/model per collection.
     embedding_backend: str = "gemini_api"
     gemini_embedding_model: str = "gemini-embedding-001"
     gemini_api_key: str | None = None
-    embedding_onnx_file: str = "onnx/model_qint8_avx512_vnni.onnx"
-    embedding_onnx_provider: str = "CPUExecutionProvider"
-    embedding_onnx_threads: int = 1
-    embedding_max_length: int = 512
     embedding_batch_size: int = 16
+    embedding_dimension: int = 3072
+    embedding_max_retries: int = 4
+    embedding_retry_base_seconds: float = 1.0
+    embedding_retry_max_seconds: float = 20.0
 
     # Database / infrastructure
     database_url: str = (
@@ -35,10 +34,12 @@ class Settings(BaseSettings):
     db_echo: bool = False
     redis_url: str | None = None
 
-    # Data / vector store
-    data_dir: Path = Path("./data")
+    # PostgreSQL-only knowledge source and vector store
     chroma_dir: Path = Path("./storage/chroma_local")
-    chroma_collection: str = "vinpearl_gemini_embedding_001"
+    chroma_collection: str = "vinpearl_gemini_embedding_001_v2"
+    knowledge_manifest_name: str = "knowledge_manifest.json"
+    knowledge_schema_version: int = 2
+    initialize_knowledge_on_start: bool = True
 
     # Conversation memory
     memory_enabled: bool = True
@@ -48,6 +49,7 @@ class Settings(BaseSettings):
     # RAG
     top_k: int = 10
     max_context_chars: int = 18000
+    exhaustive_max_context_chars: int = 30000
     min_relevance_score: float = 0.35
 
     # Price/currency presentation. This is not a live FX feed; it is a
@@ -64,6 +66,10 @@ class Settings(BaseSettings):
 
     # API
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    expose_chat_debug: bool = False
+    chat_rate_limit_per_minute: int = 30
+    auth_rate_limit_per_minute: int = 12
+    ticket_rate_limit_per_minute: int = 20
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -84,6 +90,14 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://"):
             return "postgresql+pg8000://" + url[len("postgresql://") :]
         return url
+
+    @field_validator("embedding_backend")
+    @classmethod
+    def require_gemini_embedding_backend(cls, value: str) -> str:
+        normalized = str(value or "").strip().lower()
+        if normalized != "gemini_api":
+            raise ValueError("EMBEDDING_BACKEND must be gemini_api")
+        return normalized
 
 
 @lru_cache

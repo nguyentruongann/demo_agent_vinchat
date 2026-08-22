@@ -209,6 +209,9 @@ class MemoryService:
                     "session_id": session_id,
                     "user_id": turn_user_id,
                     "user_message": user_message,
+                    "sanitized_user_request": metadata.get("sanitized_user_request")
+                    or metadata.get("rag_query")
+                    or "",
                     "assistant_answer": row.content,
                     "language": row.language
                     or (pending_user.language if pending_user is not None else None)
@@ -376,7 +379,10 @@ class MemoryService:
         total_chars = 0
 
         for turn in reversed(turns):
-            user_text = self._clip(turn.get("user_message", ""), 700)
+            user_text = self._clip(
+                turn.get("sanitized_user_request") or turn.get("rag_query") or "",
+                700,
+            )
             assistant_text = self._clip(turn.get("assistant_answer", ""), 1700)
             block = f"User: {user_text}\nAssistant: {assistant_text}"
 
@@ -450,7 +456,9 @@ class MemoryService:
 
                 user_explicit_ids = {
                     str(item.get("id") or "").strip()
-                    for item in detect_destinations(str(turn.get("user_message") or ""))
+                    for item in detect_destinations(
+                        str(turn.get("sanitized_user_request") or turn.get("rag_query") or "")
+                    )
                     if str(item.get("id") or "").strip()
                 }
             except Exception:
@@ -682,12 +690,7 @@ class MemoryService:
         # may contain assistant/LLM rewrites or selected prior context, so mining it
         # as "user focus" would turn retrieved suggestions into user preferences.
         user_blob = normalize_text(
-            " ".join(
-                [
-                    str(state.get("user_message") or ""),
-                    str(state.get("sanitized_user_request") or ""),
-                ]
-            )
+            str(state.get("sanitized_user_request") or state.get("rag_query") or "")
         )
         answer_text = str(state.get("answer") or "")
         answer_blob = normalize_text(answer_text)
@@ -793,12 +796,7 @@ class MemoryService:
             from src.backend.services.kb_scope_probe import probe_kb_scope_evidence
 
             user_matches = probe_kb_scope_evidence(
-                " ".join(
-                    [
-                        str(state.get("user_message") or ""),
-                        str(state.get("sanitized_user_request") or ""),
-                    ]
-                ),
+                str(state.get("sanitized_user_request") or state.get("rag_query") or ""),
                 limit=max(24, limit * 3),
             )
             for position, item in enumerate(user_matches):
@@ -834,6 +832,7 @@ class MemoryService:
         session_id: str | None,
         user_id: str | None,
         user_message: str,
+        sanitized_user_request: str | None = None,
         assistant_answer: str,
         language: str,
         route: str,
@@ -1000,6 +999,10 @@ class MemoryService:
                         "route": route,
                         "ticket_id": ticket_id,
                         "rag_query": rag_query,
+                        "sanitized_user_request": self._clip(
+                            sanitized_user_request or rag_query or "",
+                            2000,
+                        ),
                         "detected_destinations": compact_destinations,
                         "resolved_destinations": compact_resolved_destinations,
                         "focus_entities": compact_focus_entities,
@@ -1064,4 +1067,3 @@ class MemoryService:
             deleted_turns = self._delete_session_rows(db, chat_session)
             db.commit()
             return deleted_turns
-

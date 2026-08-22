@@ -163,7 +163,9 @@ def _conversation_context_payload(state: AgentState) -> dict:
         turns.append(
             {
                 "memory_ref": turn.get("memory_ref"),
-                "user_message": str(turn.get("user_message") or "")[:700],
+                "user_message": str(
+                    turn.get("sanitized_user_request") or turn.get("rag_query") or ""
+                )[:700],
                 "assistant_answer": str(turn.get("assistant_answer") or "")[:1200],
                 "rag_query": str(turn.get("rag_query") or "")[:700],
                 "resolved_destinations": turn.get("resolved_destinations") or [],
@@ -185,9 +187,9 @@ def _conversation_context_fallback(state: AgentState) -> str:
     language = _get_language(state)
     group = _language_group(language)
     messages = [
-        str(turn.get("user_message") or "").strip()
+        str(turn.get("sanitized_user_request") or turn.get("rag_query") or "").strip()
         for turn in (state.get("conversation_turns") or [])[-4:]
-        if str(turn.get("user_message") or "").strip()
+        if str(turn.get("sanitized_user_request") or turn.get("rag_query") or "").strip()
     ]
     if not messages:
         templates = {

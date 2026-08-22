@@ -4,7 +4,7 @@ from types import MethodType, SimpleNamespace
 
 import src.backend.services.query_parser as query_parser
 from src.backend.agents.nodes import retrieval as retrieval_node
-from src.backend.services import rag as rag_module
+from src.backend.services import rag_core as rag_module
 from src.backend.services.llm import LLMService
 
 
@@ -140,6 +140,7 @@ def test_budget_partial_evidence_clear_passes_without_llm_flip(monkeypatch):
             "service": {"status": "not_found", "document_count": 0, "best_score": 0.0},
             "promotion": {"status": "found", "document_count": 1, "best_score": 0.8912},
         },
+        "context_intents": ["promotion"],
         "request_mode": "information",
         "resolution_mode": "information_only",
     }

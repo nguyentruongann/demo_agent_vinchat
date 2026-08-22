@@ -1,8 +1,9 @@
 import hmac
+import logging
 from uuid import uuid4
 
 import redis
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.backend.agents.graph import agent_graph
@@ -17,12 +18,15 @@ from src.backend.api.staff_routes import router as staff_router
 from src.backend.api.ticket_routes import router as ticket_router
 from src.backend.config import get_settings
 from src.backend.models.chat import AskRequest
+from src.backend.services.knowledge_manifest import readiness_issues
+from src.backend.services.rate_limit import enforce_rate_limit
 
 
 app = FastAPI(
     title="Vinpearl Multilingual Travel Agent",
     version="0.1.0",
 )
+logger = logging.getLogger(__name__)
 
 
 def _cors_origins() -> list[str]:
@@ -57,7 +61,7 @@ def health() -> dict[str, str]:
 
 @app.get("/ready")
 def ready() -> dict[str, str]:
-    """Report readiness only when the configured Redis instance is reachable."""
+    """Report readiness only when infrastructure and knowledge are synchronized."""
     redis_url = (get_settings().redis_url or "").strip()
     if not redis_url:
         raise HTTPException(status_code=503, detail="REDIS_URL is not configured")
@@ -74,12 +78,18 @@ def ready() -> dict[str, str]:
     except Exception as exc:
         raise HTTPException(status_code=503, detail="Redis is not ready") from exc
 
+    issues = readiness_issues()
+    if issues:
+        logger.error("readiness_failed checks=%s", issues)
+        raise HTTPException(status_code=503, detail="Knowledge base is not ready")
+
     return {"status": "ready"}
 
 
 @app.post("/ask")
 def ask(
     request: AskRequest,
+    http_request: Request,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     x_user_id: str | None = Header(default=None, alias="X-User-Id"),
 ) -> dict[str, str]:
@@ -93,6 +103,14 @@ def ask(
     ):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
+    client_host = http_request.client.host if http_request.client else "unknown"
+    enforce_rate_limit(
+        bucket="compat-ask",
+        identity=(x_user_id or client_host).strip() or client_host,
+        limit=get_settings().chat_rate_limit_per_minute,
+        window_seconds=60,
+    )
+
     session_id = f"CP5-{uuid4().hex}"
     try:
         state = agent_graph.invoke(
@@ -103,7 +121,12 @@ def ask(
             }
         )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        trace_id = uuid4().hex
+        logger.exception("ask_failed trace_id=%s", trace_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal service error. Reference: {trace_id}",
+        ) from exc
 
     answer = str(state.get("answer") or "").strip()
     if not answer:

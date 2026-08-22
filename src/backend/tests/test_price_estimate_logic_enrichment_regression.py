@@ -101,14 +101,14 @@ def test_build_context_exposes_structured_postgresql_fields():
     assert '"currency": "USD"' in context
 
 
-def test_final_answer_prompt_preserves_original_and_requires_numeric_estimate(monkeypatch):
+def test_final_answer_prompt_uses_sanitized_request_and_requires_numeric_estimate(monkeypatch):
     captured: dict[str, str] = {}
 
     class FakeLLM:
         def text(self, *, system_prompt: str, user_prompt: str) -> str:
             captured["system"] = system_prompt
             captured["user"] = user_prompt
-            return "Estimated total: 200 USD. Price information updated as of 2/8/2026."
+            return f"Estimated total: 200 USD. Price information updated as of {PRICE_DATA_AS_OF}."
 
     monkeypatch.setattr(answer_node, "LLMService", FakeLLM)
 
@@ -128,9 +128,10 @@ def test_final_answer_prompt_preserves_original_and_requires_numeric_estimate(mo
         }
     )
 
-    assert result["answer"] == "Estimated total: 200 USD. Price information updated as of 2/8/2026."
-    assert "ORIGINAL_USER_MESSAGE_UNTRUSTED" in captured["user"]
-    assert "estimate the price for 1 person solo vacation 2n3d here" in captured["user"]
+    assert result["answer"] == f"Estimated total: 200 USD. Price information updated as of {PRICE_DATA_AS_OF}."
+    assert "ORIGINAL_USER_MESSAGE_UNTRUSTED" not in captured["user"]
+    assert "estimate the price for 1 person solo vacation 2n3d here" not in captured["user"]
+    assert "estimate the price for a 1-person 2-night 3-day vacation in Nha Trang" in captured["user"]
     assert "SECURITY_SANITIZED_REQUEST" in captured["user"]
     assert "COST_ESTIMATE_REQUESTED:\ntrue" in captured["user"]
     assert "ANSWER_MODE" in captured["user"]
@@ -151,7 +152,7 @@ def test_price_contract_repairs_website_redirect_when_numeric_evidence_exists(mo
             calls.append((system_prompt, user_prompt))
             if len(calls) == 1:
                 return "Room rates vary. Please check the official website for current prices."
-            return "Estimated lodging: 200 USD. Price information updated as of 2/8/2026."
+            return f"Estimated lodging: 200 USD. Price information updated as of {PRICE_DATA_AS_OF}."
 
     monkeypatch.setattr(answer_node, "LLMService", FakeLLM)
 
@@ -172,7 +173,7 @@ def test_price_contract_repairs_website_redirect_when_numeric_evidence_exists(mo
     )
 
     assert len(calls) == 2
-    assert result["answer"] == "Estimated lodging: 200 USD. Price information updated as of 2/8/2026."
+    assert result["answer"] == f"Estimated lodging: 200 USD. Price information updated as of {PRICE_DATA_AS_OF}."
     assert "failed a mandatory price-output contract" in calls[1][0]
 
 
@@ -226,7 +227,7 @@ def test_guardrail_rejects_high_confidence_internal_travel_contradiction(monkeyp
     assert result["scope_action"] == "allow"
     assert result["safety_action"] == "allow"
     assert result["logic_action"] == "reject"
-    assert result["logic_confidence"] == 0.99
+    assert result["logic_confidence"] == 1.0
     assert result["route"] == "invalid_request"
     assert result["rag_query"] == ""
 
@@ -249,8 +250,8 @@ def test_price_contract_repairs_cost_estimate_without_destination_name(monkeypat
         def text(self, *, system_prompt: str, user_prompt: str) -> str:
             calls.append((system_prompt, user_prompt))
             if len(calls) == 1:
-                return "Estimated total: 200 USD. Price information updated as of 2/8/2026."
-            return "For Nha Trang, estimated total: 200 USD. Price information updated as of 2/8/2026."
+                return f"Estimated total: 200 USD. Price information updated as of {PRICE_DATA_AS_OF}."
+            return f"For Nha Trang, estimated total: 200 USD. Price information updated as of {PRICE_DATA_AS_OF}."
 
     monkeypatch.setattr(answer_node, "LLMService", FakeLLM)
 

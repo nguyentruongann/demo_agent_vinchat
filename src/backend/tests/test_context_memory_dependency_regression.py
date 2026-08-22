@@ -120,6 +120,38 @@ def _selection(
     }
 
 
+def test_same_name_evidence_types_become_one_memory_entity_candidate():
+    state = {
+        "recent_entities": [
+            {
+                "name": "Vinpearl Resort Nha Trang",
+                "type": "mice_venue",
+                "source": "user_explicit_kb",
+                "destination_id": "nha-trang",
+            },
+            {
+                "name": "Vinpearl Resort Nha Trang",
+                "type": "property",
+                "source": "user_explicit_kb",
+                "destination_id": "nha-trang",
+            },
+            {
+                "name": "Vinpearl Resort Nha Trang",
+                "type": "org_highlight",
+                "source": "assistant_suggestion_kb",
+                "destination_id": "nha-trang",
+            },
+        ]
+    }
+
+    candidates = context_resolver._build_entity_candidates(state)
+
+    assert len(candidates) == 1
+    assert candidates[0]["name"] == "Vinpearl Resort Nha Trang"
+    assert candidates[0]["type"] == "property"
+    assert candidates[0]["ref"] == "entity:1"
+
+
 def test_factual_clarification_can_recover_from_conversation_context_route(monkeypatch):
     _patch_catalog(monkeypatch)
     fake = _FakeLLM(
@@ -287,6 +319,38 @@ def test_nominal_continuation_without_selected_memory_downgrades_to_independent(
     assert resolved["resolved_destination_ids"] == ["ha-noi"]
     assert resolved["selected_memory_turn_refs"] == []
     assert resolved["rag_query"] == state["rag_query"]
+
+
+def test_those_zones_bind_to_latest_answer_and_drop_stale_hotels(monkeypatch):
+    _patch_catalog(monkeypatch)
+    fake = _FakeLLM(
+        _dependency("factual_continuation", needs_memory=True),
+        _selection(destinations=["phu-quoc"], entities=["entity:1", "entity:2"], turns=["turn:9"], rag_query="Prices for two stale Phu Quoc hotels"),
+    )
+    monkeypatch.setattr(context_resolver, "LLMService", lambda: fake)
+    state = _memory_state(route="rag", current_message="giá những khu đó như thế nào")
+    state["request_requires_memory"] = True
+    state["request_tasks"] = [{"task_id": "t1", "task_type": "price_lookup", "needs_memory": True, "retrieval_intents": ["attraction", "booking_product"]}]
+    state["recent_entities"] = [
+        {"name": "Vinpearl Wonderworld Phu Quoc", "type": "property", "destination_id": "phu-quoc"},
+        {"name": "Vinpearl Resort & Spa Phu Quoc", "type": "property", "destination_id": "phu-quoc"},
+    ]
+    state["conversation_turns"] = [{
+        "memory_ref": "turn:9",
+        "route": "rag",
+        "sanitized_user_request": "VinWonders Phú Quốc có những khu nào?",
+        "assistant_answer": "VinWonders Phú Quốc có sáu khu: Đại lộ Châu Âu, Cổ tích, Viking, Cung điện Hải Vương, Thế giới Phiêu lưu và Làng bí mật.",
+        "resolved_destinations": [{"id": "phu-quoc", "source": "user_explicit_kb", "confirmed": True}],
+        "focus_entities": [],
+    }]
+    resolved = context_resolver.resolve_conversation_context(state)
+    assert resolved["context_uses_memory"] is True
+    assert resolved["selected_memory_turn_refs"] == ["turn:9"]
+    assert resolved["resolved_destination_ids"] == ["phu-quoc"]
+    assert resolved["resolved_entity_names"] == []
+    assert "VinWonders admission ticket prices" in resolved["rag_query"]
+    assert "Wonderworld" not in resolved["rag_query"]
+    assert "Resort & Spa" not in resolved["rag_query"]
 
 
 def test_conversation_meta_uses_memory_but_does_not_produce_rag_query(monkeypatch):

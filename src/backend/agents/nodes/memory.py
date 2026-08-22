@@ -1,4 +1,5 @@
 from src.backend.agents.state import AgentState
+from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.services.memory import MemoryService
 from src.backend.services.query_parser import detect_destinations
 
@@ -68,7 +69,7 @@ def _logic_reject_subject_destinations(state: AgentState) -> list[dict]:
     if bool(state.get("prompt_injection_detected", False)):
         return []
 
-    matches = detect_destinations(str(state.get("user_message") or ""))
+    matches = detect_destinations(effective_user_message(state))
     unique: dict[str, dict] = {}
     for raw in matches or []:
         destination_id = str(raw.get("id") or "").strip()
@@ -116,6 +117,7 @@ def save_conversation_memory(state: AgentState) -> AgentState:
         session_id=state.get("session_id"),
         user_id=state.get("user_id"),
         user_message=state.get("user_message", ""),
+        sanitized_user_request=effective_user_message(state),
         assistant_answer=state.get("answer", ""),
         language=state.get("original_language", "unknown"),
         route=persisted_route,

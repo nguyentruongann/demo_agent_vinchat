@@ -343,30 +343,72 @@ def _build_entity_candidates(state: AgentState) -> list[dict[str, Any]]:
     lets packages, properties, attractions, services, promotions, FAQs and future
     entity types participate without adding one-off keyword keys to the resolver.
     """
-    output: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    # One real-world entity may be indexed under several evidence tables (for
+    # example the same resort as property, MICE venue and organisation highlight).
+    # Memory must expose one discourse target, not three same-name choices for the
+    # selector to accidentally select together.
+    type_priority = {
+        "property": 100,
+        "booking_product": 95,
+        "attraction": 90,
+        "complex": 85,
+        "dining_service": 80,
+        "golf_course": 75,
+        "mice_venue": 70,
+    }
+    best_by_name: dict[str, tuple[tuple[int, int, int, int], dict[str, Any]]] = {}
     for rank, raw in enumerate(state.get("recent_entities", []) or [], start=1):
         name = str(raw.get("name") or "").strip()
         entity_type = str(raw.get("type") or raw.get("entity_type") or "entity").strip() or "entity"
         if not name:
             continue
-        key = (entity_type.lower(), name.casefold())
-        if key in seen:
+        normalized_name = normalize_text(name)
+        if not normalized_name:
             continue
-        seen.add(key)
         source = str(raw.get("source") or "recent_grounded_focus")
+        confirmed = _truthy(raw.get("confirmed")) or source in _USER_FOCUS_DESTINATION_SOURCES
         candidate = {
-            "ref": f"entity:{rank}",
             "name": name,
             "type": entity_type,
             "source": source,
-            "confirmed": _truthy(raw.get("confirmed")) or source in _USER_FOCUS_DESTINATION_SOURCES,
+            "confirmed": confirmed,
             "recency_rank": rank,
         }
         destination_id = str(raw.get("destination_id") or "").strip()
         if destination_id:
             candidate["destination_id"] = destination_id
-        output.append(candidate)
+        score = (
+            1 if confirmed else 0,
+            1 if source in _USER_FOCUS_DESTINATION_SOURCES else 0,
+            type_priority.get(entity_type.lower(), 0),
+            -rank,
+        )
+        current = best_by_name.get(normalized_name)
+        if current is None or score > current[0]:
+            best_by_name[normalized_name] = (score, candidate)
+
+    ordered = sorted(
+        (item for _score, item in best_by_name.values()),
+        key=lambda item: int(item.get("recency_rank") or 9999),
+    )
+    output: list[dict[str, Any]] = []
+    for index, item in enumerate(ordered, start=1):
+        copied = dict(item)
+        copied["ref"] = f"entity:{index}"
+        output.append(copied)
+    return output
+
+
+def _dedupe_selected_entities(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse same-name evidence-table aliases after CLOSED ref selection."""
+    output: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items or []:
+        key = normalize_text(item.get("name"))
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        output.append(item)
     return output
 
 
@@ -416,7 +458,13 @@ def _compact_focus_turns(state: AgentState, limit: int = 8) -> list[dict[str, An
             route == "invalid_request" or logic_action == "reject"
         ) and scope_action != "block" and safety_action != "block"
         if recover_logic_subject:
-            raw_explicit = detect_destinations(str(turn.get("user_message") or ""))
+            safe_previous_request = str(
+                turn.get("sanitized_user_request")
+                or turn.get("user_message")
+                or turn.get("rag_query")
+                or ""
+            )
+            raw_explicit = detect_destinations(safe_previous_request)
             raw_ids = {str(item.get("id") or "").strip() for item in raw_explicit if str(item.get("id") or "").strip()}
             if len(raw_ids) == 1:
                 add_focus_destination(
@@ -454,7 +502,9 @@ def _compact_focus_turns(state: AgentState, limit: int = 8) -> list[dict[str, An
         output.append(
             {
                 "turn_ref": str(turn.get("memory_ref") or ""),
-                "user_message": str(turn.get("user_message") or "")[:500],
+                "user_message": str(
+                    turn.get("sanitized_user_request") or turn.get("rag_query") or ""
+                )[:500],
                 "assistant_answer_excerpt": str(turn.get("assistant_answer") or "")[:800],
                 "rag_query": str(turn.get("rag_query") or "")[:700],
                 "focus_destination_ids": [item["id"] for item in focus_destinations],
@@ -705,6 +755,7 @@ def _resolution_result(
     input_task: dict[str, Any] | None = None,
 ) -> AgentState:
     selected_destinations = _dedupe_destinations(selected_destinations)
+    selected_entities = _dedupe_selected_entities(selected_entities)
     excluded_destinations = _dedupe_destinations(excluded_destinations)
     excluded_ids = {
         str(item.get("id") or "").strip()
@@ -895,6 +946,53 @@ def _fallback_scoped_rag_query(
         return query
     suffix = ", ".join(missing_names)
     return f"{query} for {suffix}".strip() if query else suffix
+
+
+_RELATIVE_AREA_REFERENCES = (
+    "nhung khu do", "cac khu do", "may khu do", "nhung khu nay", "cac khu nay",
+    "nhung khu vua noi", "cac khu vua noi", "those zones", "those areas",
+    "these zones", "these areas", "the zones above", "the areas above",
+)
+
+
+def _is_relative_area_followup(message: str) -> bool:
+    normalized = normalize_text(message)
+    return any(marker in normalized for marker in _RELATIVE_AREA_REFERENCES)
+
+
+def _repair_relative_area_selection(
+    *,
+    message: str,
+    selected_entities: list[dict[str, Any]],
+    selected_turn_refs: list[str],
+    focus_turns: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str], bool]:
+    """Bind plural ``those zones/areas`` to the immediately preceding answer."""
+    if not _is_relative_area_followup(message) or not focus_turns:
+        return selected_entities, selected_turn_refs, False
+    latest_turn = focus_turns[-1]
+    latest_ref = str(latest_turn.get("turn_ref") or "").strip()
+    answer_text = normalize_text(latest_turn.get("assistant_answer_excerpt") or "")
+    kept_entities: list[dict[str, Any]] = []
+    if answer_text:
+        for item in selected_entities:
+            entity_name = normalize_text(item.get("name") or "")
+            entity_type = normalize_text(item.get("type") or "")
+            if entity_name and entity_name in answer_text and entity_type not in {"property", "room", "mice venue"}:
+                kept_entities.append(item)
+    repaired_turn_refs = [latest_ref] if latest_ref else selected_turn_refs
+    return kept_entities, repaired_turn_refs, (
+        kept_entities != selected_entities or repaired_turn_refs != selected_turn_refs
+    )
+
+
+def _relative_area_rag_query(destinations: list[dict[str, Any]]) -> str:
+    names = [_destination_name(item) for item in destinations if _destination_name(item)]
+    base = (
+        "VinWonders admission ticket prices and whether the entertainment zones "
+        "mentioned in the immediately preceding answer are separately priced or included in admission"
+    )
+    return f"{base} for {', '.join(names)}" if names else base
 
 def resolve_conversation_context(state: AgentState) -> AgentState:
     """Resolve current context first; consult memory only when the turn depends on it.
@@ -1156,7 +1254,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     selector_prompt = (
         "You are the CLOSED memory selector for a Vinpearl/VinWonders factual continuation. The dependency gate has already established "
         "that prior context is required. Select the MINIMUM prior refs needed to resolve the current request. "
-        "selected_memory_destination_ids/entities are positive prior targets the current request is still about. A selected prior destination may be user_focus or assistant_proposal; preserve that distinction. excluded_memory_* are prior "
+        "selected_memory_destination_ids/entities are positive prior targets the current request is still about. A selected prior destination may be user_focus or assistant_proposal; preserve that distinction. For near-deictic plural references such as 'những khu đó/các khu đó/those zones', the immediately preceding turn is authoritative: do not substitute older hotels or properties merely because they share the destination. excluded_memory_* are prior "
         "recommendations/entities that must not be returned (for example 'another option'). Select a prior turn only when its grounded retrieval "
         "focus materially supplies the omitted relation/subject; recency alone is not enough. Never invent refs. If current_input_task is place_structure_clarification, select the most recent turn/entities that caused the customer's confusion and write the rag_query to clarify whether they are one place with multiple components/names, not to review room types unless rooms were explicitly requested. If several assistant_proposal destinations were offered and the current request does not identify one, prefer selecting the prior turn and/or all relevant entities over guessing one destination. Old assistant prose is not fresh "
         "factual evidence. REQUEST_TASK_PLAN is authoritative for customer-visible coverage: preserve EVERY atomic task in the standalone rag_query, in order when practical; never drop a later clause just because an earlier clause resolved the reference. "
@@ -1272,6 +1370,17 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         turn_refs=turn_refs,
     )
 
+    (
+        selected_memory_entities,
+        selected_turn_refs,
+        relative_area_selection_repaired,
+    ) = _repair_relative_area_selection(
+        message=current_message,
+        selected_entities=selected_memory_entities,
+        selected_turn_refs=selected_turn_refs,
+        focus_turns=focus_turns,
+    )
+
     selector_had_invalid_refs = bool(invalid_refs)
     if selector_had_invalid_refs:
         # Invalid model refs are rejected individually, but valid CLOSED refs must
@@ -1348,7 +1457,9 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         _print_resolution(current_message, destination_candidates, entity_candidates, result)
         return result
 
-    if deterministic_fallback_used:
+    if _is_relative_area_followup(current_message):
+        resolved_query = _relative_area_rag_query(current_targets + selected_memory_destinations)
+    elif deterministic_fallback_used:
         resolved_query = _fallback_scoped_rag_query(
             guarded_query,
             selected_memory_destinations,
@@ -1371,6 +1482,12 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
         selection_reason = (
             "Memory selector produced no usable closed ref; recovered the single confirmed user-focus destination "
             "deterministically to preserve factual follow-up scope."
+        )
+        confidence = min(confidence, 0.95)
+    elif relative_area_selection_repaired:
+        selection_reason = (
+            "Near-deictic area reference was bound to the immediately preceding turn; "
+            "stale entities not present in that answer were removed."
         )
         confidence = min(confidence, 0.95)
     elif selector_had_invalid_refs:
