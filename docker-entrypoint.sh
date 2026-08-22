@@ -8,22 +8,42 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
   alembic upgrade head
 fi
 
-# Optional one-time bootstrap for a brand-new Railway PostgreSQL database.
-# Enable only when the DB has not been seeded/loaded yet.
+
+# One-time bootstrap:
+# - seed destination data
+# - load normalized PostgreSQL data
+# - rebuild Chroma index with current embedding contract
+#
+# Enable only when:
+# - first deployment
+# - changing embedding model
+# - changing vector schema
+#
 if [ "${BOOTSTRAP_CORE_DATA:-false}" = "true" ]; then
   echo "[startup] seed destinations"
   python -m scripts.seed_destinations
+
   echo "[startup] load core data"
   python -m scripts.load_core
+
   echo "[startup] build knowledge index"
   python -m src.backend.services.ingest_postgres --reset
 fi
 
-# Optional rebuild of Chroma. For production, attach a Railway Volume to
-# /app/storage so the index survives redeploys.
+
+# Normal production startup:
+# Do not rebuild Chroma every restart because it will:
+# - re-embed all documents
+# - consume Gemini quota
+# - increase startup time
+#
+# Keep disabled unless intentionally rebuilding index.
 if [ "${REBUILD_CHROMA_ON_START:-false}" = "true" ]; then
   echo "[startup] rebuild Chroma index"
   python -m src.backend.services.ingest_postgres --reset
 fi
 
-exec uvicorn src.backend.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+
+exec uvicorn src.backend.main:app \
+  --host 0.0.0.0 \
+  --port "${PORT:-8000}"
