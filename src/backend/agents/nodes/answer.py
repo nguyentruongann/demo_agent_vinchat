@@ -1,12 +1,11 @@
-from datetime import date
 import json
 import re
+from datetime import date
 
-from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
+from src.backend.agents.state import AgentState
 from src.backend.services.llm import LLMService
 from src.backend.services.retrieval_enrichment import PRICE_DATA_AS_OF
-
 
 _MONEY_IN_ANSWER_RE = re.compile(
     r"(?:[$€£₫]\s*~?\s*\d|\d[\d.,]*\s*(?:USD|VND|VNĐ|đồng|dong|₫)\b)",

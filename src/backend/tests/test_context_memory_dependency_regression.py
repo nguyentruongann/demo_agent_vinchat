@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.backend.agents.nodes import context_resolver, classify
+from src.backend.agents.nodes import classify, context_resolver
 
 
 class _FakeLLM:

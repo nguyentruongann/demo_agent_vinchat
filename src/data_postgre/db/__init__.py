@@ -19,8 +19,8 @@ from src.data_postgre.db.base import AppBase, Base, Sourced, Timestamped, by_bar
 from src.data_postgre.db.core import (
     Amenity,
     Attraction,
-    Brand,
     BookingProduct,
+    Brand,
     Complex,
     DataQualityIssue,
     Destination,

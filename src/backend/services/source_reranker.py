@@ -10,7 +10,6 @@ import chromadb
 from src.backend.config import get_settings
 from src.backend.services.query_parser import load_destination_catalog, normalize_text
 
-
 URL_KEYS = (
     "source_url",
     "canonical_url",

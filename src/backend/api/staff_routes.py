@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -63,7 +63,7 @@ def update_ticket(
         if payload.status is not None:
             ticket.status = payload.status
             if payload.status in {"resolved", "closed"}:
-                ticket.resolved_at = datetime.now(timezone.utc)
+                ticket.resolved_at = datetime.now(UTC)
             elif ticket.resolved_at is not None:
                 ticket.resolved_at = None
         if payload.priority is not None:

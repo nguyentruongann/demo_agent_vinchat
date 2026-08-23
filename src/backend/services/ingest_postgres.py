@@ -14,10 +14,10 @@ import argparse
 
 import chromadb
 
+from src.backend.config import get_settings
+from src.backend.services.knowledge_manifest import write_manifest
 from src.backend.services.postgres_loader import load_postgres_documents
 from src.backend.services.rag import RAGService
-from src.backend.services.knowledge_manifest import write_manifest
-from src.backend.config import get_settings
 
 
 def _batches(items: list[dict], size: int):

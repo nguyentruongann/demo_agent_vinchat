@@ -6,8 +6,10 @@ from src.backend.agents.nodes import language_guard
 
 class _FakeJsonLLM:
     def json(self, *, system_prompt: str, user_prompt: str):
-        assert "CURRENT message" in system_prompt or "CURRENT message" in system_prompt.upper()
         assert "สวัสดี" in user_prompt
+        if "safety classifier" in system_prompt:
+            return {"safety_action": "allow", "safety_reason": "benign greeting"}
+        assert "current message" in system_prompt.lower()
         return {
             "language": "th_TH",
             "language_name": "Thai",

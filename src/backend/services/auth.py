@@ -5,7 +5,7 @@ import hashlib
 import hmac
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
@@ -17,7 +17,6 @@ from src.backend.config import get_settings
 from src.backend.models.auth import UserPublic
 from src.backend.services.db import open_session
 from src.data_postgre.db.app import AppUser, AuthSession
-
 
 _PHONE_DIGITS = re.compile(r"\D+")
 
@@ -145,7 +144,7 @@ def create_user(
         role=role,
         is_staff=role in {"staff", "admin"},
         is_active=True,
-        last_seen_at=datetime.now(timezone.utc),
+        last_seen_at=datetime.now(UTC),
     )
     db.add(user)
     try:
@@ -174,7 +173,7 @@ def authenticate(db: Session, identifier: str, password: str) -> AppUser:
     if not user or not user.is_active or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email/số điện thoại hoặc mật khẩu không đúng.")
 
-    user.last_seen_at = datetime.now(timezone.utc)
+    user.last_seen_at = datetime.now(UTC)
     db.commit()
     return user
 
@@ -182,7 +181,7 @@ def authenticate(db: Session, identifier: str, password: str) -> AppUser:
 def issue_session(db: Session, user: AppUser) -> str:
     settings = get_settings()
     raw_token = secrets.token_urlsafe(48)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     auth_session = AuthSession(
         user_id=user.id,
         token_hash=_token_hash(raw_token),
@@ -204,7 +203,7 @@ def _extract_bearer(authorization: str | None) -> str:
 
 
 def resolve_user_from_token(db: Session, raw_token: str) -> tuple[AppUser, AuthSession]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     auth_session = db.scalar(
         select(AuthSession).where(
             AuthSession.token_hash == _token_hash(raw_token),
@@ -251,5 +250,5 @@ def require_admin(user: AppUser = Depends(get_current_user)) -> AppUser:
 def revoke_current_session(db: Session, raw_token: str) -> None:
     auth_session = db.scalar(select(AuthSession).where(AuthSession.token_hash == _token_hash(raw_token)).limit(1))
     if auth_session and auth_session.revoked_at is None:
-        auth_session.revoked_at = datetime.now(timezone.utc)
+        auth_session.revoked_at = datetime.now(UTC)
         db.commit()

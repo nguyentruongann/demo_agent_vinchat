@@ -49,6 +49,10 @@ def test_route_after_assessment_enough_info() -> None:
 
 
 @pytest.mark.parametrize("state", [{"enough_information": False}, {}])
-def test_route_after_assessment_falls_back_to_ticket(state: dict) -> None:
-    """Thiếu thông tin, hoặc thiếu luôn cả khoá, đều phải mở ticket."""
-    assert route_after_assessment(state) == "ticket"
+def test_route_after_assessment_fails_safe_without_side_effect(state: dict) -> None:
+    """Missing evidence alone must not create a consequential support ticket."""
+    assert route_after_assessment(state) == "no_data"
+
+
+def test_route_after_assessment_opens_ticket_for_human_required_case() -> None:
+    assert route_after_assessment({"resolution_mode": "human_required"}) == "ticket"

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Structured post-retrieval enrichment for grounded RAG answers.
 
 The vector index is intentionally optimized for semantic matching, so a selected
@@ -17,12 +15,14 @@ PostgreSQL remains the source of truth; Chroma only decides which entities are
 semantically relevant.
 """
 
+from __future__ import annotations
+
 import json
 import re
-from difflib import SequenceMatcher
 from collections import defaultdict
 from datetime import date, datetime, time
 from decimal import Decimal
+from difflib import SequenceMatcher
 from typing import Any
 
 from sqlalchemy import and_, or_, select
@@ -31,7 +31,6 @@ from src.backend.config import get_settings
 from src.backend.services.db import get_engine
 from src.backend.services.query_parser import normalize_text
 from src.data_postgre.db import CORE_TABLES
-
 
 PRICE_DATA_AS_OF = "31/7/2026"
 DEFAULT_OUTPUT_CURRENCY_BY_LANGUAGE = {"vi": "VND", "en": "USD"}

@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import math
 import os
 import re
 import tempfile
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
 from src.backend.config import get_settings
 from src.backend.services.query_parser import normalize_intent_text, normalize_text
-
 
 # The FAQ matcher is intentionally independent from destination/intent routing.
 # A documented FAQ is authoritative evidence even when its wording mentions a
@@ -755,7 +755,6 @@ class FAQMatcher:
 
             lexical_scores = [self._lexical_similarity(value, entry) for _, value in variants]
             lexical_score = max(lexical_scores, default=0.0)
-            lexical_variant_index = int(np.argmax(lexical_scores)) if lexical_scores else best_question_variant
 
             weighted_scores = [self._weighted_question_overlap(value, entry) for _, value in variants]
             weighted_variant_index = int(

@@ -13,7 +13,6 @@ from src.backend.services.query_parser import (
     normalize_text,
 )
 
-
 _ALLOWED_TASK_TYPES = {
     "place_structure_clarification",
     "detailed_review",

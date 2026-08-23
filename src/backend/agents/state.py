@@ -1,6 +1,5 @@
 from typing import Any, Literal, TypedDict
 
-
 RouteName = Literal[
     "greeting",
     "out_of_scope",

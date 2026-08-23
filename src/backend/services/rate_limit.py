@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from functools import lru_cache
 import hashlib
 import logging
 import time
+from functools import lru_cache
 
-from fastapi import HTTPException
 import redis
+from fastapi import HTTPException
 
 from src.backend.config import get_settings
-
 
 logger = logging.getLogger(__name__)
 

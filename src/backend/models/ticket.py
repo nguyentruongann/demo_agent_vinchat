@@ -2,7 +2,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 TicketStatus = Literal["open", "in_progress", "resolved", "closed"]
 TicketPriority = Literal["low", "normal", "high"]
 

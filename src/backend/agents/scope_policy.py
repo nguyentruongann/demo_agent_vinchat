@@ -6,7 +6,6 @@ instead of maintaining keyword deny-lists that can contradict the knowledge base
 
 from __future__ import annotations
 
-
 VINPEARL_SCOPE_POLICY = (
     "SCOPE POLICY (semantic, relationship-based): Decide scope from the requested deliverable and its "
     "relationship to Vinpearl/VinWonders/VinClub or a product/service documented in the Vinpearl knowledge "

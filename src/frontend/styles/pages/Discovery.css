@@ -24,7 +24,7 @@
 .discovery-page--meetings .discovery-page__intro {
   background:
     linear-gradient(rgba(15, 34, 52, 0.55), rgba(15, 34, 52, 0.75)),
-    url('../../image/hội họp.jpg.webp') center/cover no-repeat;
+    url('../../image/meeting.jpg.webp') center/cover no-repeat;
 }
 
 .discovery-page__intro-inner {

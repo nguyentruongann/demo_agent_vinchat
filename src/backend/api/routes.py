@@ -1,8 +1,10 @@
 import re
-from uuid import uuid4
 from urllib.parse import urlparse
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from src.data_postgre.db.app import AppUser
 
 from ..agents.graph import agent_graph
 from ..config import get_settings
@@ -16,10 +18,9 @@ from ..models.chat import (
 )
 from ..services.auth import get_current_user, get_optional_user
 from ..services.memory import MemoryService
-from ..services.rate_limit import enforce_rate_limit
 from ..services.query_parser import load_destination_catalog, normalize_text
+from ..services.rate_limit import enforce_rate_limit
 from ..services.source_reranker import get_source_reranker
-from src.data_postgre.db.app import AppUser
 
 router = APIRouter(prefix="/api/v1", tags=["agent"])
 

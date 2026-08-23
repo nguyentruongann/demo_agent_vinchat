@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Lightweight knowledge-base evidence for the input scope guardrail.
 
 This module deliberately performs only *exact phrase* matching against canonical
@@ -15,10 +13,11 @@ KB evidence, an LLM-only scope gate may incorrectly reject such a request before
 RAG gets a chance to retrieve the supporting document.
 """
 
+from __future__ import annotations
+
 import re
 import unicodedata
 from typing import Any
-
 
 # Restrict the probe to entity/table types whose labels can reasonably identify a
 # concrete Vinpearl-supported object or an official KB item. Exact phrase matching
@@ -301,5 +300,4 @@ def probe_recent_kb_entities(
                 return matches
 
     return matches
-
 

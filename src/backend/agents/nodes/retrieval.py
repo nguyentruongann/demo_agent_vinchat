@@ -1,13 +1,14 @@
-from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
+from src.backend.agents.state import AgentState
 from src.backend.config import get_settings
 from src.backend.services.llm import LLMService
-from src.backend.services.rag import get_rag_service, text_has_price_evidence
 from src.backend.services.query_parser import normalize_text
+from src.backend.services.rag import get_rag_service, text_has_price_evidence
 from src.backend.services.retrieval_enrichment import (
     enrich_retrieved_documents,
     preferred_currency_for_language,
 )
+
 
 def _select_memory_turns(state: AgentState, limit: int = 6) -> list[dict]:
     """Select prior factual turns chosen by the semantic context resolver.

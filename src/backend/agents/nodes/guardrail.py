@@ -5,15 +5,14 @@ import re
 import unicodedata
 from typing import Any
 
-from src.backend.agents.state import AgentState
-from src.backend.services.llm import LLMService
 from src.backend.agents.scope_policy import scope_policy_prompt
+from src.backend.agents.state import AgentState
 from src.backend.services.kb_scope_probe import (
     probe_kb_scope_evidence,
     probe_recent_kb_entities,
 )
+from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import detect_supported_destination_discovery
-
 
 _SCOPE_ACTIONS = {"allow", "block"}
 _SAFETY_ACTIONS = {"allow", "block"}

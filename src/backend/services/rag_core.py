@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from functools import lru_cache
-from math import ceil
 import json
 import re
+from functools import lru_cache
+from math import ceil
 from typing import Any
 
 import chromadb
 import numpy as np
+
 from src.backend.config import get_settings
 from src.backend.repositories.faq_repository import load_faq_corpus
-from src.backend.services.gemini_embeddings import GeminiEmbedding, GeminiEmbeddingConfig
 from src.backend.services.faq_matcher import FAQMatcher
+from src.backend.services.gemini_embeddings import GeminiEmbedding, GeminiEmbeddingConfig
 from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import (
     INTENT_ENTITY_TYPES,

@@ -103,7 +103,6 @@ src/frontend/
 ├── App.jsx              Component gốc
 ├── main.jsx             Entry point React
 ├── index.css            CSS toàn cục
-└── types.js             Kiểu dữ liệu JSDoc dùng chung
 ```
 
 ## Các route chính
@@ -171,7 +170,6 @@ Khi thêm nội dung tiếng Việt:
 - Trang gắn với URL đặt trong `pages`.
 - Không gọi `fetch` trực tiếp rải rác trong component; thêm hàm vào
   `services/api.js`.
-- Kiểu dữ liệu dùng chung được mô tả trong `types.js` bằng JSDoc.
 - CSS đặt đúng thư mục và đặt tên class theo phạm vi component hoặc trang.
 - Thành phần có thể bấm phải có trạng thái hover/focus và `cursor: pointer`.
 - Không commit `.env`, mật khẩu, token hoặc thông tin kết nối database.
@@ -204,4 +202,3 @@ Dùng file thực thi Windows:
 ```powershell
 npm.cmd run dev
 ```
-

@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from src.backend.agents.state import AgentState
 from src.backend.agents.nodes.guardrail import effective_user_message
+from src.backend.agents.state import AgentState
 from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import normalize_text
-
 
 RequestMode = Literal["information", "support_action"]
 ResolutionMode = Literal["information_only", "self_serve", "human_required"]

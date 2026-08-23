@@ -1,5 +1,12 @@
 name: CI
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -12,6 +19,7 @@ jobs:
   backend-test:
     name: Backend lint and test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -27,7 +35,7 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Ruff check
-        run: ruff check src/ tests/
+        run: ruff check src/backend/ src/data_postgre/ tests/
 
       - name: Run tests
         run: pytest tests/ src/backend/tests/ -v --tb=short
@@ -35,11 +43,14 @@ jobs:
           APP_ENV: test
           OPENAI_API_KEY: test-key
           LLM_API_KEY: test-key
+          GEMINI_API_KEY: test-key
+          PYTHONDONTWRITEBYTECODE: "1"
 
 
   frontend-build:
     name: Frontend lint and build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -64,6 +75,7 @@ jobs:
   docker-build:
     name: Docker image build validation
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs:
       - backend-test
       - frontend-build

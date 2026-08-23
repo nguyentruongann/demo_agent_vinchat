@@ -21,12 +21,12 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
-    func,
     Integer,
     Numeric,
     SmallInteger,
     Text,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID

@@ -3,17 +3,16 @@ from langgraph.graph import END, START, StateGraph
 from src.backend.agents.nodes.answer import generate_answer
 from src.backend.agents.nodes.classify import classify_input
 from src.backend.agents.nodes.context_resolver import resolve_conversation_context
-from src.backend.agents.nodes.request_understanding import understand_current_request
-from src.backend.agents.nodes.language import detect_language_and_translate
-from src.backend.agents.nodes.guardrail import enforce_input_guardrail
-from src.backend.agents.nodes.language_guard import enforce_response_language
 from src.backend.agents.nodes.grounding import validate_grounding
+from src.backend.agents.nodes.guardrail import enforce_input_guardrail
+from src.backend.agents.nodes.language import detect_language_and_translate
+from src.backend.agents.nodes.language_guard import enforce_response_language
 from src.backend.agents.nodes.memory import (
     load_conversation_memory,
     save_conversation_memory,
 )
+from src.backend.agents.nodes.request_understanding import understand_current_request
 from src.backend.agents.nodes.retrieval import assess_information, retrieve_context
-from src.backend.agents.nodes.support_triage import analyze_support_request
 from src.backend.agents.nodes.static_responses import (
     conversation_context_response,
     greeting_response,
@@ -22,6 +21,7 @@ from src.backend.agents.nodes.static_responses import (
     out_of_scope_response,
     sensitive_content_response,
 )
+from src.backend.agents.nodes.support_triage import analyze_support_request
 from src.backend.agents.nodes.ticket import create_ticket
 from src.backend.agents.state import AgentState
 

@@ -21,7 +21,6 @@ from src.backend.models.chat import AskRequest
 from src.backend.services.knowledge_manifest import readiness_issues
 from src.backend.services.rate_limit import enforce_rate_limit
 
-
 app = FastAPI(
     title="Vinpearl Multilingual Travel Agent",
     version="0.1.0",

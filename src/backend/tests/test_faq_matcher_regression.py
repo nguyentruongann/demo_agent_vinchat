@@ -1,6 +1,5 @@
 from src.backend.services.faq_matcher import FAQMatcher
 
-
 # Self-contained rows emulate the active ``core.faq`` repository result.
 _POSTGRES_FAQ_ROWS = [
     {"index": 0, "question": "How many pieces/kilos of luggage can I check in?", "answer": "The baggage allowance lists permitted pieces and checked baggage weight.", "category": "Transportation", "subcategory": "Baggage", "source_path": "postgresql:core.faq"},

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -110,7 +110,7 @@ class MemoryService:
             return
 
         parsed_user_id = self._parse_user_id(user_id)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         with open_session() as db:
             if parsed_user_id is not None and db.get(AppUser, parsed_user_id) is None:
@@ -859,7 +859,7 @@ class MemoryService:
             return
 
         parsed_user_id = self._parse_user_id(user_id)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         def _compact_destination_list(items: list[dict[str, Any]] | None) -> list[dict[str, str]]:
             compact: list[dict[str, str]] = []

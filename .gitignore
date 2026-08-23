@@ -39,9 +39,15 @@ data/**
 # Allow all JSON files recursively
 !data/**/*.json
 
+# SQLite databases and their transient sidecar files must never be committed.
 *.db
+*.db-*
+*.sqlite
+*.sqlite-*
 *.sqlite3
-!storage/chroma_local/chroma.sqlite3
+*.sqlite3-*
+storage/chroma_local/
+*.jsonl
 # Logs
 logs/
 *.log

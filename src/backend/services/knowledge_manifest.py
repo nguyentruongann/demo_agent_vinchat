@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections import Counter
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
-import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +14,6 @@ from sqlalchemy import create_engine, select, text
 from src.backend.config import Settings, get_settings
 from src.backend.services.postgres_loader import EXCLUDED_TABLES
 from src.data_postgre.db import CORE_TABLES
-
 
 REQUIRED_ENTITY_TYPES = ("faq", "property", "booking_product", "policy_document")
 REQUIRED_DB_TABLES = ("faq", "property", "booking_product", "policy_document")

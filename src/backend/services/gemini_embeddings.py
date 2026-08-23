@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import random
 import time
+from dataclasses import dataclass
 
 import numpy as np
 from google import genai

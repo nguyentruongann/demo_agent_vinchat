@@ -6,8 +6,11 @@ from typing import Any
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.agents.state import AgentState
 from src.backend.services.llm import LLMService
-from src.backend.services.query_parser import detect_destinations, load_destination_catalog, normalize_text
-
+from src.backend.services.query_parser import (
+    detect_destinations,
+    load_destination_catalog,
+    normalize_text,
+)
 
 _USER_FOCUS_DESTINATION_SOURCES = {
     "current_explicit",

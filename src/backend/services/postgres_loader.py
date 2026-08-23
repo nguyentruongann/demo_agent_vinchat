@@ -22,16 +22,16 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Any, Iterable
+from typing import Any
 
 from sqlalchemy import create_engine, select
 
 from src.backend.config import get_settings
 from src.backend.services.text_chunker import chunk_text
 from src.data_postgre.db import CORE_TABLES
-
 
 # ---------------------------------------------------------------------------
 # Coverage policy
@@ -147,7 +147,7 @@ def _primary_key_text(table, row: dict[str, Any]) -> str:
 
 
 def _document_id(table_name: str, pk_text: str, chunk_index: int) -> str:
-    stable = hashlib.sha1(f"{table_name}|{pk_text}".encode("utf-8")).hexdigest()
+    stable = hashlib.sha1(f"{table_name}|{pk_text}".encode()).hexdigest()
     return f"pg:{table_name}:{stable}:{chunk_index}"
 
 
