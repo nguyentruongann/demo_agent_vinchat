@@ -254,6 +254,13 @@ def _atomic_clause_candidates(message: str) -> list[str]:
         if len(parts) <= 1:
             return [piece]
 
+        # “Thế còn … thì sao, có phụ thu không?” is one proposition: the second
+        # fragment supplies the predicate left implicit by “thì sao”. Splitting it
+        # creates a context-free task (“có phụ thu không?”) and unrelated retrieval.
+        first_normalized = normalize_text(parts[0])
+        if first_normalized.endswith((" thi sao", " the nao", " how about")):
+            return [piece]
+
         question_markers = (
             "khong", "sao", "nao", "may gio", "bao nhieu", "the nao",
             "khi nao", "luc nao", "duoc chu", "right", "how", "what",
@@ -671,6 +678,7 @@ def understand_current_request(state: AgentState) -> AgentState:
         "The input guardrail has already approved this turn. Your only job is to identify EVERY customer-visible outcome requested in the CURRENT message. "
         "Do not answer, do not retrieve facts, and do not assume the customer's wording is factually correct. "
         "Decompose the message into atomic tasks: each semantically independent question, requested action, comparison, clarification, review, price calculation, policy check, recommendation, or follow-up outcome is a separate task. "
+        "Do not split a trailing clarification that merely completes the same proposition (for example, 'thế còn con 5 tuổi thì sao, có phụ thu không?' is one child-surcharge policy task). "
         "There is no special two-clause limit: preserve all requested clauses in their original order. Do not collapse later clauses into the first one merely because they concern the same place. "
         "When a customer gives multiple independent requirements or preferences and also asks how, where, or to whom they should communicate them, create one task for each independently answerable requirement plus a separate informational contact/communication-guidance task. Do not collapse the communication channel into the requirements themselves. "
         "A task may depend on an earlier task. Example: 'ở đây có 2 nơi hả, review chi tiết từng nơi' MUST become (1) verify whether they are actually two places, and (2) provide the requested detailed review using the corrected structure from task 1. "

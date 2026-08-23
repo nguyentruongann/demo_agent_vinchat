@@ -7,6 +7,7 @@ from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.agents.state import AgentState
 from src.backend.services.llm import LLMService
 from src.backend.services.query_parser import (
+    detect_destination_regions,
     detect_destinations,
     load_destination_catalog,
     normalize_text,
@@ -14,6 +15,8 @@ from src.backend.services.query_parser import (
 
 _USER_FOCUS_DESTINATION_SOURCES = {
     "current_explicit",
+    "current_explicit_region",
+    "active_user_scope",
     "user_explicit",
     "user_explicit_kb",
     "user_explicit_legacy_detection",
@@ -505,6 +508,7 @@ def _compact_focus_turns(state: AgentState, limit: int = 8) -> list[dict[str, An
         output.append(
             {
                 "turn_ref": str(turn.get("memory_ref") or ""),
+                "route": str(turn.get("route") or ""),
                 "user_message": str(
                     turn.get("sanitized_user_request") or turn.get("rag_query") or ""
                 )[:500],
@@ -518,6 +522,75 @@ def _compact_focus_turns(state: AgentState, limit: int = 8) -> list[dict[str, An
             }
         )
     return output
+
+
+_SCOPE_COMPATIBLE_TASK_TYPES = {
+    "destination_recommendation", "hotel_recommendation", "price_estimate",
+    "price_lookup", "itinerary", "amenity_check", "availability_check",
+    "property_detail", "detailed_review", "comparison", "policy_qa", "general_qa",
+}
+
+
+def _active_scope_refinement(
+    state: AgentState,
+    current_message: str,
+    explicit: list[dict[str, Any]],
+    focus_turns: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Return the active user-owned destination scope for a refining follow-up.
+
+    A sentence can be grammatically standalone while still modifying the active
+    conversational task (budget, dates, party size, preferences, itinerary, etc.).
+    Only the immediately preceding factual turn may provide this implicit scope;
+    older session mentions are deliberately ignored.
+    """
+    if explicit or not focus_turns or detect_destination_regions(current_message):
+        return [], []
+
+    normalized = f" {normalize_text(current_message)} "
+    reset_markers = (
+        " doi chu de ", " chu de khac ", " bat ky dau ", " khong gioi han dia diem ",
+        " toan quoc ", " ca nuoc ", " anywhere ", " anywhere in vietnam ",
+        " new topic ", " different topic ", " regardless of location ",
+    )
+    if any(marker in normalized for marker in reset_markers):
+        return [], []
+
+    current_tasks = [
+        str(item.get("task_type") or "general_qa").strip().lower()
+        for item in (state.get("request_tasks") or [])
+        if isinstance(item, dict)
+    ]
+    if current_tasks and not any(task in _SCOPE_COMPATIBLE_TASK_TYPES for task in current_tasks):
+        return [], []
+
+    latest = focus_turns[-1]
+    if str(latest.get("route") or "") != "rag":
+        return [], []
+    previous_tasks = [
+        str(item.get("task_type") or "general_qa").strip().lower()
+        for item in (latest.get("request_tasks") or [])
+        if isinstance(item, dict)
+    ]
+    if previous_tasks and not any(task in _SCOPE_COMPATIBLE_TASK_TYPES for task in previous_tasks):
+        return [], []
+
+    selected: list[dict[str, Any]] = []
+    for raw in latest.get("focus_destinations") or []:
+        source = str(raw.get("source") or "").strip()
+        if source not in _USER_FOCUS_DESTINATION_SOURCES:
+            continue
+        destination_id = str(raw.get("id") or "").strip()
+        canonical = _catalog_destination(destination_id)
+        if not canonical:
+            continue
+        canonical = dict(canonical)
+        canonical["source"] = "active_user_scope"
+        canonical["confirmed"] = True
+        selected.append(canonical)
+    selected = _dedupe_destinations(selected)
+    turn_ref = str(latest.get("turn_ref") or "").strip()
+    return selected, ([turn_ref] if turn_ref and selected else [])
 
 
 def _fallback_resolution(
@@ -657,6 +730,7 @@ def _parse_closed_selection(
 def _parse_current_destination_bindings(
     result: dict[str, Any],
     explicit: list[dict[str, Any]],
+    current_message: str = "",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     """Bind destinations mentioned in the CURRENT message only.
 
@@ -692,6 +766,25 @@ def _parse_current_destination_bindings(
 
     target_ids = parse_ids("current_target_destination_ids")
     excluded_ids = parse_ids("current_excluded_destination_ids")
+
+    # Deterministic repair for explicit "other than/except X" phrasing. In the
+    # observed failure the semantic binder placed Phu Quoc in the positive bucket,
+    # causing the answer to search Phu Quoc again instead of excluding it.
+    normalized_message = f" {normalize_text(current_message)} "
+    exclusion_prefixes = ("ngoai", "tru", "khong tinh", "except", "excluding", "other than")
+    for destination_id, item in explicit_by_id.items():
+        aliases = item.get("aliases") or [item.get("matched_alias"), item.get("name_vi"), item.get("name_en")]
+        is_explicit_exclusion = any(
+            f" {normalize_text(prefix)} {normalize_text(alias)} " in normalized_message
+            for prefix in exclusion_prefixes
+            for alias in aliases
+            if normalize_text(alias)
+        )
+        if not is_explicit_exclusion:
+            continue
+        target_ids = [value for value in target_ids if value != destination_id]
+        if destination_id not in excluded_ids:
+            excluded_ids.append(destination_id)
 
     overlap = set(target_ids) & set(excluded_ids)
     if overlap:
@@ -1078,14 +1171,14 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     # entities/turns, which keeps stale memory out of independent requests by design.
     dependency_prompt = (
         "You are the memory-dependency gate for a Vinpearl/VinWonders assistant. "
-        "Decide whether the CURRENT request actually requires prior conversation. Same session or topic similarity is NOT enough. "
+        "Decide whether the CURRENT request actually requires prior conversation. Same session or loose topic similarity is NOT enough, but an active user-owned destination scope is part of the current conversational task until the user replaces or resets it. "
         "Prior destinations/entities include a provenance role: user_focus means the user chose/named it; assistant_proposal means the assistant previously suggested or mentioned it; retrieval_evidence is only a KB/search hit. "
         "Classify request_kind as exactly one of independent, factual_continuation, conversation_meta. "
         "independent: the current message plus any entities/destinations explicitly named IN THAT MESSAGE are sufficient to understand "
-        "what new factual request to retrieve. Do not use memory merely because a previous destination/entity is related. "
+        "what new factual request to retrieve. Do not use memory merely because a previous destination/entity is related. A message is not independent merely because it is grammatical by itself: if it adds or changes budget, dates, duration, guest count, preferences, facilities, price, availability, comparison criteria, or itinerary details for the immediately active user-owned travel scope, it is a factual_continuation. "
         "factual_continuation: prior context is materially required to resolve an omitted subject/pronoun, 'this/that/it/there', ordinal, "
         "comparison, correction, clarification, 'another/additional/different' option, exclusion of a previous recommendation, or an equivalent "
-        "discourse relation, or a request to reuse/adjust/recalculate information already provided. If the same request could be answered correctly without knowing prior turns, it is independent. "
+        "discourse relation, or a request to reuse/adjust/recalculate information already provided. Scope refinement counts as requiring memory whenever dropping the active scope would materially change the candidate set. A genuinely new named destination/region or an explicit scope reset starts an independent scope. "
         "conversation_meta: the requested output itself is about the stored conversation and no new KB fact is requested, for example recap/repeat what was said. "
         "The field current_input_task is system-derived from the raw current message. If it is place_structure_clarification, the customer may be asking because a prior answer/UI made one property/area look like multiple places; classify it as factual_continuation when prior context is available, and do NOT turn the user's assumed count into a requirement to compare two places. "
         "\n\nAlso bind destinations explicitly present in the CURRENT message only. Put each explicit destination in either "
@@ -1143,6 +1236,7 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
     current_targets, current_exclusions, current_binding_invalid = _parse_current_destination_bindings(
         dependency,
         explicit,
+        current_message,
     )
     if current_binding_invalid:
         fatal_binding_errors = [
@@ -1193,6 +1287,56 @@ def resolve_conversation_context(state: AgentState) -> AgentState:
             "Current turn asks to clarify the structure/count of items mentioned earlier; "
             "use memory to group prior entities instead of assuming there are multiple places."
         )
+
+    active_scope, active_scope_turn_refs = _active_scope_refinement(
+        state,
+        current_message,
+        explicit,
+        focus_turns,
+    )
+    if (
+        request_kind == "independent"
+        and not current_targets
+        and not current_exclusions
+        and active_scope
+    ):
+        latest_active_turn = focus_turns[-1]
+        prior_active_query = str(latest_active_turn.get("rag_query") or "").strip()[:1400]
+        if prior_active_query:
+            cumulative_query = (
+                f"Previous active request and constraints (retain unless the current update conflicts): "
+                f"{prior_active_query}. Current update (takes precedence): {guarded_query}"
+            )
+        else:
+            cumulative_query = guarded_query
+        cumulative_query = _fallback_scoped_rag_query(cumulative_query, active_scope)
+        result = _resolution_result(
+            explicit=explicit,
+            selected_destinations=active_scope,
+            selected_entities=[],
+            selected_turn_refs=active_scope_turn_refs,
+            excluded_destinations=[],
+            excluded_entities=[],
+            uses_memory=True,
+            request_kind="factual_continuation",
+            reason=(
+                "Current request refines the immediately active user-owned travel scope; "
+                "the prior destination boundary was preserved while current constraints replace or add details."
+            ),
+            confidence=1.0,
+            source="active_user_scope",
+            rag_query=cumulative_query[:2200],
+            input_task=input_task,
+        )
+        result["active_context_carryover"] = {
+            "prior_request": str(latest_active_turn.get("user_message") or "")[:500],
+            "prior_standalone_query": prior_active_query,
+            "current_update": current_message[:500],
+            "precedence": "current_update_overrides_conflicting_prior_constraints",
+            "retained_destination_ids": [str(item.get("id") or "") for item in active_scope],
+        }
+        _print_resolution(current_message, destination_candidates, entity_candidates, result)
+        return result
 
     # Semantic invariant: independent requests never consume prior memory. Conversely,
     # a factual continuation must actually need memory; a contradictory gate output is

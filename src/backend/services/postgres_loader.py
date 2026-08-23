@@ -347,6 +347,10 @@ def _row_to_documents(
             value = row.get(field)
             if value is not None:
                 metadata[field] = _format_value(value)
+                if field == "property_id" and field in table.c:
+                    property_name = _resolve_fk_label(table.c[field], value, labels)
+                    if property_name:
+                        metadata["property_name"] = property_name[:1000]
 
         output.append(
             {

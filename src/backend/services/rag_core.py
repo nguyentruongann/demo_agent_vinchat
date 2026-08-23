@@ -425,6 +425,22 @@ class RAGService:
             "metadatas": metadatas,
             "normalized": normalized,
         }
+        # Child catalog rows (rooms, dining services, etc.) commonly carry only
+        # ``property_id`` while the parent property owns ``destination_id``. Build
+        # a deterministic relationship index once so destination-wide exhaustive
+        # queries can include those children without relying on destination words
+        # being repeated in every child document.
+        entity_destination_map: dict[str, set[str]] = {}
+        for metadata in metadatas:
+            destination_values = self._metadata_identifier_values(
+                metadata.get("destination_id")
+            )
+            if not destination_values:
+                continue
+            for field in ("entity_id", "property_id", "complex_id", "venue_id", "attraction_id"):
+                for identifier in self._metadata_identifier_values(metadata.get(field)):
+                    entity_destination_map.setdefault(identifier, set()).update(destination_values)
+        cache["entity_destination_map"] = entity_destination_map
         RAGService._corpus_cache = cache
         RAGService._corpus_cache_collection = collection_name
         RAGService._corpus_cache_count = count
@@ -460,15 +476,26 @@ class RAGService:
         for index, searchable in enumerate(cache["normalized"]):
             metadata = cache["metadatas"][index]
             entity_type = str(metadata.get("entity_type") or metadata.get("category") or "")
-            metadata_destination = normalize_text(str(metadata.get("destination_id") or ""))
+            metadata_destination_values = self._metadata_identifier_values(
+                metadata.get("destination_id")
+            )
+            requested_destination_values = self._metadata_identifier_values(destination_id)
+            relationship_destination_values: set[str] = set()
+            for field in ("property_id", "complex_id", "venue_id", "attraction_id"):
+                for identifier in self._metadata_identifier_values(metadata.get(field)):
+                    relationship_destination_values.update(
+                        (cache.get("entity_destination_map") or {}).get(identifier, set())
+                    )
 
             matched_aliases = [
                 alias for alias in aliases if self._phrase_in_text(searchable, alias)
             ]
             destination_id_match = bool(
-                normalized_destination_id
-                and metadata_destination
-                and metadata_destination == normalized_destination_id
+                requested_destination_values
+                and (
+                    metadata_destination_values & requested_destination_values
+                    or relationship_destination_values & requested_destination_values
+                )
             )
             if require_destination_id_match and not destination_id_match:
                 continue
@@ -825,8 +852,12 @@ class RAGService:
         names: list[str] = []
         normalized_names: set[str] = set()
         entity_ids: set[str] = set()
+        entity_types: set[str] = set()
 
         for entity in entities or []:
+            entity_type = str(entity.get("type") or "").strip().lower()
+            if entity_type:
+                entity_types.add(entity_type)
             name = str(entity.get("name") or "").strip()
             normalized_name = normalize_text(name)
             if normalized_name and normalized_name not in normalized_names:
@@ -849,6 +880,7 @@ class RAGService:
             "names": names,
             "normalized_names": sorted(normalized_names),
             "entity_ids": sorted(entity_ids),
+            "entity_types": sorted(entity_types),
         }
 
     @classmethod
@@ -1376,6 +1408,7 @@ class RAGService:
             "names": [],
             "normalized_names": [],
             "entity_ids": [],
+            "entity_types": [],
         }
 
         named_entity_documents = self._retrieve_named_entity_branches(
@@ -1951,7 +1984,16 @@ class RAGService:
             "booking_evidence_preferred": booking_evidence_preferred,
             "cost_estimate_requested": cost_estimate_requested,
             "exhaustive_requested": bool(exhaustive_requested),
-            "exhaustive_retrieval_complete": bool(exhaustive_requested and destinations),
+            "exhaustive_retrieval_complete": bool(
+                exhaustive_requested
+                and destinations
+                and intent_results
+                and not missing_destination_ids
+                and all(
+                    str((result or {}).get("status") or "not_found") == "found"
+                    for result in intent_results.values()
+                )
+            ),
             "booking_focus_document_count": len(booking_focus_documents),
             "intent_origin": ("request_plan" if planned_added else str(parsed.get("intent_origin") or "none")),
             "intent_results": intent_results,

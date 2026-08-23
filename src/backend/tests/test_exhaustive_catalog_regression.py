@@ -321,3 +321,55 @@ def test_generic_exhaustive_packet_clear_passes_without_llm_judge(monkeypatch):
 
     assert result["enough_information"] is True
     assert "4 unique entities" in result["assessment_reason"]
+
+
+def test_global_destination_count_uses_complete_canonical_catalog(monkeypatch):
+    catalog = {
+        "ha-noi": {
+            "id": "ha-noi", "name_vi": "Hà Nội", "name_en": "Hanoi",
+            "province": "Hà Nội", "region": "north", "country": "Vietnam",
+            "has_content": True,
+        },
+        "phu-quoc": {
+            "id": "phu-quoc", "name_vi": "Phú Quốc", "name_en": "Phu Quoc",
+            "province": "An Giang", "region": "south", "country": "Vietnam",
+            "has_content": True,
+        },
+        "hue": {
+            "id": "hue", "name_vi": "Huế", "name_en": "Hue",
+            "province": "Huế", "region": "central", "country": "Vietnam",
+            "has_content": False,
+        },
+        "tasmania": {
+            "id": "tasmania", "name_vi": "Tasmania", "name_en": "Tasmania",
+            "province": "Tasmania", "region": None, "country": "Australia",
+            "has_content": True,
+        },
+    }
+    monkeypatch.setattr(retrieval_node, "load_destination_catalog", lambda: catalog)
+    state = {
+        "resolved_destinations": [],
+        "request_tasks": [{
+            "task_type": "brand_detail",
+            "result_scope": "exhaustive",
+            "goal": "List all Vinpearl tourism areas and destinations",
+            "source_text": "bạn có tất cả bao nhiêu khu du lịch",
+        }],
+    }
+    packet = retrieval_node._complete_destination_catalog_packet(state, exhaustive=True)
+    assert packet["complete"] is True
+    assert packet["entity_count"] == 2
+    assert [item["destination_id"] for item in packet["entities"]] == ["ha-noi", "phu-quoc"]
+
+
+def test_global_destination_packet_is_not_built_for_non_exhaustive_request(monkeypatch):
+    monkeypatch.setattr(retrieval_node, "load_destination_catalog", lambda: {})
+    state = {
+        "resolved_destinations": [],
+        "request_tasks": [{
+            "task_type": "destination_recommendation",
+            "result_scope": "normal",
+            "goal": "Recommend a destination",
+        }],
+    }
+    assert retrieval_node._complete_destination_catalog_packet(state, exhaustive=False) == {}

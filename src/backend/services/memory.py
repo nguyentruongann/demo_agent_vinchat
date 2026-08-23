@@ -33,6 +33,8 @@ class MemoryService:
     # filter until the user explicitly names or confirms it.
     _USER_FOCUS_SOURCES = {
         "current_explicit",
+        "current_explicit_region",
+        "active_user_scope",
         "user_explicit",
         "user_explicit_kb",
         "user_explicit_legacy_detection",

@@ -430,6 +430,21 @@ def detect_retrieval_facets(user_message: str, rag_query: str) -> dict[str, bool
         )
         cost_estimate_requested = any(marker in combined for marker in trip_markers)
 
+    # A numeric affordability ceiling used to choose a destination is an aggregate
+    # planning constraint, even when the customer never says "price" or "estimate".
+    # Treating it as a mere ticket-price ceiling caused a 5M trip request to pass
+    # because one 150K ticket fit, while lodging already exceeded the whole budget.
+    if not cost_estimate_requested:
+        budget_vnd = extract_budget_vnd(user_message, rag_query)
+        combined = normalize_text(f"{user_message} {rag_query}")
+        destination_choice_markers = (
+            "nen di", "di noi nao", "di dau", "noi nao", "dia diem nao",
+            "where should i go", "which destination", "recommend destination",
+            "travel", "trip", "vacation", "du lich", "ky nghi", "ki nghi",
+        )
+        if budget_vnd is not None and any(marker in combined for marker in destination_choice_markers):
+            cost_estimate_requested = True
+
     # An aggregate estimate is necessarily a money request even when the user's
     # language says only "ước tính/dự trù" and never uses a literal price word.
     # It also benefits from booking-product evidence by definition.
@@ -452,7 +467,7 @@ def load_destination_catalog() -> dict[str, dict[str, Any]]:
     try:
         with engine.connect() as conn:
             rows = conn.execute(
-                text("SELECT id, name_en, name_vi, province FROM core.destination")
+                text("SELECT id, name_en, name_vi, province, region, country, has_content FROM core.destination")
             ).mappings()
             for row in rows:
                 destination_id = str(row["id"])
@@ -466,6 +481,10 @@ def load_destination_catalog() -> dict[str, dict[str, Any]]:
                     "id": destination_id,
                     "name_en": row.get("name_en"),
                     "name_vi": row.get("name_vi"),
+                    "province": row.get("province"),
+                    "region": row.get("region"),
+                    "country": row.get("country") or "Vietnam",
+                    "has_content": row.get("has_content"),
                     "aliases": {a for a in aliases if a.strip()},
                 }
 
@@ -502,6 +521,56 @@ def load_destination_catalog() -> dict[str, dict[str, Any]]:
         )
 
     return catalog
+
+
+_REGION_ALIASES: dict[str, tuple[str, ...]] = {
+    "north": (
+        "mien bac", "phia bac", "bac bo", "northern vietnam",
+        "north vietnam", "northern region",
+    ),
+    "central": (
+        "mien trung", "trung bo", "central vietnam", "central region",
+    ),
+    "south": (
+        "mien nam", "phia nam", "nam bo", "southern vietnam",
+        "south vietnam", "southern region",
+    ),
+}
+
+
+def detect_destination_regions(*texts: str | None) -> list[str]:
+    """Detect explicit regions without confusing names such as Nam Hoi An."""
+    combined = normalize_text(" ".join(str(value or "") for value in texts))
+    if not combined:
+        return []
+    padded = f" {combined} "
+    return [
+        region
+        for region, aliases in _REGION_ALIASES.items()
+        if any(f" {normalize_text(alias)} " in padded for alias in aliases)
+    ]
+
+
+def destinations_for_regions(
+    regions: list[str],
+    *,
+    catalog: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Return every indexed destination inside an explicitly requested region."""
+    wanted = {str(region or "").strip().lower() for region in regions}
+    if not wanted:
+        return []
+    output: list[dict[str, Any]] = []
+    for item in (catalog or load_destination_catalog()).values():
+        if str(item.get("region") or "").strip().lower() not in wanted:
+            continue
+        if item.get("has_content") is False:
+            continue
+        copied = dict(item)
+        copied["source"] = "current_explicit_region"
+        copied["confirmed"] = True
+        output.append(copied)
+    return output
 
 def detect_destinations(*texts: str | None) -> list[dict[str, Any]]:
     """Detect every distinct destination mentioned, in textual order."""

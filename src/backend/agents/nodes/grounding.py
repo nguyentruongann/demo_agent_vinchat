@@ -35,6 +35,12 @@ COST_ESTIMATE_REQUESTED: {str(bool(state.get('cost_estimate_requested', False)))
 PRICE_DATA_AS_OF: {state.get('price_data_as_of') or PRICE_DATA_AS_OF}
 STRUCTURED_PRICE_EVIDENCE:
 {state.get('price_evidence_summary') or '(none)'}
+PRICE_RESOLUTION: {state.get('price_resolution') or '(none)'}
+PRICE_CONTACT_FALLBACK:
+{state.get('price_contact_fallback') or {}}
+PRICE_ENTITY_RESOLUTION:
+{state.get('price_entity_resolution') or []}
+ROOM_CATALOG_PRICE_REQUESTED: {str(bool(state.get('room_catalog_price_requested', False))).lower()}
 
 EXHAUSTIVE_RETRIEVAL_REQUESTED: {str(bool(state.get('exhaustive_retrieval_requested', False))).lower()}
 EXHAUSTIVE_RETRIEVAL_COMPLETE: {str(bool(state.get('exhaustive_retrieval_complete', False))).lower()}
@@ -103,7 +109,9 @@ def validate_grounding(state: AgentState) -> AgentState:
         result = llm.json(
             system_prompt=(
                 "You are a strict grounding validator for a RAG system. Positive factual claims and named entities "
-                "must be supported by RETRIEVED_CONTEXT or an explicitly complete trusted packet. Retrieval status may "
+                "must be supported by RETRIEVED_CONTEXT, PRICE_CONTACT_FALLBACK, PRICE_ENTITY_RESOLUTION, or an explicitly complete trusted packet. "
+                "For named-entity price requests, reject any price/contact borrowed from a different entity even when it shares the same destination. Retrieval status may "
+                "Also reject a draft that presents a sold-out, booking-closed, unavailable, or unselectable product as currently purchasable. "
                 "support only a narrow statement that the current knowledge base did not retrieve enough information; "
                 "it never proves non-existence in reality. Validate every atomic task independently and preserve grounded "
                 "partial sections. Enforce resolved entity target alignment unless comparison/alternatives were requested. "

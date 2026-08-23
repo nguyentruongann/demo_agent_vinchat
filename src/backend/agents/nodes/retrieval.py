@@ -1,13 +1,220 @@
+import re
+
 from src.backend.agents.nodes.guardrail import effective_user_message
 from src.backend.agents.state import AgentState
 from src.backend.config import get_settings
 from src.backend.services.llm import LLMService
-from src.backend.services.query_parser import normalize_text
+from src.backend.services.query_parser import (
+    destinations_for_regions,
+    detect_destination_regions,
+    load_destination_catalog,
+    normalize_text,
+)
 from src.backend.services.rag import get_rag_service, text_has_price_evidence
 from src.backend.services.retrieval_enrichment import (
     enrich_retrieved_documents,
     preferred_currency_for_language,
 )
+
+
+_CONTACT_PHONE_RE = re.compile(
+    r"(?i)(?:tel(?:ephone)?|phone|hotline|call|điện\s*thoại|liên\s*hệ)\s*[:：]?\s*"
+    r"(?P<value>(?:\+?\d[\d\s().-]{6,}\d))"
+)
+_CONTACT_EMAIL_RE = re.compile(
+    r"(?i)(?:email|e-mail|mail)\s*[:：]?\s*"
+    r"(?P<value>[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})"
+)
+_CONTACT_URL_RE = re.compile(
+    r"(?i)(?P<value>https?://[^\s<>\]\[\"']+)"
+)
+_CONTACT_URL_HINTS = (
+    "contact", "support", "help", "booking", "book", "reservation", "/rooms",
+)
+
+
+def _clean_contact_value(value: object) -> str:
+    return str(value or "").strip().rstrip(".,;:!?)]}")
+
+
+def _price_contact_fallback(documents: list[dict]) -> dict:
+    """Extract only source-grounded channels usable to obtain a live quote.
+
+    A source URL by itself is not necessarily a contact channel. URLs are accepted
+    only from explicit contact/booking metadata fields or when their path clearly
+    identifies a contact, support, reservation, or booking destination.
+    """
+    channels: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(kind: str, value: object, source: object = "") -> None:
+        cleaned = _clean_contact_value(value)
+        key = (kind, cleaned.casefold())
+        if not cleaned or key in seen:
+            return
+        seen.add(key)
+        channels.append({"type": kind, "value": cleaned, "source": str(source or "").strip()})
+
+    for item in documents:
+        text = str(item.get("text") or "")
+        metadata = item.get("metadata", {}) or {}
+        record = item.get("structured_record", {}) or {}
+        source = metadata.get("entity_name") or metadata.get("source_name") or item.get("id") or ""
+        contact_text = "\n".join([
+            text,
+            str(record.get("rate_raw") or ""),
+            str(record.get("contact") or ""),
+            str(record.get("contact_info") or ""),
+        ])
+        for match in _CONTACT_PHONE_RE.finditer(contact_text):
+            add("phone", match.group("value"), source)
+        for match in _CONTACT_EMAIL_RE.finditer(contact_text):
+            add("email", match.group("value"), source)
+        for field in ("phone", "telephone", "hotline", "contact_phone"):
+            add("phone", metadata.get(field), source)
+            add("phone", record.get(field), source)
+        for field in ("email", "contact_email", "support_email"):
+            add("email", metadata.get(field), source)
+            add("email", record.get(field), source)
+        for field in (
+            "booking_url", "booking_search_url", "search_url", "detail_url", "cart_url",
+            "reservation_url", "contact_url", "support_url",
+        ):
+            add("url", metadata.get(field), source)
+            add("url", record.get(field), source)
+        for match in _CONTACT_URL_RE.finditer(contact_text):
+            url = _clean_contact_value(match.group("value"))
+            if any(hint in url.casefold() for hint in _CONTACT_URL_HINTS):
+                add("url", url, source)
+        generic_url = _clean_contact_value(metadata.get("url"))
+        if generic_url and any(hint in generic_url.casefold() for hint in _CONTACT_URL_HINTS):
+            add("url", generic_url, source)
+        for raw_url in (
+            metadata.get("source_url"), metadata.get("page_url"),
+            record.get("source_url"), record.get("page_url"),
+        ):
+            candidate_url = _clean_contact_value(raw_url)
+            if candidate_url and any(hint in candidate_url.casefold() for hint in _CONTACT_URL_HINTS):
+                add("url", candidate_url, source)
+
+    return {"available": bool(channels), "channels": channels[:8]}
+
+
+def _document_matches_price_entity(item: dict, name: str, entity_ids: set[str]) -> bool:
+    metadata = item.get("metadata", {}) or {}
+    record = item.get("structured_record", {}) or {}
+    target = normalize_text(name)
+    matched_named = normalize_text(item.get("matched_named_entity"))
+    entity_name = normalize_text(metadata.get("entity_name"))
+    record_names = {
+        normalize_text(record.get("room_name")),
+        normalize_text(record.get("product_name")),
+    }
+    if target and (
+        matched_named == target
+        or entity_name == target
+        or target in record_names
+        or entity_name.endswith(" " + target)
+    ):
+        return True
+    # A multi-entity scope contains the union of all entity IDs. Once a concrete
+    # name is being evaluated, using that union would let entity A's price satisfy
+    # entity B. Named-entity and structured rows above retain the per-entity name.
+    if target:
+        return False
+    document_ids: set[str] = set()
+    for field in ("entity_id", "room_id", "product_id"):
+        raw = metadata.get(field) or record.get(field)
+        document_ids.update(_metadata_identifier_values(raw))
+    return bool(document_ids & entity_ids)
+
+
+def _price_scope_documents(documents: list[dict], scope: dict) -> list[dict]:
+    names = [str(value or "").strip() for value in (scope.get("names") or []) if str(value or "").strip()]
+    entity_ids = {
+        str(value or "").strip().casefold()
+        for value in (scope.get("entity_ids") or [])
+        if str(value or "").strip()
+    }
+    if not names and not entity_ids:
+        return list(documents)
+    return [
+        item for item in documents
+        if any(_document_matches_price_entity(item, name, entity_ids) for name in names)
+        or (not names and any(
+            _metadata_identifier_values((item.get("metadata", {}) or {}).get(field)) & entity_ids
+            for field in ("entity_id", "property_id")
+        ))
+    ]
+
+
+def _price_entity_resolution(documents: list[dict], scope: dict) -> list[dict]:
+    names = [str(value or "").strip() for value in (scope.get("names") or []) if str(value or "").strip()]
+    entity_ids = {
+        str(value or "").strip().casefold()
+        for value in (scope.get("entity_ids") or [])
+        if str(value or "").strip()
+    }
+    output: list[dict] = []
+    for name in names:
+        matched = [item for item in documents if _document_matches_price_entity(item, name, entity_ids)]
+        groups: dict[str, list[dict]] = {}
+        group_labels: dict[str, str] = {}
+        for item in matched:
+            metadata = item.get("metadata", {}) or {}
+            record = item.get("structured_record", {}) or {}
+            raw_entity_id = str(metadata.get("entity_id") or record.get("room_id") or item.get("id") or "").strip()
+            entity_key = raw_entity_id.split("=", 1)[-1].casefold() if raw_entity_id else ""
+            property_id = str(metadata.get("property_id") or record.get("property_id") or "").strip()
+            key = entity_key or f"{property_id.casefold()}::{normalize_text(name)}"
+            groups.setdefault(key, []).append(item)
+            property_name = str(metadata.get("property_name") or record.get("property_name") or "").strip()
+            qualifier = property_name or property_id
+            group_labels[key] = f"{qualifier} — {name}" if qualifier else name
+
+        # A repeated room name can legitimately belong to several hotels. Resolve
+        # each canonical room row independently so a priced room at hotel A never
+        # hides a contact-only room with the same name at hotel B.
+        if not groups:
+            groups = {f"unresolved::{normalize_text(name)}": []}
+            group_labels = {next(iter(groups)): name}
+        multiple = len(groups) > 1
+        for key, group_documents in groups.items():
+            price_docs = [
+                item for item in group_documents
+                if text_has_price_evidence(item.get("text", ""))
+            ]
+            contacts = _price_contact_fallback(group_documents)
+            if price_docs:
+                status = "numeric_price"
+            elif contacts.get("available"):
+                status = "contact_fallback"
+            else:
+                status = "ticket_offer"
+            output.append({
+                "requested_name": name,
+                "entity_name": group_labels.get(key, name) if multiple else name,
+                "entity_key": key,
+                "status": status,
+                "channels": contacts.get("channels") or [],
+                "evidence_document_ids": [
+                    str(item.get("id") or "") for item in (price_docs or group_documents)[:4]
+                ],
+            })
+    return output
+
+
+def _memory_room_catalog_price_request(state: AgentState, planned_price: bool) -> bool:
+    if not planned_price or not state.get("context_uses_memory") or state.get("resolved_entity_names"):
+        return False
+    text = normalize_text(" ".join([
+        str(state.get("rag_query") or ""),
+        str(state.get("current_user_intent") or ""),
+        str(state.get("context_resolution_reason") or ""),
+    ]))
+    return any(marker in text for marker in (
+        "room categories", "room types", "hang phong", "loai phong",
+    ))
 
 
 def _select_memory_turns(state: AgentState, limit: int = 6) -> list[dict]:
@@ -114,10 +321,36 @@ def _filter_memory_documents_to_entity_scope(
 def _answer_mode(state: AgentState, diagnostics: dict) -> str:
     intents = set(diagnostics.get("intents") or [])
     input_task_type = str(state.get("input_task_type") or "general")
+    request_text = normalize_text(
+        " ".join(
+            [effective_user_message(state), str(state.get("rag_query") or "")]
+            + [
+                " ".join(
+                    str(task.get(field) or "")
+                    for field in ("source_text", "goal")
+                )
+                for task in (state.get("request_tasks") or [])
+                if isinstance(task, dict)
+            ]
+        )
+    )
+    room_catalog_requested = bool(
+        diagnostics.get("exhaustive_requested")
+        and "hotel" in intents
+        and any(
+            marker in request_text
+            for marker in (
+                "hang phong", "loai phong", "cac phong nao", "nhung phong nao",
+                "room categories", "room types", "all rooms",
+            )
+        )
+    )
     if int(state.get("request_task_count") or 0) > 1:
         return "MULTI_INTENT"
     if input_task_type == "place_structure_clarification":
         return "PLACE_STRUCTURE_QA"
+    if room_catalog_requested and not (diagnostics.get("named_entity_scope") or {}).get("names"):
+        return "DESTINATION_ROOM_CATALOG"
     if input_task_type == "property_detail":
         return "PROPERTY_DETAIL"
     if input_task_type == "brand_detail":
@@ -570,6 +803,12 @@ def _retrieve_atomic_task_branches(
             "names": named_scope_names,
             "normalized_names": named_scope_normalized_names,
             "entity_ids": named_scope_entity_ids,
+            "entity_types": sorted({
+                str(value or "").strip().lower()
+                for diagnostics in per_task_diagnostics.values()
+                for value in ((diagnostics.get("named_entity_scope") or {}).get("entity_types") or [])
+                if str(value or "").strip()
+            }),
         },
     }
     return documents, diagnostics
@@ -612,6 +851,8 @@ def _build_exhaustive_retrieval_packet(
                 "name": entity_name or entity_id,
                 "entity_type": entity_type,
                 "destination_id": str(metadata.get("destination_id") or item.get("matched_destination_id") or "").strip(),
+                "property_id": str(metadata.get("property_id") or "").strip(),
+                "property_name": str(metadata.get("property_name") or metadata.get("hotel_name") or "").strip(),
                 "source_url": metadata.get("source_url"),
                 # A short source-faithful excerpt lets the answerer give useful
                 # context without serializing every full crawled page.
@@ -639,13 +880,137 @@ def _build_exhaustive_retrieval_packet(
     }
 
 
+def _apply_deterministic_region_scope(state: AgentState) -> tuple[AgentState, list[str]]:
+    """Convert an explicit regional request into a closed destination scope.
+
+    Passing ``resolved_destinations=[]`` to RAG is otherwise authoritative but
+    unbounded geographically. Semantic similarity can then leak central-region
+    results into a southern-region answer. Region words are objective catalog
+    constraints, so resolve them before any semantic search.
+    """
+    task_text = " ".join(
+        str(value or "")
+        for task in (state.get("request_tasks") or [])
+        if isinstance(task, dict)
+        for value in (
+            task.get("source_text"),
+            task.get("goal"),
+            *(task.get("retrieval_queries") or []),
+        )
+    )
+    regions = detect_destination_regions(
+        effective_user_message(state),
+        state.get("rag_query"),
+        task_text,
+    )
+    if not regions:
+        return state, []
+
+    regional = destinations_for_regions(regions)
+    excluded_ids = {
+        str(value or "").strip()
+        for value in (state.get("excluded_destination_ids") or [])
+        if str(value or "").strip()
+    }
+    regional = [item for item in regional if str(item.get("id") or "") not in excluded_ids]
+    if not regional:
+        return state, regions
+
+    scoped = dict(state)
+    scoped["resolved_destinations"] = regional
+    scoped["resolved_destination_ids"] = [str(item.get("id") or "") for item in regional]
+    scoped["resolved_destination_names"] = [
+        str(item.get("name_vi") or item.get("name_en") or item.get("id") or "")
+        for item in regional
+    ]
+    print(
+        "[REGION SCOPE] "
+        f"regions={regions} destination_ids={scoped['resolved_destination_ids']}"
+    )
+    return scoped, regions
+
+
+def _complete_destination_catalog_packet(state: AgentState, *, exhaustive: bool) -> dict:
+    """Build the authoritative full destination set for catalog-wide count/list tasks.
+
+    Semantic top-k retrieval can never prove a total count. The request planner has
+    already identified the customer-visible task and its exhaustive contract, so a
+    catalog-wide destination listing must enumerate canonical destination rows.
+    """
+    if not exhaustive or state.get("resolved_destinations"):
+        return {}
+    tasks = [item for item in (state.get("request_tasks") or []) if isinstance(item, dict)]
+    eligible = False
+    for task in tasks:
+        task_type = str(task.get("task_type") or "").strip().lower()
+        task_text = normalize_text(
+            " ".join(str(task.get(key) or "") for key in ("goal", "source_text"))
+        )
+        subject_markers = (
+            "destination", "destinations", "location", "locations",
+            "khu du lich", "dia diem du lich", "noi du lich",
+            "tourism area", "tourist area",
+        )
+        if task_type in {"destination_recommendation", "brand_detail"} and any(
+            marker in task_text for marker in subject_markers
+        ):
+            eligible = True
+            break
+    if not eligible:
+        return {}
+
+    rows: list[dict] = []
+    for item in load_destination_catalog().values():
+        if item.get("has_content") is False:
+            continue
+        if str(item.get("country") or "Vietnam").strip().lower() != "vietnam":
+            continue
+        destination_id = str(item.get("id") or "").strip()
+        if not destination_id:
+            continue
+        name = str(item.get("name_vi") or item.get("name_en") or destination_id).strip()
+        rows.append({
+            "entity_key": f"destination:{destination_id}",
+            "entity_type": "destination",
+            "name": name,
+            "destination_id": destination_id,
+            "region": str(item.get("region") or ""),
+            "province": str(item.get("province") or ""),
+            "country": str(item.get("country") or "Vietnam"),
+            "evidence_excerpt": (
+                f"Canonical Vinpearl knowledge-base destination: {name}; "
+                f"province={item.get('province') or 'unknown'}; region={item.get('region') or 'unknown'}."
+            ),
+            "matched_intents": ["destination"],
+        })
+    rows.sort(key=lambda item: (item["region"], normalize_text(item["name"])))
+    keys = [item["entity_key"] for item in rows]
+    return {
+        "complete": bool(rows),
+        "requested_intents": ["destination"],
+        "entity_scope": {"catalog": "core.destination", "country": "Vietnam"},
+        "entity_count": len(rows),
+        "branches": {"destination": {"entity_count": len(rows), "entity_keys": keys}},
+        "entities": rows,
+    }
+
+
 def retrieve_context(state: AgentState) -> AgentState:
+    state, detected_regions = _apply_deterministic_region_scope(state)
     rag = get_rag_service()
     planned_intents, planned_price, planned_cost_estimate, planned_exhaustive = _planned_retrieval_requirements(state)
+    room_catalog_price_requested = _memory_room_catalog_price_request(state, planned_price)
+    if room_catalog_price_requested:
+        planned_intents = ["hotel"]
+        planned_exhaustive = True
     planned_queries = _planned_retrieval_queries(state)
     atomic_tasks = _retrieval_tasks(state)
     exhaustive_booking_semantic = bool(
         planned_exhaustive and "booking_product" in planned_intents
+    )
+    destination_catalog_packet = _complete_destination_catalog_packet(
+        state,
+        exhaustive=planned_exhaustive,
     )
     # A compound turn must be retrieved by atomic customer task, not merely by the
     # union of intent labels.  This is especially important for two independent
@@ -667,6 +1032,19 @@ def retrieve_context(state: AgentState) -> AgentState:
             exhaustive_requested=planned_exhaustive,
             resolved_entity_names=state.get("resolved_entity_names") or [],
         )
+
+    if room_catalog_price_requested:
+        before_room_filter = len(documents)
+        documents = [
+            item for item in documents
+            if str((item.get("metadata", {}) or {}).get("entity_type") or "").strip().lower() == "room"
+        ]
+        discarded = before_room_filter - len(documents)
+        if discarded:
+            print(
+                "[ROOM PRICE CATALOG] discarded non-room retrieval evidence "
+                f"count={discarded} kept={len(documents)}"
+            )
 
     exhaustive_booking_requested = bool(
         exhaustive_booking_semantic
@@ -757,6 +1135,12 @@ def retrieve_context(state: AgentState) -> AgentState:
     else:
         retrieval_mode = diagnostics.get("mode")
 
+    if room_catalog_price_requested:
+        documents = [
+            item for item in documents
+            if str((item.get("metadata", {}) or {}).get("entity_type") or "").strip().lower() == "room"
+        ]
+
     # Second-stage structured retrieval: Chroma decides *which* entities are
     # relevant; PostgreSQL then re-hydrates their non-null fields. Money requests
     # also receive destination-scoped room/booking price rows so the final model
@@ -784,7 +1168,33 @@ def retrieve_context(state: AgentState) -> AgentState:
         exhaustive_booking_requested=exhaustive_booking_requested,
         catalog_query=f"{effective_user_message(state)}\n{state.get('rag_query', '')}",
         preferred_output_currency=preferred_output_currency,
+        entity_scope=diagnostics.get("named_entity_scope") or {},
+        room_catalog_price_requested=room_catalog_price_requested,
     )
+    named_price_scope = diagnostics.get("named_entity_scope") or {}
+    named_price_types = {
+        str(value or "").strip().lower()
+        for value in (named_price_scope.get("entity_types") or [])
+        if str(value or "").strip()
+    }
+    if (
+        planned_price
+        and named_price_scope.get("names")
+        and named_price_types
+        and named_price_types.issubset({"room", "booking_product"})
+    ):
+        # Do not merely ignore unrelated destination samples during assessment;
+        # remove them from the final answer context as well. Otherwise an LLM can
+        # still quote a cable-car or different-room price that happened to share
+        # the destination even though the deterministic judge scoped correctly.
+        scoped_price_documents = _price_scope_documents(documents, named_price_scope)
+        discarded = len(documents) - len(scoped_price_documents)
+        documents = scoped_price_documents
+        if discarded:
+            print(
+                "[PRICE ENTITY SCOPE] discarded unrelated destination evidence "
+                f"count={discarded} kept={len(documents)} names={named_price_scope.get('names') or []}"
+            )
     if int(enrichment.get("structured_price_document_count") or 0) > 0:
         retrieval_mode = f"{retrieval_mode}+structured_price"
 
@@ -829,13 +1239,20 @@ def retrieve_context(state: AgentState) -> AgentState:
 
     exhaustive_retrieval_complete = bool(
         exhaustive_retrieval_requested
-        and diagnostics.get("exhaustive_retrieval_complete", False)
+        and (
+            diagnostics.get("exhaustive_retrieval_complete", False)
+            or destination_catalog_packet.get("complete", False)
+        )
     )
-    exhaustive_retrieval_packet = _build_exhaustive_retrieval_packet(
-        documents,
-        current_intents or planned_intents,
-        complete=exhaustive_retrieval_complete,
-        entity_scope=diagnostics.get("named_entity_scope") or {},
+    exhaustive_retrieval_packet = (
+        destination_catalog_packet
+        if destination_catalog_packet
+        else _build_exhaustive_retrieval_packet(
+            documents,
+            current_intents or planned_intents,
+            complete=exhaustive_retrieval_complete,
+            entity_scope=diagnostics.get("named_entity_scope") or {},
+        )
     ) if exhaustive_retrieval_requested else {}
     if task_retrieval_results:
         context, context_diagnostics = rag.build_context_with_diagnostics(
@@ -863,7 +1280,7 @@ def retrieve_context(state: AgentState) -> AgentState:
         ):
             result["status"] = "not_found"
 
-    return {
+    result = {
         "retrieved_documents": documents,
         "context": context,
         "context_document_count": int(context_diagnostics.get("document_count") or 0),
@@ -881,6 +1298,7 @@ def retrieve_context(state: AgentState) -> AgentState:
         "detected_destination_ids": diagnostics.get("destination_ids", []),
         "detected_destination_names": diagnostics.get("destination_names", []),
         "retrieval_entity_scope": dict(diagnostics.get("named_entity_scope") or {}),
+        "room_catalog_price_requested": room_catalog_price_requested,
         "detected_intent": primary_intent,
         "detected_intents": current_intents,
         "explicit_intents": list(diagnostics.get("explicit_intents", []) or []),
@@ -901,7 +1319,11 @@ def retrieve_context(state: AgentState) -> AgentState:
         "price_estimate_destination_ids": list(enrichment.get("price_estimate_destination_ids") or []),
         "preferred_output_currency": str(enrichment.get("preferred_output_currency") or preferred_output_currency),
         "currency_conversion_guidance": str(enrichment.get("currency_conversion_guidance") or ""),
-        "answer_mode": _answer_mode(state, diagnostics),
+        "answer_mode": (
+            "ROOM_PRICE_CATALOG"
+            if room_catalog_price_requested
+            else _answer_mode(state, diagnostics)
+        ),
         "structured_enrichment_count": int(enrichment.get("structured_enrichment_count") or 0),
         "structured_price_document_count": int(enrichment.get("structured_price_document_count") or 0),
         "intent_origin": str(diagnostics.get("intent_origin") or "none"),
@@ -912,6 +1334,32 @@ def retrieve_context(state: AgentState) -> AgentState:
         "memory_retrieval_queries": memory_queries,
         "memory_augmented": bool(memory_documents),
     }
+    if detected_regions:
+        result.update({
+            "resolved_destinations": list(state.get("resolved_destinations") or []),
+            "resolved_destination_ids": list(state.get("resolved_destination_ids") or []),
+            "resolved_destination_names": list(state.get("resolved_destination_names") or []),
+            "detected_regions": detected_regions,
+        })
+    if destination_catalog_packet:
+        catalog_destinations = [
+            {
+                "id": item["destination_id"],
+                "name_vi": item["name"],
+                "name_en": item["name"],
+                "region": item.get("region"),
+                "province": item.get("province"),
+                "source": "canonical_destination_catalog",
+            }
+            for item in destination_catalog_packet.get("entities", [])
+        ]
+        result.update({
+            "retrieval_mode": "structured_exhaustive_destination_catalog",
+            "detected_destinations": catalog_destinations,
+            "detected_destination_ids": [item["id"] for item in catalog_destinations],
+            "detected_destination_names": [item["name_vi"] for item in catalog_destinations],
+        })
+    return result
 
 def _insufficiency_action(state: AgentState) -> str:
     """Choose what to do when RAG cannot safely resolve the current request.
@@ -1015,19 +1463,86 @@ def assess_information(state: AgentState) -> AgentState:
     # actual numeric price. This check is deterministic and leaves all existing
     # partial-answer behavior unchanged for non-price questions.
     if state.get("price_requested") and documents:
+        entity_scope = state.get("retrieval_entity_scope") or {}
+        scoped_documents = _price_scope_documents(documents, entity_scope)
+        entity_resolution = _price_entity_resolution(documents, entity_scope)
         price_documents = [
-            item for item in documents if text_has_price_evidence(item.get("text", ""))
+            item for item in scoped_documents if text_has_price_evidence(item.get("text", ""))
         ]
+        if entity_resolution:
+            resolved = [item for item in entity_resolution if item.get("status") != "ticket_offer"]
+            best_entity_score = max(
+                (float(item.get("score", 0.0) or 0.0) for item in scoped_documents),
+                default=0.0,
+            )
+            if resolved:
+                return {
+                    "enough_information": True,
+                    "assessment_reason": (
+                        "Named-entity price assessment completed per requested entity; unrelated destination-level prices were excluded."
+                    ),
+                    "best_relevance_score": best_entity_score,
+                    "insufficiency_action": "no_data",
+                    "price_entity_resolution": entity_resolution,
+                    "price_contact_fallback": {
+                        "available": any(item.get("channels") for item in entity_resolution),
+                        "channels": [
+                            channel
+                            for item in entity_resolution
+                            for channel in (item.get("channels") or [])
+                        ],
+                    },
+                    "price_resolution": "entity_mixed",
+                }
+            result = _insufficient(
+                state,
+                "No numeric price or grounded contact channel belongs to any explicitly requested entity; offer a ticket for those exact entities.",
+                best_entity_score,
+            )
+            result.update({
+                "price_entity_resolution": entity_resolution,
+                "price_contact_fallback": {"available": False, "channels": []},
+                "price_resolution": "ticket_offer",
+            })
+            return result
+        if state.get("room_catalog_price_requested") and state.get("exhaustive_retrieval_complete"):
+            return {
+                "enough_information": True,
+                "assessment_reason": (
+                    "The price follow-up targets the prior complete destination room catalog; answer every room from the exhaustive packet with its matching price/contact availability."
+                ),
+                "best_relevance_score": max(
+                    (float(item.get("score", 0.0) or 0.0) for item in documents),
+                    default=0.0,
+                ),
+                "insufficiency_action": "no_data",
+                "price_resolution": "room_catalog",
+            }
         if not price_documents:
+            contact_fallback = _price_contact_fallback(scoped_documents)
             best_price_score = max(
                 (float(item.get("score", 0.0) or 0.0) for item in documents),
                 default=0.0,
             )
-            return _insufficient(
+            if contact_fallback.get("available") and best_price_score >= settings.min_relevance_score:
+                return {
+                    "enough_information": True,
+                    "assessment_reason": (
+                        "No numeric price is recorded for the requested item, but the retrieved source contains "
+                        "a grounded contact or booking channel that can provide the live quote."
+                    ),
+                    "best_relevance_score": best_price_score,
+                    "insufficiency_action": "no_data",
+                    "price_contact_fallback": contact_fallback,
+                    "price_resolution": "contact_fallback",
+                }
+            result = _insufficient(
                 state,
-                "The user explicitly requested pricing, but the retrieved context contains no numeric price evidence.",
+                "No numeric price or grounded contact/booking channel is available for the requested item; offer a support ticket without claiming the item does not exist.",
                 best_price_score,
             )
+            result.update({"price_contact_fallback": {"available": False, "channels": []}, "price_resolution": "ticket_offer"})
+            return result
 
     # FAQ-first retrieval is already a high-confidence evidence decision against
     # the canonical FAQ file. Do not send it through the generic LLM sufficiency
@@ -1381,11 +1896,17 @@ def assess_information(state: AgentState) -> AgentState:
             )
 
     if not documents:
-        return _insufficient(
+        result = _insufficient(
             state,
             "No matching documents were retrieved for the requested destination(s)/intent(s).",
             0.0,
         )
+        if state.get("price_requested"):
+            result.update({
+                "price_contact_fallback": {"available": False, "channels": []},
+                "price_resolution": "ticket_offer",
+            })
+        return result
 
     scores = [float(item.get("score", 0.0) or 0.0) for item in documents]
     best_score = max(scores, default=0.0)

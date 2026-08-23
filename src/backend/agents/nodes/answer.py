@@ -83,6 +83,13 @@ def _answer_mode_specific_system(state: AgentState) -> str:
             "Do not answer with a generic FAQ such as a list of Vinpearl locations unless the customer asked a generic location-list question. "
             "Do not treat a brand suffix such as 'Affiliated by Meliá' as a separate place. Include price only when PRICE_REQUESTED=true and then follow the single-currency rule. "
         )
+    if mode == "DESTINATION_ROOM_CATALOG":
+        return (
+            "ACTIVE_OUTPUT_CASE=DESTINATION_ROOM_CATALOG. The customer requested all indexed room categories across the resolved destination, not details for one named property. "
+            "Treat EXHAUSTIVE_RETRIEVAL_PACKET as the authoritative complete room set when complete=true. List every room entity exactly once and group rooms by property_name or property_id when that relationship is available. "
+            "Do not collapse the answer to a few examples, do not substitute a list of hotels, and do not claim that the customer selected one property. "
+            "Describe only fields supported by each room's evidence excerpt. Do not include prices unless PRICE_REQUESTED=true. "
+        )
     if mode == "BRAND_DETAIL":
         return (
             "ACTIVE_OUTPUT_CASE=BRAND_DETAIL. The customer is asking about a brand/label such as 'Affiliated by Meliá', not necessarily one hotel. "
@@ -117,11 +124,27 @@ def _answer_mode_specific_system(state: AgentState) -> str:
                 "Use each product's supported display/minimum/maximum/variant prices. If a product has no numeric price in the packet, say that its price is not recorded rather than inventing one. "
                 "Do not mix products outside the packet scope and do not expand into a trip budget. "
             )
+        if str(state.get("price_resolution") or "") == "contact_fallback":
+            return (
+                "ACTIVE_OUTPUT_CASE=PRICE_CONTACT_FALLBACK. The exact numeric price is not recorded, but a grounded "
+                "contact or booking channel is available in PRICE_CONTACT_FALLBACK. Clearly say the listed price is "
+                "not available in the current information, then provide every relevant channel exactly as recorded and "
+                "invite the customer to request the current rate there. Do not invent a price, normalize a phone number, "
+                "or replace the grounded channel with a generic refusal. Do not mention databases, RAG, or internal systems. "
+            )
         return (
             "ACTIVE_OUTPUT_CASE=PRICE_LOOKUP. Apply only direct-price lookup behavior. "
             + currency_rule +
             "Answer the specific requested price using the closest supported product, room, service, or package evidence. "
             "Do not expand into a full trip budget unless the customer asked for an aggregate estimate. Use customer_display when available. "
+        )
+    if mode == "ROOM_PRICE_CATALOG":
+        return (
+            "ACTIVE_OUTPUT_CASE=ROOM_PRICE_CATALOG. This is a price follow-up for the previously discussed complete room catalog at the resolved destination. "
+            + currency_rule +
+            "Use EXHAUSTIVE_RETRIEVAL_PACKET as the complete room list and match structured prices/contact evidence to the same room only. "
+            "Cover every room exactly once, grouped by property when supported. For each room: show its matching numeric price; otherwise show its grounded contact channel; otherwise say the current rate needs staff confirmation and offer a support request. "
+            "Never insert ticket, attraction, or another room's price merely because it belongs to the same destination. "
         )
     if mode == "POLICY_QA":
         return (
@@ -312,6 +335,8 @@ def _task_coverage_report(llm: LLMService, state: AgentState, answer: str) -> di
             "For EVERY item in REQUEST_TASK_PLAN, determine whether DRAFT_ANSWER visibly addresses that customer-visible outcome. "
             "A task counts as covered when the draft either (a) provides a factual answer grounded in EVIDENCE, or (b) explicitly and briefly says that the available evidence is insufficient to confirm that specific task. "
             "Silence/omission never counts as coverage. Do not merge two tasks merely because they share the same subject. "
+            "For policy tasks, generic dependency/contact wording does not count as coverage when EVIDENCE contains a concrete "
+            "age threshold, eligibility boundary, exception, or accommodation-type distinction; the draft must preserve it. "
             "If a later task depends on an earlier clarification, verify the draft still fulfills the later requested outcome using the corrected structure. "
             "Return JSON only."
         ),
@@ -493,6 +518,11 @@ def generate_answer(state: AgentState) -> AgentState:
             "FAQ RULE: when RETRIEVED_CONTEXT contains a source with type=faq whose Question matches "
             "the current request, its Answer field is authoritative for that FAQ. "
             "Answer it directly, translated into TARGET_RESPONSE_LANGUAGE when necessary. "
+            "Policy fidelity is mandatory: preserve every applicable numeric boundary, inclusive/exclusive age wording, "
+            "and every distinction between accommodation types. Never replace a documented rule such as 'from 4 to under 12' "
+            "with a generic statement that the policy depends on the package. If a source confirms that a surcharge applies "
+            "but gives no amount, state that it applies first; then say only the amount varies by package/program and provide "
+            "supported contact channels. "
 
             # ============================================================
             # TASK COVERAGE + PARTIAL EVIDENCE
@@ -560,6 +590,9 @@ Detected destinations:
 CONTEXT_DESTINATION_PROVENANCE — system memory labels; confirmed=false means previously mentioned/proposed, not chosen by customer:
 {state.get('context_destination_provenance') or []}
 
+ACTIVE_CONTEXT_CARRYOVER — trusted conversational constraints; retain prior values unless the current update conflicts, in which case the current update wins:
+{_json_prompt(state.get('active_context_carryover') or {})}
+
 RESOLVED_ENTITY_TARGETS — closed current/memory entity focus; peer entities outside this scope are not the subject unless a task explicitly asks for alternatives/comparison:
 {state.get('resolved_entity_names') or (state.get('retrieval_entity_scope') or {}).get('names') or []}
 
@@ -619,6 +652,18 @@ SYSTEM_CURRENCY_CONVERSION_BASIS:
 
 PRICE_ESTIMATE_PACKET — grouped deterministic price evidence; use this first for cost estimates:
 {_json_prompt(state.get('price_estimate_packet') or {})}
+
+PRICE_RESOLUTION:
+{state.get('price_resolution') or ('numeric_price' if state.get('price_requested') else 'not_applicable')}
+
+PRICE_CONTACT_FALLBACK — source-grounded live-quote channels; reproduce values exactly and never add a channel:
+{_json_prompt(state.get('price_contact_fallback') or {})}
+
+PRICE_ENTITY_RESOLUTION — authoritative per-entity outcome; never use one entity's price/contact for another:
+{_json_prompt(state.get('price_entity_resolution') or [])}
+
+ROOM_CATALOG_PRICE_REQUESTED:
+{str(bool(state.get('room_catalog_price_requested', False))).lower()}
 
 EXHAUSTIVE_RETRIEVAL_REQUESTED:
 {str(bool(state.get('exhaustive_retrieval_requested', False))).lower()}
@@ -705,6 +750,27 @@ FINAL ANSWER RULES:
     - If COST_ESTIMATE_REQUESTED=true, calculate a grounded estimate or "from/at least" subtotal from supported components.
     - State the assumptions used in the calculation.
     - Include the price-data update date {state.get('price_data_as_of') or PRICE_DATA_AS_OF} in the customer's language.
+
+15. If PRICE_RESOLUTION=contact_fallback:
+    - Do not use the generic insufficient-information response.
+    - State briefly that the exact listed price is unavailable, then provide the grounded phone, email, or booking URL from PRICE_CONTACT_FALLBACK so the customer can obtain the live rate.
+    - Never invent or alter a contact value and never imply that contacting the channel guarantees availability.
+
+16. If PRICE_RESOLUTION=ticket_offer:
+    - Do not expose internal data limitations. Say the exact current price could not be confirmed and offer to create a support request.
+    - Ask for the minimum required contact details: customer name plus email or phone. Do not claim a ticket was created before those details exist.
+
+17. If PRICE_ENTITY_RESOLUTION is non-empty:
+    - Address every requested entity separately in its listed order.
+    - numeric_price: use only numeric evidence belonging to that same entity.
+    - contact_fallback: state that an exact listed price is unavailable and reproduce only that entity's grounded channel.
+    - ticket_offer: offer staff follow-up for that entity and ask for name plus email or phone; do not claim a ticket already exists.
+    - Never substitute another room, property, ticket, or destination-level sample price.
+
+18. Availability is independent from price:
+    - If the matching evidence says sold_out=true, booking_open=false, unavailable, or not selectable, state that status next to the price and do not tell the customer they can purchase it now.
+    - A displayed historical/from price does not prove current availability. If a source provides an alternative date/search URL, offer that grounded path.
+    - If pricing_status is unknown but a grounded booking/search URL exists, provide the URL as the live-check channel instead of inventing a numeric price.
     - Use exactly one customer-facing currency: {state.get('preferred_output_currency') or 'USD'}. Do not show mixed currencies or source-currency parentheses.
     - Never use "check the official website" as a substitute for the estimate.
 """,

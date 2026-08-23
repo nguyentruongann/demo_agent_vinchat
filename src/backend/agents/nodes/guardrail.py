@@ -269,6 +269,20 @@ def _looks_vietnamese_text(text: str) -> bool:
     return bool(re.search(r"\b(minh|ban|ngay|dem|nguoi|khach|chi phi|tu van|di|o)\b", normalized))
 
 
+def _is_clear_short_continuation(message: str) -> bool:
+    """Recognize safe elliptical follow-ups that require downstream memory binding."""
+    normalized = _normalize_scope_phrase(message)
+    if not normalized or len(normalized.split()) > 12:
+        return False
+    markers = (
+        "con gi nua", "con nua khong", "con khong", "het roi a", "the con",
+        "vay con", "ngoai ra", "noi them", "tiep di", "anything else",
+        "what else", "any more", "tell me more", "continue",
+    )
+    padded = f" {normalized} "
+    return any(f" {marker} " in padded for marker in markers)
+
+
 def _logic_response_for_language(raw_message: str, reason: str) -> str:
     if _looks_vietnamese_text(raw_message):
         return (
@@ -1023,6 +1037,32 @@ def enforce_input_guardrail(state: AgentState) -> AgentState:
     rag_query = str(result.get("rag_query") or "").strip()
     scope_reason = str(result.get("scope_reason") or "").strip()[:500]
     overall_reason = str(result.get("guardrail_reason") or "").strip()[:500]
+
+    # A classifier occasionally rejects a perfectly normal two- or three-word
+    # continuation as "too vague". Vagueness is exactly what the downstream closed
+    # context resolver is designed to handle. Recover only a small, explicit set of
+    # continuation forms, only when trusted conversation context exists, and never
+    # over a safety/injection/logic decision.
+    has_prior_context = bool(
+        state.get("conversation_turns")
+        or recent_entities
+        or str(state.get("conversation_history") or "").strip()
+        not in {"", "(no previous conversation)"}
+    )
+    if (
+        scope_action == "block"
+        and guard_safety_action == "allow"
+        and logic_action == "allow"
+        and not injection_detected
+        and has_prior_context
+        and _is_clear_short_continuation(raw_message)
+    ):
+        scope_action = "allow"
+        route = "rag"
+        sanitized = raw_message
+        rag_query = f"Continue the previous Vinpearl travel request: {raw_message}"
+        scope_reason = "Safe short continuation deferred to closed context resolution."
+        print("[GUARDRAIL] recovered safe short contextual continuation")
 
     print(
         "[GUARDRAIL] first-pass "

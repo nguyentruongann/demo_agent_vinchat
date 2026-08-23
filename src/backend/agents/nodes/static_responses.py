@@ -265,6 +265,26 @@ def no_data_response(state: AgentState) -> AgentState:
         destinations = state.get("resolved_destination_names", []) or []
     destination_text = ", ".join(str(x) for x in destinations if x)
 
+    if state.get("price_requested") and str(state.get("price_resolution") or "") == "ticket_offer":
+        templates = {
+            "vi": (
+                "Mình chưa có giá niêm yết đáng tin cậy cho lựa chọn này và cũng chưa tìm thấy kênh liên hệ trực tiếp phù hợp. "
+                "Nếu bạn muốn, hãy gửi **họ tên** cùng **email hoặc số điện thoại**; mình sẽ tạo yêu cầu hỗ trợ để nhân viên kiểm tra giá hiện hành cho bạn."
+            ),
+            "en": (
+                "I do not have a reliable listed price or a suitable direct contact channel for this option. "
+                "If you would like, send your **name** and either an **email address or phone number**, and I can create a support request for a staff member to check the current rate."
+            ),
+        }
+        answer = templates.get(group)
+        if answer is None:
+            answer = _llm_fallback(
+                state,
+                "Explain that no reliable listed price or grounded direct contact is available. Invite the customer to provide their name and email or phone so a support request can be created. Do not claim a ticket was already created.",
+                f"Resolved destinations: {destination_text or '(none)'}",
+            )
+        return {"answer": answer, "ticket_id": None}
+
     if destination_text:
         templates = {
             "vi": f"Hiện cơ sở dữ liệu Vinpearl/VinWonders chưa có đủ thông tin để xác nhận nội dung này cho **{destination_text}**.",

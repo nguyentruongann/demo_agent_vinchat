@@ -313,6 +313,32 @@ class FAQMatcher:
         return len(overlap), len(overlap) / max(1, min(len(query_tokens), 8))
 
     @staticmethod
+    def _age_policy_alignment(query: str, entry: FAQEntry) -> tuple[bool, float]:
+        """Prefer policy evidence whose documented age range covers the query age."""
+        q = normalize_text(query)
+        evidence = normalize_text(f"{entry.question} {entry.answer}")
+        ages = [int(value) for value in re.findall(r"\b(\d{1,2})\s*(?:years?|year|tuoi)\b", q)]
+        if not ages:
+            return False, 0.0
+        child_signal = any(token in q for token in ("child", "children", "tre em", "con "))
+        fee_signal = any(token in q for token in ("surcharge", "additional fee", "extra charge", "phu thu"))
+        if not (child_signal and fee_signal):
+            return False, 0.0
+        if not any(token in evidence for token in ("child", "children", "tre em")):
+            return False, 0.0
+        if not any(token in evidence for token in ("surcharge", "additional charge", "extra charge", "phu thu")):
+            return False, 0.0
+        bounds = [int(value) for value in re.findall(r"\b(\d{1,2})\s*(?:years?|year|tuoi)\b", evidence)]
+        if not bounds:
+            return False, 0.0
+        covered = any(
+            any(low <= age < high for low, high in zip(bounds, bounds[1:]) if low < high)
+            or age in bounds
+            for age in ages
+        )
+        return covered, (1.0 if covered else 0.0)
+
+    @staticmethod
     def _confidence_gate(
         *,
         semantic: float,
@@ -788,6 +814,11 @@ class FAQMatcher:
                 key=lambda item: (item[0], item[1]),
                 default=(0, 0.0),
             )
+            age_policy_match, age_policy_score = max(
+                (self._age_policy_alignment(value, entry) for _, value in variants),
+                key=lambda item: item[1],
+                default=(False, 0.0),
+            )
 
             # Question semantics and corpus-weighted lexical coverage must agree.
             # The answer embedding is intentionally a small auxiliary signal; it may
@@ -800,6 +831,8 @@ class FAQMatcher:
                 + 0.10 * lexical_score
                 + 0.06 * query_coverage,
             )
+            if age_policy_match:
+                combined_score = min(1.0, combined_score + 0.18)
             ranked.append(
                 {
                     "entry_index": entry_index,
@@ -814,11 +847,16 @@ class FAQMatcher:
                     "anchor_ratio": best_anchor_ratio,
                     "predicate_count": best_predicate_count,
                     "predicate_ratio": best_predicate_ratio,
+                    "age_policy_match": age_policy_match,
+                    "age_policy_score": age_policy_score,
                     "query_source": query_source,
                 }
             )
 
-        ranked.sort(key=lambda item: float(item["score"]), reverse=True)
+        ranked.sort(
+            key=lambda item: (bool(item.get("age_policy_match")), float(item["score"])),
+            reverse=True,
+        )
 
         # Validate candidates in score order instead of validating only rank #1.
         # Same-venue FAQ rows can score very close semantically; the top row may ask

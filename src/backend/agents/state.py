@@ -71,6 +71,7 @@ class AgentState(TypedDict, total=False):
     exhaustive_catalog_scope: dict[str, Any]
     exhaustive_catalog_packet: dict[str, Any]
     context_destination_provenance: list[dict[str, str]]
+    active_context_carryover: dict[str, Any]
     excluded_destination_ids: list[str]
     excluded_entity_names: list[str]
 
@@ -148,6 +149,10 @@ class AgentState(TypedDict, total=False):
     price_data_as_of: str | None          # provenance label for customer-facing money answers
     price_evidence_summary: str           # compact structured price evidence for the final answerer
     price_estimate_packet: dict[str, Any]  # deterministic grouped price/estimate evidence for final LLM
+    price_contact_fallback: dict[str, Any]  # grounded contact channels when an exact numeric price is unavailable
+    price_resolution: str                   # numeric_price|contact_fallback|ticket_offer
+    price_entity_resolution: list[dict[str, Any]]  # per named room/product price/contact outcome
+    room_catalog_price_requested: bool       # price follow-up refers to the prior complete room set
     price_estimate_destination_ids: list[str]
     preferred_output_currency: str         # derived from input language; e.g. VND for Vietnamese, USD for English
     currency_conversion_guidance: str      # system-provided conversion rule when evidence currency differs

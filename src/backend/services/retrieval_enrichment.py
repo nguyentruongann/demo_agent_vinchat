@@ -32,7 +32,9 @@ from src.backend.services.db import get_engine
 from src.backend.services.query_parser import normalize_text
 from src.data_postgre.db import CORE_TABLES
 
-PRICE_DATA_AS_OF = "31/7/2026"
+# The supplied booking snapshot was captured on 18/8/2026. Keep provenance
+# explicit so approximate/dynamic prices are never presented as timeless quotes.
+PRICE_DATA_AS_OF = "18/8/2026"
 DEFAULT_OUTPUT_CURRENCY_BY_LANGUAGE = {"vi": "VND", "en": "USD"}
 
 
@@ -272,10 +274,11 @@ def _candidate_destination_ids_for_cost_estimate(connection, documents: list[dic
             rows = connection.execute(
                 select(prop.c.destination_id)
                 .select_from(room.join(prop, room.c.property_id == prop.c.id))
+                .where(room.c.is_rate_suspect.is_(False))
                 .where(
                     or_(
                         room.c.price_from_amount.is_not(None),
-                        and_(room.c.rate_amount.is_not(None), room.c.is_rate_suspect.is_(False)),
+                        room.c.rate_amount.is_not(None),
                     )
                 )
                 .distinct()
@@ -427,6 +430,11 @@ def _fetch_matched_rows(connection, documents: list[dict[str, Any]]) -> dict[tup
 
 
 def _price_amount_from_room(row: dict[str, Any]) -> tuple[Decimal | None, str | None, str]:
+    # Contact-only rates such as ``tel:1900232389`` are also parsed upstream as
+    # amount=1900232389 in both numeric columns. A suspect flag invalidates both;
+    # otherwise the hotline is exposed as a 1.9-billion room price.
+    if bool(row.get("is_rate_suspect")):
+        return None, None, "contact_only"
     price = row.get("price_from_amount")
     currency = row.get("price_from_currency")
     source = "price_from"
@@ -474,10 +482,11 @@ def _room_price_rows(connection, destination_ids: list[str], per_destination: in
         select(*select_columns)
         .select_from(from_clause)
         .where(prop.c.destination_id.in_(destination_ids))
+        .where(room.c.is_rate_suspect.is_(False))
         .where(
             or_(
                 room.c.price_from_amount.is_not(None),
-                and_(room.c.rate_amount.is_not(None), room.c.is_rate_suspect.is_(False)),
+                room.c.rate_amount.is_not(None),
             )
         )
     )
@@ -505,6 +514,43 @@ def _room_price_rows(connection, destination_ids: list[str], per_destination: in
         )
         selected.extend(candidates[: max(1, per_destination)])
     return selected
+
+
+def _room_price_rows_for_entity_scope(
+    connection,
+    destination_ids: list[str],
+    entity_scope: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Return prices only for explicitly requested room entities.
+
+    Destination-level samples are useful for estimates but are invalid evidence for
+    a named-room lookup. Fetch the finite destination room-price set first, then
+    deterministically retain exact room names/IDs from the closed entity scope.
+    """
+    names = {
+        normalize_text(value)
+        for value in (entity_scope.get("names") or [])
+        if normalize_text(value)
+    }
+    identifiers: set[str] = set()
+    for raw in entity_scope.get("entity_ids") or []:
+        value = str(raw or "").strip().casefold()
+        if not value:
+            continue
+        identifiers.add(value)
+        if "=" in value:
+            identifiers.add(value.split("=", 1)[1].strip())
+    if not names and not identifiers:
+        return []
+
+    rows = _room_price_rows(connection, destination_ids, per_destination=1000000)
+    matched: list[dict[str, Any]] = []
+    for row in rows:
+        room_name = normalize_text(row.get("room_name"))
+        room_id = str(row.get("room_id") or "").strip().casefold()
+        if room_name in names or room_id in identifiers or f"id={room_id}" in identifiers:
+            matched.append(row)
+    return matched
 
 
 def _booking_price_rows(
@@ -601,6 +647,41 @@ def _booking_price_rows(
             row.pop("_catalog_scope_score", None)
         selected.extend(picked)
     return selected
+
+
+def _booking_price_rows_for_entity_scope(
+    connection,
+    destination_ids: list[str],
+    entity_scope: dict[str, Any],
+    *,
+    catalog_query: str = "",
+    hydrated_documents: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    names = {
+        normalize_text(value)
+        for value in (entity_scope.get("names") or [])
+        if normalize_text(value)
+    }
+    identifiers: set[str] = set()
+    for raw in entity_scope.get("entity_ids") or []:
+        value = str(raw or "").strip().casefold()
+        if value:
+            identifiers.add(value)
+            if "=" in value:
+                identifiers.add(value.split("=", 1)[1].strip())
+    rows = _booking_price_rows(
+        connection,
+        destination_ids,
+        per_destination=1000000,
+        catalog_query=catalog_query,
+        hydrated_documents=hydrated_documents or [],
+    )
+    return [
+        row for row in rows
+        if normalize_text(row.get("product_name")) in names
+        or str(row.get("id") or "").strip().casefold() in identifiers
+        or f"id={str(row.get('id') or '').strip().casefold()}" in identifiers
+    ]
 
 
 def _structured_price_lanes(
@@ -860,7 +941,7 @@ def _compact_catalog_product(
             "currency", "pricing_status", "price_type", "is_from_price", "is_approximate_price",
             "display_price", "display_original_price", "display_discount_text",
             "minimum_price", "maximum_price", "availability_status", "availability_text",
-            "sold_out", "booking_open", "source_url", "detail_url", "booking_url",
+            "sold_out", "booking_open", "source_url", "detail_url", "booking_url", "booking_search_url",
         )
         if row.get(key) is not None
     }
@@ -1196,6 +1277,8 @@ def enrich_retrieved_documents(
     exhaustive_booking_requested: bool = False,
     catalog_query: str = "",
     preferred_output_currency: str | None = None,
+    entity_scope: dict[str, Any] | None = None,
+    room_catalog_price_requested: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Hydrate matched rows and optionally supplement structured price evidence.
 
@@ -1205,6 +1288,7 @@ def enrich_retrieved_documents(
     base_documents = [dict(item) for item in (documents or [])]
     destination_ids = [str(value).strip() for value in (destination_ids or []) if str(value).strip()]
     preferred_output_currency = _normalize_currency(preferred_output_currency) or "USD"
+    entity_scope = dict(entity_scope or {})
     diagnostics: dict[str, Any] = {
         "structured_enrichment_count": 0,
         "structured_price_document_count": 0,
@@ -1289,17 +1373,50 @@ def enrich_retrieved_documents(
                         retrieval_intents,
                         cost_estimate_requested=cost_estimate_requested,
                     )
+                    entity_types = {
+                        str(value or "").strip().lower()
+                        for value in (entity_scope.get("entity_types") or [])
+                        if str(value or "").strip()
+                    }
+                    named_room_scope = bool(entity_scope.get("names") and entity_types == {"room"})
+                    named_booking_scope = bool(
+                        entity_scope.get("names") and entity_types == {"booking_product"}
+                    )
+                    if named_room_scope or room_catalog_price_requested:
+                        include_rooms, include_booking = True, False
+                    elif named_booking_scope:
+                        include_rooms, include_booking = False, True
                     if include_rooms:
-                        for row in _room_price_rows(connection, price_destination_ids, per_destination=room_limit):
+                        if named_room_scope:
+                            room_rows = _room_price_rows_for_entity_scope(
+                                connection, price_destination_ids, entity_scope
+                            )
+                        else:
+                            room_rows = _room_price_rows(
+                                connection,
+                                price_destination_ids,
+                                per_destination=(1000000 if room_catalog_price_requested else room_limit),
+                            )
+                        for row in room_rows:
                             price_documents.append(_price_doc_from_room(row))
                     if include_booking:
-                        for row in _booking_price_rows(
-                            connection,
-                            price_destination_ids,
-                            per_destination=booking_limit,
-                            catalog_query=catalog_query,
-                            hydrated_documents=base_documents,
-                        ):
+                        if named_booking_scope:
+                            booking_rows = _booking_price_rows_for_entity_scope(
+                                connection,
+                                price_destination_ids,
+                                entity_scope,
+                                catalog_query=catalog_query,
+                                hydrated_documents=base_documents,
+                            )
+                        else:
+                            booking_rows = _booking_price_rows(
+                                connection,
+                                price_destination_ids,
+                                per_destination=booking_limit,
+                                catalog_query=catalog_query,
+                                hydrated_documents=base_documents,
+                            )
+                        for row in booking_rows:
                             price_documents.append(_price_doc_from_booking(row))
 
             # If the requested output language/currency is VND, enrich summaries
