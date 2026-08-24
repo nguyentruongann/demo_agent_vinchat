@@ -268,6 +268,69 @@ def test_exhaustive_context_round_robin_preserves_multiple_branches():
     assert diagnostics["document_count"] >= 3
 
 
+def test_normal_multi_intent_context_preserves_every_retrieved_branch():
+    """A long first lane must not hide another lane from the answer judge."""
+    service = RAGService.__new__(RAGService)
+    service.settings = SimpleNamespace(max_context_chars=5000)
+    documents = [
+        {
+            "id": "attraction-long",
+            "text": "VinWonders ticket information. " * 400,
+            "score": 0.99,
+            "matched_intent": "attraction",
+            "metadata": {
+                "entity_type": "booking_product",
+                "entity_name": "VinWonders Phu Quoc ticket",
+            },
+        },
+        {
+            "id": "attraction-short",
+            "text": "More attraction information.",
+            "score": 0.90,
+            "matched_intent": "attraction",
+            "metadata": {"entity_type": "attraction", "entity_name": "VinWonders"},
+        },
+        {
+            "id": "hotel-property",
+            "text": "A resort property near the entertainment complex.",
+            "score": 0.91,
+            "matched_intent": "hotel",
+            "metadata": {
+                "entity_type": "property",
+                "entity_name": "Resort property",
+            },
+        },
+    ]
+
+    context, diagnostics = service.build_context_with_diagnostics(documents)
+
+    assert set(diagnostics["intents"]) == {"attraction", "hotel"}
+    assert diagnostics["branch_counts"]["attraction"] >= 1
+    assert diagnostics["branch_counts"]["hotel"] >= 1
+    assert "Resort property" in context
+
+
+def test_normal_single_intent_context_keeps_existing_order_and_full_content():
+    """The multi-intent fairness fix must not alter ordinary single-lane RAG."""
+    service = RAGService.__new__(RAGService)
+    service.settings = SimpleNamespace(max_context_chars=12000)
+    long_text = "Detailed hotel evidence. " * 200
+    documents = [
+        {
+            "id": "hotel-1",
+            "text": long_text,
+            "score": 0.95,
+            "matched_intent": "hotel",
+            "metadata": {"entity_type": "property", "entity_name": "Hotel One"},
+        }
+    ]
+
+    context, diagnostics = service.build_context_with_diagnostics(documents)
+
+    assert diagnostics["intents"] == ["hotel"]
+    assert long_text in context
+
+
 def test_generic_exhaustive_packet_clear_passes_without_llm_judge(monkeypatch):
     monkeypatch.setattr(
         retrieval_node,

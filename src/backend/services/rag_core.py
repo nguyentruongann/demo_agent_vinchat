@@ -2068,9 +2068,17 @@ class RAGService:
         selected_intents: dict[str, int] = {}
         selected_tasks: dict[str, int] = {}
         selected_entities: list[str] = []
+        document_intents = {
+            str(item.get("matched_intent") or "general")
+            for item in documents
+        }
+        multi_intent = len(document_intents) > 1
+        # Normal requests may still contain several evidence lanes (for example
+        # hotel + attraction). Interleave them so one long first lane cannot hide
+        # all other lanes while retrieval metadata reports that they were found.
         ordered = (
             self._context_round_robin(documents, task_aware=task_aware)
-            if exhaustive or task_aware
+            if exhaustive or task_aware or multi_intent
             else list(documents)
         )
 
@@ -2095,6 +2103,18 @@ class RAGService:
             raw_content = str(item.get("text", "") or "")
             if exhaustive and len(raw_content) > 1100:
                 raw_content = raw_content[:1100] + "…"
+
+            # Reserve space for every branch on ordinary multi-intent requests.
+            # Single-intent, atomic task-aware, and exhaustive serialization keep
+            # their existing contracts to minimize behavioral changes elsewhere.
+            if multi_intent and not exhaustive and not task_aware:
+                branch_count = max(1, len(document_intents))
+                per_branch_cap = max(
+                    1200,
+                    int(self.settings.max_context_chars / branch_count) - 900,
+                )
+                if len(raw_content) > per_branch_cap:
+                    raw_content = raw_content[:per_branch_cap] + "…"
 
             block = (
                 f"[SOURCE {index}]\n"
