@@ -1,5 +1,5 @@
-from src.backend.services.faq_matcher import FAQEntry, FAQMatcher
 from src.backend.agents.nodes.request_understanding import _atomic_clause_candidates
+from src.backend.services.faq_matcher import FAQEntry, FAQMatcher
 
 
 def _entry(question: str, answer: str) -> FAQEntry:

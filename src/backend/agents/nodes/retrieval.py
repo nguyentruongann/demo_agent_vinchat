@@ -16,7 +16,6 @@ from src.backend.services.retrieval_enrichment import (
     preferred_currency_for_language,
 )
 
-
 _CONTACT_PHONE_RE = re.compile(
     r"(?i)(?:tel(?:ephone)?|phone|hotline|call|điện\s*thoại|liên\s*hệ)\s*[:：]?\s*"
     r"(?P<value>(?:\+?\d[\d\s().-]{6,}\d))"

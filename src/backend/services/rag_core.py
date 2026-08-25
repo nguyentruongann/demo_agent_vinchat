@@ -468,7 +468,6 @@ class RAGService:
         aliases = [normalize_text(a) for a in destination.get("aliases", [])]
         aliases = [a for a in aliases if a]
         destination_id = str(destination.get("id") or "")
-        normalized_destination_id = normalize_text(destination_id)
 
         cache = self._load_corpus_cache()
         candidates: list[dict[str, Any]] = []
