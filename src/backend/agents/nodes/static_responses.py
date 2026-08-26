@@ -287,19 +287,49 @@ def no_data_response(state: AgentState) -> AgentState:
 
     if destination_text:
         templates = {
-            "vi": f"Hiện cơ sở dữ liệu Vinpearl/VinWonders chưa có đủ thông tin để xác nhận nội dung này cho **{destination_text}**.",
-            "en": f"The current Vinpearl/VinWonders knowledge base does not contain enough information to confirm this for **{destination_text}**.",
-            "ko": f"현재 Vinpearl/VinWonders 지식 베이스에는 **{destination_text}**에 대해 이 내용을 확인할 충분한 정보가 없습니다.",
-            "ja": f"現在のVinpearl/VinWondersナレッジベースには、**{destination_text}**についてこの内容を確認するための十分な情報がありません。",
-            "zh": f"当前 Vinpearl/VinWonders 知识库没有足够信息来确认 **{destination_text}** 的这一内容。",
+            "vi": (
+                f"Hiện cơ sở dữ liệu Vinpearl/VinWonders chưa có đủ thông tin để xác nhận nội dung này cho **{destination_text}**. "
+                "Quý khách có thể tạo ticket hoặc liên hệ với nhân viên của chúng em để biết thêm thông tin về nội dung này."
+            ),
+            "en": (
+                f"The current Vinpearl/VinWonders knowledge base does not contain enough information to confirm this for **{destination_text}**. "
+                "You can create a support ticket or contact our staff for more information about this matter."
+            ),
+            "ko": (
+                f"현재 Vinpearl/VinWonders 지식 베이스에는 **{destination_text}**에 대해 이 내용을 확인할 충분한 정보가 없습니다. "
+                "자세한 내용은 지원 티켓을 생성하거나 저희 직원에게 문의해 주세요."
+            ),
+            "ja": (
+                f"現在のVinpearl/VinWondersナレッジベースには、**{destination_text}**についてこの内容を確認するための十分な情報がありません。"
+                "詳しくは、サポートチケットを作成するか、スタッフまでお問い合わせください。"
+            ),
+            "zh": (
+                f"当前 Vinpearl/VinWonders 知识库没有足够的信息来确认 **{destination_text}** 的这一内容。"
+                "如需了解更多信息，您可以创建支持工单或联系我们的工作人员。"
+            ),
         }
     else:
         templates = {
-            "vi": "Hiện cơ sở dữ liệu Vinpearl/VinWonders chưa có đủ thông tin để xác nhận nội dung này.",
-            "en": "The current Vinpearl/VinWonders knowledge base does not contain enough information to confirm this.",
-            "ko": "현재 Vinpearl/VinWonders 지식 베이스에는 이 내용을 확인할 충분한 정보가 없습니다.",
-            "ja": "現在のVinpearl/VinWondersナレッジベースには、この内容を確認するための十分な情報がありません。",
-            "zh": "当前 Vinpearl/VinWonders 知识库没有足够信息来确认这一内容。",
+            "vi": (
+                "Hiện cơ sở dữ liệu Vinpearl/VinWonders chưa có đủ thông tin để xác nhận nội dung này. "
+                "Quý khách có thể tạo ticket hoặc liên hệ với nhân viên của chúng em để biết thêm thông tin về nội dung này."
+            ),
+            "en": (
+                "The current Vinpearl/VinWonders knowledge base does not contain enough information to confirm this. "
+                "You can create a support ticket or contact our staff for more information about this matter."
+            ),
+            "ko": (
+                "현재 Vinpearl/VinWonders 지식 베이스에는 이 내용을 확인할 충분한 정보가 없습니다. "
+                "자세한 내용은 지원 티켓을 생성하거나 저희 직원에게 문의해 주세요."
+            ),
+            "ja": (
+                "現在のVinpearl/VinWondersナレッジベースには、この内容を確認するための十分な情報がありません。"
+                "詳しくは、サポートチケットを作成するか、スタッフまでお問い合わせください。"
+            ),
+            "zh": (
+                "当前 Vinpearl/VinWonders 知识库没有足够的信息来确认这一内容。"
+                "如需了解更多信息，您可以创建支持工单或联系我们的工作人员。"
+            ),
         }
 
     answer = templates.get(group)

@@ -97,3 +97,31 @@ def test_unlabelled_digits_are_not_mistaken_for_a_contact_channel() -> None:
         }
     ])
     assert packet == {"available": False, "channels": []}
+
+
+def test_generic_no_data_response_invites_customer_to_seek_support() -> None:
+    state = {
+        "original_language": "vi",
+        "detected_destination_names": [],
+        "resolved_destination_names": [],
+    }
+
+    response = no_data_response(state)
+
+    assert response["ticket_id"] is None
+    assert "chưa có đủ thông tin" in response["answer"]
+    assert "tạo ticket" in response["answer"]
+    assert "liên hệ với nhân viên" in response["answer"]
+
+
+def test_destination_no_data_response_keeps_destination_and_support_invitation() -> None:
+    state = {
+        "original_language": "vi",
+        "detected_destination_names": ["VinWonders Nha Trang"],
+    }
+
+    response = no_data_response(state)
+
+    assert "**VinWonders Nha Trang**" in response["answer"]
+    assert "tạo ticket" in response["answer"]
+    assert "liên hệ với nhân viên" in response["answer"]
