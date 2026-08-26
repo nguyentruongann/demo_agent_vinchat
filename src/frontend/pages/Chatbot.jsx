@@ -32,13 +32,21 @@ import {
   getChatSessionId,
   loadStoredMessages,
   saveStoredMessages,
-  sendChatMessage,
   setChatSessionId,
   startNewChatSession,
+  streamChatMessage,
 } from '../services/api'
 import '../styles/pages/Chatbot.css'
 
 const CHAT_DRAFT_KEY = 'vinpearl_chat_draft_v2'
+const STREAM_STATUS_INDEX = {
+  understanding: 0,
+  searching: 1,
+  evaluating: 1,
+  composing: 2,
+  verifying: 3,
+  finalizing: 3,
+}
 
 const UI_COPY = {
   vi: {
@@ -345,6 +353,7 @@ function Chatbot() {
   })
   const [input, setInput] = useState(() => loadStoredDraft())
   const [loading, setLoading] = useState(false)
+  const [receivingTokens, setReceivingTokens] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [sessions, setSessions] = useState([])
@@ -370,31 +379,6 @@ function Chatbot() {
     if (showScrollDown) return
     scrollToBottom(messages.length > 1 ? 'smooth' : 'auto')
   }, [messages, loading])
-
-  useEffect(() => {
-    if (!loading) {
-      setThinkingMessageIndex(0)
-      return undefined
-    }
-
-    setThinkingMessageIndex(0)
-    const messageCount = copy.thinkingMessages?.length || 1
-
-    if (messageCount <= 1) return undefined
-
-    const timer = window.setInterval(() => {
-      setThinkingMessageIndex((current) => {
-        if (current >= messageCount - 1) {
-          window.clearInterval(timer)
-          return current
-        }
-
-        return current + 1
-      })
-    }, 3000)
-
-    return () => window.clearInterval(timer)
-  }, [loading, language])
 
   useEffect(() => {
     const textarea = inputRef.current
@@ -565,13 +549,67 @@ function Chatbot() {
     setMessages((current) => [...current, userMessage])
     setInput('')
     clearStoredDraft()
+    setThinkingMessageIndex(0)
+    setReceivingTokens(false)
     setLoading(true)
 
+    const controller = new AbortController()
+    requestControllerRef.current = controller
+    const assistantId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+    const assistantTimestamp = displayTime()
+    let responseStarted = false
+
     try {
-      const controller = new AbortController()
-      requestControllerRef.current = controller
-      const aiResponse = await sendChatMessage(cleanPrompt, language, { signal: controller.signal })
-      setMessages((current) => [...current, aiResponse])
+      const aiResponse = await streamChatMessage(cleanPrompt, language, {
+        signal: controller.signal,
+        messageId: assistantId,
+        timestamp: assistantTimestamp,
+        onStatus: (stage) => {
+          setThinkingMessageIndex(STREAM_STATUS_INDEX[stage] ?? 0)
+        },
+        onDelta: (_delta, fullText) => {
+          if (!responseStarted) {
+            responseStarted = true
+            setReceivingTokens(true)
+            setMessages((current) => [
+              ...current,
+              {
+                id: assistantId,
+                sender: 'assistant',
+                text: fullText,
+                timestamp: assistantTimestamp,
+                language,
+                sources: [],
+                relatedHotels: [],
+                isStreaming: true,
+              },
+            ])
+            return
+          }
+
+          setMessages((current) => current.map((message) => (
+            message.id === assistantId
+              ? { ...message, text: fullText }
+              : message
+          )))
+        },
+        onReplace: (finalText) => {
+          setMessages((current) => current.map((message) => (
+            message.id === assistantId
+              ? { ...message, text: finalText }
+              : message
+          )))
+        },
+      })
+
+      setMessages((current) => {
+        if (!responseStarted) return [...current, aiResponse]
+        return current.map((message) => (
+          message.id === assistantId
+            ? { ...aiResponse, id: assistantId, timestamp: assistantTimestamp, isStreaming: false }
+            : message
+        ))
+      })
       if (aiResponse.sessionId) {
         setActiveSessionId(aiResponse.sessionId)
       }
@@ -593,7 +631,15 @@ function Chatbot() {
         },
       ])
     } finally {
+      if (responseStarted) {
+        setMessages((current) => current.map((message) => (
+          message.id === assistantId
+            ? { ...message, isStreaming: false }
+            : message
+        )))
+      }
       requestControllerRef.current = null
+      setReceivingTokens(false)
       setLoading(false)
     }
   }
@@ -836,7 +882,7 @@ function Chatbot() {
                   </section>
                 )}
 
-                {loading && (
+                {loading && !receivingTokens && (
                   <article
                     className="chatbot-page__typing"
                     role="status"

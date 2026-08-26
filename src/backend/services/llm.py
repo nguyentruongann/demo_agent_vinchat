@@ -1,6 +1,7 @@
 import json
 import random
 import time
+from collections.abc import Iterator
 from typing import Any
 
 from litellm import completion
@@ -29,6 +30,50 @@ class LLMService:
         self.timeout = settings.llm_timeout
         self.max_retries = settings.llm_max_retries
 
+    def _api_keys(self) -> list[str]:
+        return [
+            key
+            for key in [
+                self.api_key,
+                self.api_key_backup,
+            ]
+            if key
+        ]
+
+    def _completion_kwargs(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        api_key: str,
+        temperature: float | None,
+        max_tokens: int | None,
+    ) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ],
+            "temperature": (
+                self.temperature if temperature is None else float(temperature)
+            ),
+            "max_tokens": self.max_tokens if max_tokens is None else int(max_tokens),
+            "timeout": self.timeout,
+            "api_key": api_key,
+        }
+
+        if self.base_url:
+            kwargs["api_base"] = self.base_url
+
+        return kwargs
+
     def text(
         self,
         system_prompt: str,
@@ -39,14 +84,7 @@ class LLMService:
     ) -> str:
         last_error: Exception | None = None
 
-        api_keys = [
-            key
-            for key in [
-                self.api_key,
-                self.api_key_backup,
-            ]
-            if key
-        ]
+        api_keys = self._api_keys()
 
         if not api_keys:
             raise RuntimeError(
@@ -62,30 +100,15 @@ class LLMService:
                 self.max_retries + 1,
             ):
                 try:
-                    kwargs: dict[str, Any] = {
-                        "model": self.model,
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": system_prompt,
-                            },
-                            {
-                                "role": "user",
-                                "content": user_prompt,
-                            },
-                        ],
-                        "temperature": (
-                            self.temperature if temperature is None else float(temperature)
-                        ),
-                        "max_tokens": self.max_tokens if max_tokens is None else int(max_tokens),
-                        "timeout": self.timeout,
-                        "api_key": api_key,
-                    }
-
-                    if self.base_url:
-                        kwargs["api_base"] = self.base_url
-
-                    response = completion(**kwargs)
+                    response = completion(
+                        **self._completion_kwargs(
+                            system_prompt=system_prompt,
+                            user_prompt=user_prompt,
+                            api_key=api_key,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        )
+                    )
 
                     content = (
                         response.choices[0]
@@ -137,6 +160,91 @@ class LLMService:
         raise RuntimeError(
             "All Gemini API keys failed."
         ) from last_error
+
+    def text_stream(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> Iterator[str]:
+        """Yield provider tokens while preserving the normal key/retry policy.
+
+        A retry is safe only before the first visible token. Once output has been
+        emitted, restarting with another key would duplicate or splice customer
+        text, so an interrupted stream fails immediately and lets the SSE layer
+        report the interruption.
+        """
+        last_error: Exception | None = None
+        api_keys = self._api_keys()
+
+        if not api_keys:
+            raise RuntimeError("No LLM API key configured.")
+
+        for key_index, api_key in enumerate(api_keys, start=1):
+            for attempt in range(1, self.max_retries + 1):
+                emitted = False
+                try:
+                    response = completion(
+                        **self._completion_kwargs(
+                            system_prompt=system_prompt,
+                            user_prompt=user_prompt,
+                            api_key=api_key,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        ),
+                        stream=True,
+                    )
+
+                    for part in response:
+                        choices = getattr(part, "choices", None)
+                        if not choices and isinstance(part, dict):
+                            choices = part.get("choices")
+                        if not choices:
+                            continue
+
+                        choice = choices[0]
+                        delta = getattr(choice, "delta", None)
+                        if delta is None and isinstance(choice, dict):
+                            delta = choice.get("delta")
+                        content = getattr(delta, "content", None)
+                        if content is None and isinstance(delta, dict):
+                            content = delta.get("content")
+
+                        text_value = str(content or "")
+                        if text_value:
+                            emitted = True
+                            yield text_value
+
+                    if not emitted:
+                        raise ValueError("LLM returned an empty streaming response.")
+                    return
+
+                except (
+                    RateLimitError,
+                    ServiceUnavailableError,
+                    APIConnectionError,
+                    Timeout,
+                    APIError,
+                ) as exc:
+                    last_error = exc
+                    if emitted:
+                        raise RuntimeError("LLM stream was interrupted after output began.") from exc
+
+                    print(
+                        f"Gemini streaming key {key_index} failed: "
+                        f"{type(exc).__name__} ({attempt}/{self.max_retries})"
+                    )
+                    if attempt == self.max_retries:
+                        break
+                    wait_seconds = min(5.0, (2 ** attempt) + random.uniform(0, 1))
+                    time.sleep(wait_seconds)
+
+            if key_index < len(api_keys):
+                print("Switching to backup Gemini API key for streaming...")
+
+        raise RuntimeError("All Gemini API keys failed for streaming.") from last_error
 
     def json(
         self,

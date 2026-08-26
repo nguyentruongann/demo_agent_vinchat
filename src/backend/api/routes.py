@@ -1,8 +1,14 @@
+import asyncio
+import json
+import logging
 import re
+from queue import Queue
+from threading import Event, Thread
 from urllib.parse import urlparse
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
 from src.data_postgre.db.app import AppUser
 
@@ -23,6 +29,7 @@ from ..services.rate_limit import enforce_rate_limit
 from ..services.source_reranker import get_source_reranker
 
 router = APIRouter(prefix="/api/v1", tags=["agent"])
+logger = logging.getLogger(__name__)
 
 URL_KEYS = (
     "source_url",
@@ -268,51 +275,8 @@ def _build_sources(state: dict) -> list[SourceItem]:
     return sources
 
 
-@router.post("/chat", response_model=ChatResponse)
-def chat(
-    payload: ChatRequest,
-    http_request: Request,
-    current_user: AppUser | None = Depends(get_optional_user),
-) -> ChatResponse:
-    session_id = payload.session_id or f"SES-{uuid4().hex}"
-    user_id = str(current_user.id) if current_user else None
-    client_host = http_request.client.host if http_request.client else "unknown"
-    enforce_rate_limit(
-        bucket="chat",
-        identity=user_id or client_host,
-        limit=get_settings().chat_rate_limit_per_minute,
-        window_seconds=60,
-    )
-
-    # Authorize/claim the session before entering LangGraph. This prevents a
-    # caller from supplying another user's session UUID and inheriting its memory.
-    try:
-        MemoryService().ensure_session(session_id, user_id, channel="web")
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên chat này.") from exc
-
-    try:
-        state = agent_graph.invoke(
-            {
-                "user_message": payload.message,
-                "session_id": session_id,
-                "user_id": user_id,
-                "page_context": payload.page_context,
-            }
-        )
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên chat này.") from exc
-    except Exception as exc:
-        import logging
-        trace_id = uuid4().hex
-        logging.getLogger(__name__).exception("chat_failed trace_id=%s", trace_id)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal service error. Reference: {trace_id}",
-        ) from exc
-
+def _build_chat_response(state: dict, session_id: str) -> ChatResponse:
     sources = _build_sources(state)
-
     return ChatResponse(
         answer=state.get("answer", ""),
         session_id=state.get("session_id") or session_id,
@@ -356,6 +320,214 @@ def chat(
             "logic_reason": state.get("logic_reason"),
             "logic_confidence": state.get("logic_confidence"),
         } if get_settings().expose_chat_debug else None,
+    )
+
+
+def _response_payload(response: ChatResponse) -> dict:
+    if hasattr(response, "model_dump"):
+        return response.model_dump(mode="json")
+    return response.dict()
+
+
+def _sse_event(event: str, data: dict) -> str:
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+def _next_customer_stage(node_name: str, state: dict) -> str | None:
+    """Map completed graph nodes to the real next customer-visible activity."""
+    if node_name in {"guardrail", "language", "load_memory", "understand_request", "resolve_context"}:
+        return "understanding"
+    if node_name == "classify":
+        return "searching" if state.get("route") == "rag" else "composing"
+    if node_name == "retrieve":
+        return "evaluating"
+    if node_name in {"support_triage", "assess"}:
+        return "composing"
+    if node_name == "answer":
+        return "verifying"
+    if node_name == "grounding":
+        return "finalizing"
+    if node_name in {
+        "conversation_context",
+        "greeting",
+        "out_of_scope",
+        "invalid_request",
+        "sensitive",
+        "no_data",
+        "ticket",
+    }:
+        return "finalizing"
+    return None
+
+
+async def _chat_event_stream(
+    *,
+    payload: ChatRequest,
+    session_id: str,
+    user_id: str | None,
+):
+    event_queue: Queue[tuple[str, dict] | object] = Queue()
+    completed = object()
+    cancelled = Event()
+    visible_chunks: list[str] = []
+
+    class StreamCancelled(Exception):
+        pass
+
+    def write_token(content: str) -> None:
+        if cancelled.is_set():
+            raise StreamCancelled("Chat stream was cancelled by the client.")
+        visible_chunks.append(content)
+        event_queue.put(("delta", {"content": content}))
+
+    def run_graph() -> None:
+        state: dict = {
+            "user_message": payload.message,
+            "session_id": session_id,
+            "user_id": user_id,
+            "page_context": payload.page_context,
+            "stream_writer": write_token,
+        }
+        last_stage = "understanding"
+
+        try:
+            for update in agent_graph.stream(state, stream_mode="updates"):
+                if not isinstance(update, dict):
+                    continue
+                for node_name, node_update in update.items():
+                    if isinstance(node_update, dict):
+                        state.update(node_update)
+                    stage = _next_customer_stage(str(node_name), state)
+                    if stage and stage != last_stage and not cancelled.is_set():
+                        last_stage = stage
+                        event_queue.put(("status", {"stage": stage}))
+                if cancelled.is_set():
+                    raise StreamCancelled("Chat stream was cancelled by the client.")
+
+            if cancelled.is_set():
+                return
+            response = _build_chat_response(state, session_id)
+            visible_answer = "".join(visible_chunks).strip()
+            final_answer = str(response.answer or "").strip()
+            if visible_answer and final_answer != visible_answer:
+                event_queue.put(("replace", {"content": final_answer}))
+            event_queue.put(("complete", _response_payload(response)))
+        except StreamCancelled:
+            # Client-initiated Stop is expected. Exiting graph iteration before
+            # save_memory keeps an interrupted turn from becoming completed history.
+            return
+        except PermissionError:
+            if not cancelled.is_set():
+                event_queue.put(("error", {"detail": "Bạn không có quyền truy cập phiên chat này."}))
+        except Exception:
+            trace_id = uuid4().hex
+            logger.exception("chat_stream_failed trace_id=%s", trace_id)
+            if not cancelled.is_set():
+                event_queue.put((
+                    "error",
+                    {"detail": f"Internal service error. Reference: {trace_id}"},
+                ))
+        finally:
+            event_queue.put(completed)
+
+    worker = Thread(target=run_graph, name=f"chat-stream-{session_id[-8:]}", daemon=True)
+    worker.start()
+
+    try:
+        # Send an immediate event so the browser and reverse proxy can expose the
+        # live connection before the first graph node finishes.
+        yield _sse_event("status", {"stage": "understanding"})
+        while True:
+            item = await asyncio.to_thread(event_queue.get)
+            if item is completed:
+                break
+            event, data = item
+            yield _sse_event(event, data)
+            await asyncio.sleep(0)
+    finally:
+        cancelled.set()
+
+
+@router.post("/chat", response_model=ChatResponse)
+def chat(
+    payload: ChatRequest,
+    http_request: Request,
+    current_user: AppUser | None = Depends(get_optional_user),
+) -> ChatResponse:
+    session_id = payload.session_id or f"SES-{uuid4().hex}"
+    user_id = str(current_user.id) if current_user else None
+    client_host = http_request.client.host if http_request.client else "unknown"
+    enforce_rate_limit(
+        bucket="chat",
+        identity=user_id or client_host,
+        limit=get_settings().chat_rate_limit_per_minute,
+        window_seconds=60,
+    )
+
+    # Authorize/claim the session before entering LangGraph. This prevents a
+    # caller from supplying another user's session UUID and inheriting its memory.
+    try:
+        MemoryService().ensure_session(session_id, user_id, channel="web")
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên chat này.") from exc
+
+    try:
+        state = agent_graph.invoke(
+            {
+                "user_message": payload.message,
+                "session_id": session_id,
+                "user_id": user_id,
+                "page_context": payload.page_context,
+            }
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên chat này.") from exc
+    except Exception as exc:
+        trace_id = uuid4().hex
+        logger.exception("chat_failed trace_id=%s", trace_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal service error. Reference: {trace_id}",
+        ) from exc
+
+    return _build_chat_response(state, session_id)
+
+
+@router.post("/chat/stream", response_class=StreamingResponse)
+def chat_stream(
+    payload: ChatRequest,
+    http_request: Request,
+    current_user: AppUser | None = Depends(get_optional_user),
+) -> StreamingResponse:
+    """Stream real graph progress and the final, grounded answer over SSE."""
+    session_id = payload.session_id or f"SES-{uuid4().hex}"
+    user_id = str(current_user.id) if current_user else None
+    client_host = http_request.client.host if http_request.client else "unknown"
+    enforce_rate_limit(
+        bucket="chat",
+        identity=user_id or client_host,
+        limit=get_settings().chat_rate_limit_per_minute,
+        window_seconds=60,
+    )
+
+    try:
+        MemoryService().ensure_session(session_id, user_id, channel="web")
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên chat này.") from exc
+
+    return StreamingResponse(
+        _chat_event_stream(
+            payload=payload,
+            session_id=session_id,
+            user_id=user_id,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

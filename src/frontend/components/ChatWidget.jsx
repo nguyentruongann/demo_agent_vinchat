@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Bot, Loader2, Send, Sparkles, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import { clearStoredMessages, loadStoredMessages, saveStoredMessages, sendChatMessage } from '../services/api'
+import {
+  clearStoredMessages,
+  getChatStreamStatus,
+  loadStoredMessages,
+  saveStoredMessages,
+  streamChatMessage,
+} from '../services/api'
 import RichMessage from './RichMessage'
 import StructuredMessage from './StructuredMessage'
 import '../styles/components/ChatWidget.css'
@@ -25,9 +31,12 @@ function ChatWidget() {
       : []
   })
   const [loading, setLoading] = useState(false)
+  const [receivingTokens, setReceivingTokens] = useState(false)
+  const [streamStage, setStreamStage] = useState('understanding')
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const previousUserIdRef = useRef(undefined)
+  const requestControllerRef = useRef(null)
 
   useEffect(() => {
     async function handleOpenAiChat(event) {
@@ -43,26 +52,7 @@ function ChatWidget() {
       }
 
       setMessages((prev) => [...prev, userMsg])
-      setLoading(true)
-
-      try {
-        const response = await sendChatMessage(prompt, language)
-        setMessages((prev) => [...prev, response])
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `err-${Date.now()}`,
-            sender: 'assistant',
-            text: t.chatError,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            language,
-            localizationKey: 'chatError',
-          },
-        ])
-      } finally {
-        setLoading(false)
-      }
+      await runStreamingResponse(prompt)
     }
 
     window.addEventListener('open-ai-chat', handleOpenAiChat)
@@ -145,6 +135,97 @@ function ChatWidget() {
     setIsOpen(true)
   }
 
+  async function runStreamingResponse(prompt) {
+    const controller = new AbortController()
+    requestControllerRef.current = controller
+    const assistantId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+    const assistantTimestamp = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    let responseStarted = false
+
+    setStreamStage('understanding')
+    setReceivingTokens(false)
+    setLoading(true)
+
+    try {
+      const response = await streamChatMessage(prompt, language, {
+        signal: controller.signal,
+        messageId: assistantId,
+        timestamp: assistantTimestamp,
+        onStatus: setStreamStage,
+        onDelta: (_delta, fullText) => {
+          if (!responseStarted) {
+            responseStarted = true
+            setReceivingTokens(true)
+            setMessages((current) => [
+              ...current,
+              {
+                id: assistantId,
+                sender: 'assistant',
+                text: fullText,
+                timestamp: assistantTimestamp,
+                language,
+                sources: [],
+                relatedHotels: [],
+                isStreaming: true,
+              },
+            ])
+            return
+          }
+
+          setMessages((current) => current.map((message) => (
+            message.id === assistantId
+              ? { ...message, text: fullText }
+              : message
+          )))
+        },
+        onReplace: (finalText) => {
+          setMessages((current) => current.map((message) => (
+            message.id === assistantId
+              ? { ...message, text: finalText }
+              : message
+          )))
+        },
+      })
+
+      setMessages((current) => {
+        if (!responseStarted) return [...current, response]
+        return current.map((message) => (
+          message.id === assistantId
+            ? { ...response, id: assistantId, timestamp: assistantTimestamp, isStreaming: false }
+            : message
+        ))
+      })
+    } catch (error) {
+      if (error?.name === 'AbortError') return
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          sender: 'assistant',
+          text: t.chatError,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          language,
+          localizationKey: 'chatError',
+          errorDetail: error instanceof Error ? error.message : String(error),
+        },
+      ])
+    } finally {
+      if (responseStarted) {
+        setMessages((current) => current.map((message) => (
+          message.id === assistantId
+            ? { ...message, isStreaming: false }
+            : message
+        )))
+      }
+      requestControllerRef.current = null
+      setReceivingTokens(false)
+      setLoading(false)
+    }
+  }
+
   async function handleSend(promptText) {
     const prompt = (promptText || quickInput).trim()
     if (!prompt || loading) return
@@ -159,26 +240,7 @@ function ChatWidget() {
     }
 
     setMessages((prev) => [...prev, userMsg])
-    setLoading(true)
-
-    try {
-      const response = await sendChatMessage(prompt, language)
-      setMessages((prev) => [...prev, response])
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `err-${Date.now()}`,
-          sender: 'assistant',
-          text: t.chatError,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          language,
-          localizationKey: 'chatError',
-        },
-      ])
-    } finally {
-      setLoading(false)
-    }
+    await runStreamingResponse(prompt)
   }
 
   function handleQuickSend(event) {
@@ -224,7 +286,10 @@ function ChatWidget() {
               className="chat-widget__close"
               type="button"
               aria-label={t.close}
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                requestControllerRef.current?.abort()
+                setIsOpen(false)
+              }}
             >
               <X className="chat-widget__close-icon" />
             </button>
@@ -280,11 +345,11 @@ function ChatWidget() {
                     </div>
                   </div>
                 ))}
-                {loading && (
+                {loading && !receivingTokens && (
                   <div className="chat-widget__msg chat-widget__msg--assistant">
                     <div className="chat-widget__msg-bubble chat-widget__msg-bubble--loading">
                       <Loader2 className="chat-widget__spinner" />
-                      <span>{t.aiTyping}</span>
+                      <span>{getChatStreamStatus(streamStage, language)}</span>
                     </div>
                   </div>
                 )}

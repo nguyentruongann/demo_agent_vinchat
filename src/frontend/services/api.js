@@ -1,5 +1,23 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const CHAT_SESSION_KEY = 'vinpearl_chat_session_v2';
+const CHAT_STREAM_DELAY_MS = boundedNumber(
+  import.meta.env.VITE_CHAT_STREAM_DELAY_MS,
+  20,
+  0,
+  120,
+);
+const CHAT_STREAM_CHARS_PER_TICK = Math.round(boundedNumber(
+  import.meta.env.VITE_CHAT_STREAM_CHARS_PER_TICK,
+  2,
+  1,
+  12,
+));
+
+function boundedNumber(value, fallback, minimum, maximum) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(maximum, Math.max(minimum, parsed));
+}
 
 function currentLanguage() {
   const value = localStorage.getItem('site_language');
@@ -267,6 +285,258 @@ export async function fetchPromotionById(id) {
   return res.json();
 }
 
+function assistantMessageFromResult(result, language, options = {}) {
+  return {
+    id: options.messageId || `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    sender: 'assistant',
+    text: options.text ?? result.answer ?? '',
+    timestamp: options.timestamp || new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    language: result.language || language,
+    route: result.route,
+    ticketId: result.ticket_id,
+    sessionId: result.session_id,
+    sources: result.sources || [],
+    relatedHotels: [],
+  };
+}
+
+function parseSseFrame(frame) {
+  let event = 'message';
+  const data = [];
+
+  for (const line of frame.split('\n')) {
+    if (!line || line.startsWith(':')) continue;
+    if (line.startsWith('event:')) {
+      event = line.slice(6).trim();
+    } else if (line.startsWith('data:')) {
+      data.push(line.slice(5).trimStart());
+    }
+  }
+
+  if (data.length === 0) return null;
+  const rawData = data.join('\n');
+  return {
+    event,
+    data: JSON.parse(rawData),
+  };
+}
+
+function createAbortError() {
+  if (typeof DOMException === 'function') {
+    return new DOMException('The chat stream was stopped.', 'AbortError');
+  }
+  const error = new Error('The chat stream was stopped.');
+  error.name = 'AbortError';
+  return error;
+}
+
+function throwIfAborted(signal) {
+  if (signal?.aborted) throw createAbortError();
+}
+
+function abortableDelay(milliseconds, signal) {
+  if (milliseconds <= 0) {
+    throwIfAborted(signal);
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    let timer = null;
+
+    const cleanup = () => {
+      if (timer !== null) globalThis.clearTimeout(timer);
+      signal?.removeEventListener('abort', handleAbort);
+    };
+    const handleAbort = () => {
+      cleanup();
+      reject(createAbortError());
+    };
+
+    signal?.addEventListener('abort', handleAbort, { once: true });
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+
+    timer = globalThis.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, milliseconds);
+  });
+}
+
+const CHAT_STREAM_STATUS = {
+  vi: {
+    understanding: 'Đang hiểu yêu cầu của bạn...',
+    searching: 'Đang tìm thông tin phù hợp...',
+    evaluating: 'Đang chọn thông tin chính xác...',
+    composing: 'Đang soạn câu trả lời...',
+    verifying: 'Đang kiểm tra câu trả lời...',
+    finalizing: 'Đang hoàn thiện câu trả lời...',
+  },
+  en: {
+    understanding: 'Understanding your request...',
+    searching: 'Searching for relevant information...',
+    evaluating: 'Selecting accurate information...',
+    composing: 'Composing the answer...',
+    verifying: 'Checking the answer...',
+    finalizing: 'Finalizing the answer...',
+  },
+  ko: {
+    understanding: '요청을 이해하고 있어요...',
+    searching: '관련 정보를 찾고 있어요...',
+    evaluating: '정확한 정보를 선별하고 있어요...',
+    composing: '답변을 작성하고 있어요...',
+    verifying: '답변을 확인하고 있어요...',
+    finalizing: '답변을 마무리하고 있어요...',
+  },
+  ja: {
+    understanding: 'ご要望を確認しています...',
+    searching: '関連情報を検索しています...',
+    evaluating: '正確な情報を選んでいます...',
+    composing: '回答を作成しています...',
+    verifying: '回答を確認しています...',
+    finalizing: '回答を仕上げています...',
+  },
+  zh: {
+    understanding: '正在理解您的需求...',
+    searching: '正在查找相关信息...',
+    evaluating: '正在筛选准确信息...',
+    composing: '正在撰写回答...',
+    verifying: '正在检查回答...',
+    finalizing: '正在完善回答...',
+  },
+};
+
+export function getChatStreamStatus(stage, language = 'en') {
+  const copy = CHAT_STREAM_STATUS[language] || CHAT_STREAM_STATUS.en;
+  return copy[stage] || copy.understanding;
+}
+
+export async function streamChatMessage(prompt, language = 'en', options = {}) {
+  let streamedText = '';
+  const renderDelayMs = boundedNumber(
+    options.renderDelayMs,
+    CHAT_STREAM_DELAY_MS,
+    0,
+    120,
+  );
+  const charsPerTick = Math.round(boundedNumber(
+    options.charsPerTick,
+    CHAT_STREAM_CHARS_PER_TICK,
+    1,
+    12,
+  ));
+
+  const emitPacedDelta = async (content) => {
+    const characters = Array.from(content);
+    for (let index = 0; index < characters.length; index += charsPerTick) {
+      throwIfAborted(options.signal);
+      const part = characters.slice(index, index + charsPerTick).join('');
+      streamedText += part;
+      options.onDelta?.(part, streamedText);
+      await abortableDelay(renderDelayMs, options.signal);
+    }
+  };
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/chat/stream`, {
+      method: 'POST',
+      headers: authHeaders({
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      }),
+      signal: options.signal,
+      body: JSON.stringify({
+        message: prompt,
+        session_id: options.sessionId || getChatSessionId(),
+        user_id: null,
+        page_context: options.pageContext || null,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorPayload = await res.json().catch(() => null);
+      const detail = typeof errorPayload?.detail === 'string'
+        ? errorPayload.detail
+        : `Chat stream API returned status ${res.status}`;
+      throw new Error(detail);
+    }
+    if (!res.body) throw new Error('This browser does not expose a streaming response body.');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let completedResult = null;
+
+    const handleFrame = async (frame) => {
+      const parsed = parseSseFrame(frame);
+      if (!parsed) return;
+
+      if (parsed.event === 'status') {
+        options.onStatus?.(parsed.data.stage);
+        return;
+      }
+      if (parsed.event === 'delta') {
+        const content = String(parsed.data.content || '');
+        if (!content) return;
+        await emitPacedDelta(content);
+        return;
+      }
+      if (parsed.event === 'replace') {
+        streamedText = String(parsed.data.content || '');
+        options.onReplace?.(streamedText);
+        return;
+      }
+      if (parsed.event === 'complete') {
+        completedResult = parsed.data;
+        return;
+      }
+      if (parsed.event === 'error') {
+        throw new Error(parsed.data.detail || 'The chat stream failed.');
+      }
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      buffer = buffer.replace(/\r\n/g, '\n');
+
+      let separatorIndex = buffer.indexOf('\n\n');
+      while (separatorIndex >= 0) {
+        const frame = buffer.slice(0, separatorIndex);
+        buffer = buffer.slice(separatorIndex + 2);
+        await handleFrame(frame);
+        separatorIndex = buffer.indexOf('\n\n');
+      }
+
+      if (done) break;
+    }
+
+    if (buffer.trim()) await handleFrame(buffer.trim());
+    if (!completedResult) throw new Error('The chat stream ended before completion.');
+
+    if (completedResult.session_id) setChatSessionId(completedResult.session_id);
+    return assistantMessageFromResult(completedResult, language, {
+      messageId: options.messageId,
+      timestamp: options.timestamp,
+      text: completedResult.answer || streamedText,
+    });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e;
+
+    if (import.meta.env.VITE_ENABLE_CHAT_FALLBACK === 'true' && !streamedText) {
+      console.warn('Chat stream failed, using local fallback:', e);
+      return generateFallbackResponse(prompt, language);
+    }
+
+    throw e;
+  }
+}
+
 export async function sendChatMessage(prompt, language = 'en', options = {}) {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/chat`, {
@@ -277,6 +547,7 @@ export async function sendChatMessage(prompt, language = 'en', options = {}) {
         message: prompt,
         session_id: options.sessionId || getChatSessionId(),
         user_id: null,
+        page_context: options.pageContext || null,
       }),
     });
 
@@ -290,21 +561,7 @@ export async function sendChatMessage(prompt, language = 'en', options = {}) {
 
     const result = await res.json();
     if (result.session_id) setChatSessionId(result.session_id);
-    return {
-      id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      sender: 'assistant',
-      text: result.answer,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      language: result.language || language,
-      route: result.route,
-      ticketId: result.ticket_id,
-      sessionId: result.session_id,
-      sources: result.sources || [],
-      relatedHotels: [],
-    };
+    return assistantMessageFromResult(result, language);
   } catch (e) {
     // A user-initiated stop must stay a cancellation. Do not convert AbortError
     // into a local fallback response, otherwise the UI appears to ignore Stop.

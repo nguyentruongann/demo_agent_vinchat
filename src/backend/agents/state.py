@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any, Literal, TypedDict
 
 RouteName = Literal[
@@ -19,6 +20,11 @@ class AgentState(TypedDict, total=False):
     session_id: str | None
     user_id: str | None
     page_context: dict[str, Any] | None  # optional frontend page/location context for deictic "here/this" requests
+
+    # Request-scoped transport hook. It is present only for /chat/stream and is
+    # consumed by the final language guard after grounding has completed.
+    stream_writer: Callable[[str], None] | None
+    answer_streamed: bool
 
     conversation_turns: list[dict[str, Any]]
     conversation_history: str

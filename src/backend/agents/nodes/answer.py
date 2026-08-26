@@ -438,8 +438,7 @@ def generate_answer(state: AgentState) -> AgentState:
     """Generate a grounded, professional customer-facing answer."""
     llm = LLMService()
 
-    answer = llm.text(
-        system_prompt=(
+    system_prompt = (
             # ============================================================
             # ROLE & TONE
             # ============================================================
@@ -569,9 +568,9 @@ def generate_answer(state: AgentState) -> AgentState:
             "Do not switch to English merely because RETRIEVED_CONTEXT or the retrieval query is English. "
             "Keep official names, proper nouns, IDs, URLs, emails, numbers, and product names unchanged "
             "when appropriate."
-        ),
+    )
 
-        user_prompt=f"""
+    user_prompt = f"""
 TARGET_RESPONSE_LANGUAGE:
 {state.get("original_language_name") or state.get("original_language", "en")} ({state.get("original_language", "en")})
 
@@ -773,8 +772,24 @@ FINAL ANSWER RULES:
     - If pricing_status is unknown but a grounded booking/search URL exists, provide the URL as the live-check channel instead of inventing a numeric price.
     - Use exactly one customer-facing currency: {state.get('preferred_output_currency') or 'USD'}. Do not show mixed currencies or source-currency parentheses.
     - Never use "check the official website" as a substitute for the estimate.
-""",
-    )
+"""
+
+    stream_writer = state.get("stream_writer")
+    answer_streamed = callable(stream_writer)
+    if answer_streamed:
+        chunks: list[str] = []
+        for chunk in llm.text_stream(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        ):
+            chunks.append(chunk)
+            stream_writer(chunk)
+        answer = "".join(chunks).strip()
+    else:
+        answer = llm.text(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
 
     if _price_contract_needs_repair(state, answer):
         print("[PRICE CONTRACT] Draft missed numeric estimate and/or update date; running one grounded repair pass.")
@@ -793,7 +808,10 @@ FINAL ANSWER RULES:
             if repaired:
                 answer = repaired
 
-    return {"answer": answer}
+    return {
+        "answer": answer,
+        "answer_streamed": answer_streamed,
+    }
 # def generate_answer(state: AgentState) -> AgentState:
 #     """Generate a grounded answer; multi-intent branches may be partially available."""
 #     llm = LLMService()
