@@ -34,7 +34,7 @@ from src.data_postgre.db import CORE_TABLES
 
 # The supplied booking snapshot was captured on 18/8/2026. Keep provenance
 # explicit so approximate/dynamic prices are never presented as timeless quotes.
-PRICE_DATA_AS_OF = "18/8/2026"
+PRICE_DATA_AS_OF = "31/7/2026"
 DEFAULT_OUTPUT_CURRENCY_BY_LANGUAGE = {"vi": "VND", "en": "USD"}
 
 
