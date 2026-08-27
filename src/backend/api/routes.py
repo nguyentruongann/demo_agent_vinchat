@@ -372,12 +372,12 @@ async def _chat_event_stream(
     cancelled = Event()
     visible_chunks: list[str] = []
 
-    class StreamCancelled(Exception):
+    class StreamCancelledError(Exception):
         pass
 
     def write_token(content: str) -> None:
         if cancelled.is_set():
-            raise StreamCancelled("Chat stream was cancelled by the client.")
+            raise StreamCancelledError("Chat stream was cancelled by the client.")
         visible_chunks.append(content)
         event_queue.put(("delta", {"content": content}))
 
@@ -403,7 +403,7 @@ async def _chat_event_stream(
                         last_stage = stage
                         event_queue.put(("status", {"stage": stage}))
                 if cancelled.is_set():
-                    raise StreamCancelled("Chat stream was cancelled by the client.")
+                    raise StreamCancelledError("Chat stream was cancelled by the client.")
 
             if cancelled.is_set():
                 return
@@ -413,7 +413,7 @@ async def _chat_event_stream(
             if visible_answer and final_answer != visible_answer:
                 event_queue.put(("replace", {"content": final_answer}))
             event_queue.put(("complete", _response_payload(response)))
-        except StreamCancelled:
+        except StreamCancelledError:
             # Client-initiated Stop is expected. Exiting graph iteration before
             # save_memory keeps an interrupted turn from becoming completed history.
             return
